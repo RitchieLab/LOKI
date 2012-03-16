@@ -8,60 +8,60 @@ import os, time, struct, sys
 import bioloader, settings, sqlite3
 import MySQLdb
 
-aliasTypeIDs			= { 1:"Ensembl", 13:"Entrez ID", 1300:"Entrez Gene", 1301:"Entrez History", 2000:"Uniprot", 2200:"Uniprot/SWISSPROT", 2:"Protein Accession ID", 3:"mRNA Accession ID",  11:"NCBI Ensembl" }
+aliasTypeIDs = { 1:"Ensembl", 13:"Entrez ID", 1300:"Entrez Gene", 1301:"Entrez History", 2000:"Uniprot", 2200:"Uniprot/SWISSPROT", 2:"Protein Accession ID", 3:"mRNA Accession ID",  11:"NCBI Ensembl" }
 
 class GenomicRegion:
-	nextID						= 2000000000
+	nextID = 2000000000
 	
 	def NextID(self):
-		nextid					= GenomicRegion.nextID
-		GenomicRegion.nextID 	+= 1
+		nextid = GenomicRegion.nextID
+		GenomicRegion.nextID += 1
 		return nextid
 	
 	def Reset(self):
-		GenomicRegion.nextID	= 100
+		GenomicRegion.nextID = 100
 	
 	def AddAlias(self, typeID, alias):
 		if typeID == 1:
 			self.ensemblID = alias
 		elif typeID == 13:
-			self.geneID		= alias
+			self.geneID = alias
 	
 	def __init__(self, chrom):
-		self.primaryName		= ''
-		self.geneID				= 0
-		self.chrom				= chrom
-		self.start				= 0
-		self.stop				= 0
-		self.desc				= ""
-		self.doCommit			= False					# This basically is used to avoid recommiting the data when we just loaded it from the database
-		self.hgnc				= 0
-		self.ensemblID			= ""
+		self.primaryName = ''
+		self.geneID = 0
+		self.chrom = chrom
+		self.start = 0
+		self.stop = 0
+		self.desc = ""
+		self.doCommit = False					# This basically is used to avoid recommiting the data when we just loaded it from the database
+		self.hgnc = 0
+		self.ensemblID = ""
 	
 	def InitViaEnsembl(self, geneID, label, ensemblID, start, stop, description):
-		self.geneID				= geneID
-		self.ensemblID			= ensemblID
-		self.start				= start
-		self.stop				= stop
-		self.primaryName		= label
-		self.description		= description
+		self.geneID = geneID
+		self.ensemblID = ensemblID
+		self.start = start
+		self.stop = stop
+		self.primaryName = label
+		self.description = description
 	
 	def InitStub(self, geneID, accID, proteinAcc):
-		self.geneID				= geneID
-		self.description		= "%s %s" % (accID, proteinAcc)
+		self.geneID = geneID
+		self.description = "%s %s" % (accID, proteinAcc)
 	
 	def InitViaEntrez(self, geneID, start, stop):
-		self.geneID				= geneID
-		self.start				= start
-		self.stop				= stop
-		self.primaryName 		= "%s" % geneID
+		self.geneID = geneID
+		self.start = start
+		self.stop = stop
+		self.primaryName = "%s" % geneID
 	
 	def UpdateFromEntrez(self, primaryName, ensemblID, hgnc, chromosome, mapPosition, desc):
-		self.ensemblID			= ensemblID
-		self.chrom				= chromosome
-		self.desc				= desc
-		self.primaryName		= primaryName
-		self.hgnc				= hgnc
+		self.ensemblID = ensemblID
+		self.chrom = chromosome
+		self.desc = desc
+		self.primaryName = primaryName
+		self.hgnc = hgnc
 	
 	def Print(self, file):
 		print>>file, "Gene(%s): %s (%s) %s" % (self.geneID, self.primaryName, self.ensemblID, self.desc)
@@ -84,18 +84,18 @@ class GenomicRegion:
 
 class RegionManager:
 	def __init__(self):
-		self.genes				= dict()	#entrez -> genomic region
-		self.aliases			= dict()	#alias -> [geneID] This allows us to record how many aliases have been found foa  given object
+		self.genes = dict()	#entrez -> genomic region
+		self.aliases = dict()	#alias -> [geneID] This allows us to record how many aliases have been found foa  given object
 		self.InitAliases()
-		self.missingEnsemblIDs	= set()		#set of ensembl IDs that were requested but not found
-		self.doCommit 			= True
-		self.primaryNames		= dict()	#primaryName -> geneID
-		self.historic			= dict()
-		self.stubs				= dict()
+		self.missingEnsemblIDs = set()		#set of ensembl IDs that were requested but not found
+		self.doCommit = True
+		self.primaryNames = dict()	#primaryName -> geneID
+		self.historic = dict()
+		self.stubs = dict()
 	
 	def AddEntrezHistory(self, oldID, newID):
 		"""tracking historic changes. "-" as newID indicates that the alias is dead"""
-		oldID					= int(oldID)
+		oldID = int(oldID)
 		if int(oldID) in self.historic:
 			print "Duplicate historic SNP: %s -> %s \t\t%s -> %s" % (oldID, self.historic[int(oldID)], oldID, newID)
 		self.historic[int(oldID)] = newID
@@ -109,15 +109,15 @@ class RegionManager:
 	
 	def AddEntrezStub(self, geneID, accID, proteinAcc):
 		if accID[:2] == "NT":
-			gene								= GenomicRegion("??")
+			gene = GenomicRegion("??")
 			gene.InitStub(geneID, accID, proteinAcc)
-			self.stubs[geneID]					= gene
+			self.stubs[geneID] = gene
 	
 	def AddEntrezGene(self, entrezID, accID, start, stop, strand, proteinAcc, mRNAaccID):
 		if accID[:2] == "NC":
-			gene								= GenomicRegion("??")
+			gene = GenomicRegion("??")
 			gene.InitViaEntrez(entrezID, start, stop)
-			self.genes[entrezID] 				= gene
+			self.genes[entrezID] = gene
 			self.AddAlias(13,"%s" % entrezID, gene.geneID)
 			self.AddAlias(2, "%s" % proteinAcc, gene.geneID)
 			self.AddAlias(3, "%s"% mRNAaccID, gene.geneID)
@@ -151,19 +151,19 @@ class RegionManager:
 		return True
 	
 	def AddPseudoRegion(self, chrom, label, ensemblID, start, stop, description):
-		gene							= GenomicRegion(chrom)
-		geneID							= gene.NextID()
+		gene = GenomicRegion(chrom)
+		geneID = gene.NextID()
 		#These are coming from Ensembl, and we don't want primary name collisions to occur because of
 		#ensembl...they are too generous with their naming scheme...so, if it's in the primary name
 		#then we will drop that gene name altogether
 		if label in self.primaryNames:
-			label						= "%s" % geneID
+			label = "%s" % geneID
 		gene.InitViaEnsembl(geneID, label, ensemblID, start, stop, description)
 		if label not in self.primaryNames:
-			self.primaryNames[label]	= set()
+			self.primaryNames[label] = set()
 		self.primaryNames[label].add(geneID)
 		
-		self.genes[geneID] 			= gene
+		self.genes[geneID] = gene
 			
 				#print "------Added new region: ", chrom, gID, label, ensemblID
 			#else:

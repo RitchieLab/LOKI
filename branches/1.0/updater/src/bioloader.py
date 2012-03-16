@@ -12,10 +12,10 @@ skipFTP								= False
 
 class KnowledgeBase:
 	def __init__(self, groupTypeID, name, desc):
-		self.groupTypeID			= groupTypeID
-		self.name					= name
-		self.desc					= desc
-		self.pathways				= dict()				#pathway ID -> pathway
+		self.groupTypeID = groupTypeID
+		self.name = name
+		self.desc = desc
+		self.pathways = dict()				#pathway ID -> pathway
 		os.system("mkdir -p %s" % (name))
 		#os.chdir(name)
 		self.rootPathway							= Pathway(self.groupTypeID, self.groupTypeID, self.name, self.desc)
@@ -77,37 +77,37 @@ class BioLoader:
 	
 	def __init__(self, biosettings, groupID = 0, localSubdir= "."):
 		"""Most group related things will assume that groupID is not zero. If it is, they should be skipped"""
-		self.ftp				= None		#Local FTP Server, in case we want our classes downloading via FTP
-		self.biosettings		= biosettings
-		self.groupID			= groupID
-		self.localdir			= localSubdir
+		self.ftp = None		#Local FTP Server, in case we want our classes downloading via FTP
+		self.biosettings = biosettings
+		self.groupID = groupID
+		self.localdir = localSubdir
 		os.system("mkdir -p %s" % localSubdir)
-		self.localFiles			= []
+		self.localFiles = []
 	
 	def InitLog(self, logfilename = None):
 		if logfilename == None:
 			logfilename = "%s.log"% (self.__module__)
-		self.std				= sys.stdout
-		self.sck				= open(logfilename, 'w')
+		self.std = sys.stdout
+		self.sck = open(logfilename, 'w')
 		print>>sys.stderr, "Log created: %s" % (logfilename)
-		sys.stdout				= self.sck
+		sys.stdout = self.sck
 	
 	def CloseLog(self):
-		sys.stdout				= self.std
+		sys.stdout = self.std
 		self.sck.close()
 	
 	def _ExtractGZ(self, filename):
 		newFilename = filename[:len(filename)-3]
-		process					= subprocess.Popen("gunzip -c %s > %s" % (filename, newFilename), shell=True )
+		process = subprocess.Popen("gunzip -c %s > %s" % (filename, newFilename), shell=True )
 		process.wait()
 		return newFilename
 	
 	def _Extract(self, filename, command):
-		results 				= cStringIO.StringIO()
+		results = cStringIO.StringIO()
 		print command % filename
-		process					= subprocess.Popen(command % filename, stdout=subprocess.PIPE, shell=True)
+		process = subprocess.Popen(command % filename, stdout=subprocess.PIPE, shell=True)
 		process.wait()
-		output, error 			= process.communicate()
+		output, error = process.communicate()
 		
 		if output == "":
 			output = os.path.splitext(filename)[0]
@@ -138,26 +138,26 @@ class BioLoader:
 	
 	def GetGeneIDFromEntrez(self, aliases):
 		"""Takes a set of synonyms and returns the first matched geneID."""
-		geneID					= None
+		geneID = None
 		
 		for alias in aliases:
 			if geneID is None:
 				if alias in self.biosettings.aliasToID:
-					geneID		= self.biosettings.aliasToID[alias]
+					geneID = self.biosettings.aliasToID[alias]
 		return geneID
 	
 	def ListFtpFiles(self, expression, dir = None):
-		responses				= []
+		responses = []
 		self.ftp.dir(expression, responses.append)
 		
-		fileList				= []
+		fileList = []
 		for response in responses:
 			fileList.append(response.split()[8])
 		return fileList
 	
 	def EvaluateTimestamp(self, filename):
-		remoteTS				= self.FTP_Timestamp(filename)
-		localTS					= self.biosettings.GetGroupTimeStamp(self.groupID)
+		remoteTS = self.FTP_Timestamp(filename)
+		localTS = self.biosettings.GetGroupTimeStamp(self.groupID)
 		return localTS is None or localTS < remoteTS
 	
 	def FTP_Timestamp(self, filename):
@@ -169,30 +169,30 @@ class BioLoader:
 		return self.remoteTimestamp
 	
 	def _ExtractFilename(self, filename):
-		ext						= os.path.splitext(filename)[-1]
+		ext = os.path.splitext(filename)[-1]
 		
 		if ext == ".tgz":
-			localFilename		= self._Extract(filename, "tar -zxvf %s")
+			localFilename = self._Extract(filename, "tar -zxvf %s")
 		elif ext == ".zip":
-			localFilename		= self._Extract(filename, "unzip %s")
+			localFilename = self._Extract(filename, "unzip %s")
 		elif ext == ".gz":
-			localFilename		= self._ExtractGZ(filename)
+			localFilename = self._ExtractGZ(filename)
 		else:
 			print "Unable to understand how to extract (%s) files from: %s" % (ext, filename)
 		return localFilename
 	
 	def FTPFile(self, filename):
-		localFilename 			= os.path.basename(filename)
+		localFilename = os.path.basename(filename)
 		if self.localdir != ".":
-			localFilename 		= os.path.join(self.localdir, localFilename)
+			localFilename = os.path.join(self.localdir, localFilename)
 			
-		ext						= os.path.splitext(localFilename)[-1]
+		ext = os.path.splitext(localFilename)[-1]
 		
-		remoteTS				= self.FTP_Timestamp(filename)
-		downloadFile			= True
+		remoteTS = self.FTP_Timestamp(filename)
+		downloadFile = True
 		try:
-			localTS				= os.path.getctime(localFilename)
-			downloadFile		= localTS < time.mktime(remoteTS)
+			localTS = os.path.getctime(localFilename)
+			downloadFile = localTS < time.mktime(remoteTS)
 			
 			#print downloadFile, " ", localTS, " ", time.mktime(remoteTS)
 		except os.error, e:
@@ -207,11 +207,11 @@ class BioLoader:
 			print "-> %s (Skipping Download)" % (localFilename)
 			
 		if ext == ".tgz":
-			localFilename		= self._Extract(localFilename, "tar -zxvf %s")
+			localFilename = self._Extract(localFilename, "tar -zxvf %s")
 		elif ext == ".zip":
-			localFilename		= self._Extract(localFilename, "unzip %s")
+			localFilename = self._Extract(localFilename, "unzip %s")
 		elif ext == ".gz":
-			localFilename		= self._ExtractGZ(localFilename)
+			localFilename = self._ExtractGZ(localFilename)
 		else:
 			print "Unable to understand how to extract (%s) files from: %s" % (ext, localFilename)
 		self.localFiles.append(localFilename)

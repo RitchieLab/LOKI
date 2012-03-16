@@ -11,11 +11,12 @@ import sys, os
 
 ensembl					= None
 loadables				= ["snps", "genes", "go", "kegg", "reactome", "netpath", "pfam", "dip", "biogrid", "mint", "pharmgkb", "chainfiles"]
-allgroups				= ["go", "kegg", "reactome", "netpath", "pfam", "dip", "biogrid", "mint", "pharmgkb", "chainfiles"]
+allgroups				= ["genes", "go", "kegg", "reactome", "netpath", "pfam", "dip", "biogrid", "mint", "pharmgkb", "chainfiles"]
+
 def GetEnsembl(bioDB, refreshEnsembl):
 	global ensembl
 	if ensembl == None:
-		ensembl					= load_ensembl.EnsemblLoader(bioDB, 2)
+		ensembl = load_ensembl.EnsemblLoader(bioDB, 2)
 		if refreshEnsembl:
 			print "Refreshing"
 			ensembl.RefreshEnsemblDatabase()
@@ -39,17 +40,17 @@ def LoadKB(dbFilename, kbLoads, doReset = False, refreshEnsembl = False):
 	os.chdir("download")
 
 	#variations 				= bioDB.BuildDbFilename(bioDB.filename, "var")
-	ncbiLoader				= ncbi_loader.NCBI_Loader(bioDB)
+	ncbiLoader = ncbi_loader.NCBI_Loader(bioDB)
 
 	if kbLoads[0] == "ALL":
 		kbLoads = allgroups
 
 	for kb in kbLoads:
-		kb 					= kb.strip().lower()
+		kb = kb.strip().lower()
 		if kb == "snps":
 			ncbiLoader.InitLog("snps.log")
-			cwd				= os.getcwd()
-			ensembl			= GetEnsembl(bioDB, refreshEnsembl)
+			cwd = os.getcwd()
+			ensembl = GetEnsembl(bioDB, refreshEnsembl)
 			os.system("mkdir -p NCBI")
 			os.chdir("NCBI")
 			#ncbiLoader.UpdateSNPs(chromosomes, "variations", ensembl)
@@ -58,7 +59,7 @@ def LoadKB(dbFilename, kbLoads, doReset = False, refreshEnsembl = False):
 			ncbiLoader.CloseLog()
 		elif kb == "genes":
 			ncbiLoader.InitLog("genes.log")
-			ensembl			= GetEnsembl(bioDB, refreshEnsembl)
+			ensembl = GetEnsembl(bioDB, refreshEnsembl)
 			#ensembl.ConnectToEnsemblDB(bioDB)
 			ncbiLoader.UpdateGenes(ensembl, chromosomes)
 			ncbiLoader.CloseLog()

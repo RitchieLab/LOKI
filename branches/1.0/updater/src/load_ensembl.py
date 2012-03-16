@@ -14,50 +14,53 @@ import region_manager
 class EnsemblLoader(bioloader.BioLoader):
 	def __init__(self, biosettings, coord, rebuildDatabase = False):
 		bioloader.BioLoader.__init__(self, biosettings, 0)
-		self.coordinate			= coord
-		self.rebuildDatabase	= rebuildDatabase
-		self.ensembl			= None
-		self.roles				= dict()
+		self.coordinate = coord
+		self.rebuildDatabase = rebuildDatabase
+		self.ensembl = None
+		self.roles = dict()
 	
 	def ConnectToEnsemblDB(self, host = "badger", user="atf3", password="patO9FTPXUV0JonedaLe1COO"):
-		self.ensembl		= MySQLdb.connect (host, user, password, db="ritchie_ensembl")
+		self.ensembl = MySQLdb.connect (host, user, password, db="ritchie_ensembl")
 	
 	def RefreshEnsemblDatabase(self):
 		#TODO: fix ensembl refresh with configurable database settings
-		pass
-		"""
+		#pass
+		
 		print "Refreshing Ensembl Database"
-		cwd 					= os.getcwd()
+		cwd = os.getcwd()
 		os.system("mkdir -p ensembl")
 		os.chdir("ensembl")
 		self.OpenFTP("ftp.ensembl.org")
 		
-		trunkPath			= "pub/" + self.FtpGetLast("pub/release-*") + "/mysql/"
-		varPath				= trunkPath + self.ListFtpFiles("%shomo_sapiens_variation_*" % trunkPath)[0].split()[-1]
-		corePath			= trunkPath + self.ListFtpFiles("%shomo_sapiens_core_*" % trunkPath)[0].split()[-1]
-		pieces				= varPath.split("_")
-		self.version		= pieces[len(pieces)-2]
-		self.ncbiVersion	= pieces[-1]
+		trunkPath = "pub/" + self.FtpGetLast("pub/release-*") + "/mysql/"
+		varPath = trunkPath + self.ListFtpFiles("%shomo_sapiens_variation_*" % trunkPath)[0].split()[-1]
+		corePath = trunkPath + self.ListFtpFiles("%shomo_sapiens_core_*" % trunkPath)[0].split()[-1]
+		pieces = varPath.split("_")
+		self.version = pieces[len(pieces)-2]
+		self.ncbiVersion = pieces[-1]
 		
 		print "Ensembl Version: %s\tNCBI Version: %s" % (self.version, self.ncbiVersion)
 		
-		variationFiles		= self.ListFtpFiles("%s/var*.txt.gz" % varPath)
-		varSQL				= self.FTPFile(varPath + "/" + self.ListFtpFiles("%s/homo_sapiens_var*.sql.gz" % varPath)[0])
+		variationFiles = self.ListFtpFiles("%s/var*.txt.gz" % varPath)
+		varSQL = self.FTPFile(varPath + "/" + self.ListFtpFiles("%s/homo_sapiens_var*.sql.gz" % varPath)[0])
 		os.system("mkdir -p variation")
 		os.system("mkdir -p core")
 		
 		for file in variationFiles:
-			localFile		= self.FTPFile("%s/%s"% (varPath, file))
-			#print localFile
+			localFile = self.FTPFile("%s/%s"% (varPath, file))
+			print localFile
 			os.system("mv %s variation" % (localFile))
 		
-		coreFiles			= self.ListFtpFiles("%s/[egostux]*.txt.gz" % corePath)
-		coreSQL				= self.FTPFile(corePath + "/" + self.ListFtpFiles("%s/homo_sapiens_core*.sql.gz" % corePath)[0])
+		coreFiles = self.ListFtpFiles("%s/[egostux]*.txt.gz" % corePath)
+		coreSQL = self.FTPFile(corePath + "/" + self.ListFtpFiles("%s/homo_sapiens_core*.sql.gz" % corePath)[0])
 		
 		for file in coreFiles:
-			localFile		= self.FTPFile("%s/%s"% (corePath, file))
+			localFile = self.FTPFile("%s/%s"% (corePath, file))
 			os.system("mv %s core" % (localFile))
 		
+		raise
+		
+		"""
 		print "mysql -h rogue -u torstees -p'SMOJ2010' -e \"DROP DATABASE IF EXISTS ensembl; CREATE DATABASE ensembl;\""
 		os.system("mysql -h rogue -u torstees -p'SMOJ2010' -e \"DROP DATABASE IF EXISTS ensembl; CREATE DATABASE ensembl;\"")
 		print "mysql -h rogue -u torstees -p'SMOJ2010' -e \"DROP DATABASE IF EXISTS variation; CREATE DATABASE variation;\""
@@ -78,9 +81,9 @@ class EnsemblLoader(bioloader.BioLoader):
 		os.system("mysql -h rogue -u torstees -p'SMOG2010' -e \"DROP FROM TABKE ensembl.biodb_versions; INSERT INTO ensembl.biodb_versions VALUES ('build','%s'); INSERT INTO ensembl.biodb_versions VALUES ('ncbi', '%s');\"" % (self.ncbiVersion, self.version))
 		self.biosettings.SetVersion("build", self.ncbiVersion)
 		self.biosettings.SetVersion("ensembl", self.version)
+		"""
 		
 		os.chdir(cwd)
-		"""
 	
 	def GrabEnsemblVersionDetails(self):
 		c= self.ensembl.cursor()
