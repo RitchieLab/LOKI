@@ -9,9 +9,9 @@ import biosettings, ncbi_loader, load_go, load_kegg, load_netpath, load_reactome
 import load_pfam, load_ensembl, load_dip, load_mint, load_biogrid, load_pharmgkb
 import sys, os
 
-ensembl					= None
-loadables				= ["snps", "genes", "go", "kegg", "reactome", "netpath", "pfam", "dip", "biogrid", "mint", "pharmgkb", "chainfiles"]
-allgroups				= ["genes", "go", "kegg", "reactome", "netpath", "pfam", "dip", "biogrid", "mint", "pharmgkb", "chainfiles"]
+ensembl = None
+loadables = ["snps", "genes", "go", "kegg", "reactome", "netpath", "pfam", "dip", "biogrid", "mint", "pharmgkb", "chainfiles"]
+allgroups = ["genes", "go", "kegg", "reactome", "netpath", "pfam", "dip", "biogrid", "mint", "pharmgkb", "chainfiles"]
 
 def GetEnsembl(bioDB, refreshEnsembl):
 	global ensembl
@@ -30,7 +30,7 @@ def GetEnsembl(bioDB, refreshEnsembl):
 def LoadKB(dbFilename, kbLoads, doReset = False, refreshEnsembl = False):
 	global loadables
 	chromosomes = ('1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', 'X', 'Y', 'MT')
-	bioDB					= biosettings.BioSettings(dbFilename)
+	bioDB = biosettings.BioSettings(dbFilename)
 	bioDB.OpenDB()
 	
 	if doReset:
@@ -44,6 +44,7 @@ def LoadKB(dbFilename, kbLoads, doReset = False, refreshEnsembl = False):
 
 	if kbLoads[0] == "ALL":
 		kbLoads = allgroups
+		refreshEnsembl = True
 
 	for kb in kbLoads:
 		kb = kb.strip().lower()
@@ -64,55 +65,58 @@ def LoadKB(dbFilename, kbLoads, doReset = False, refreshEnsembl = False):
 			ncbiLoader.UpdateGenes(ensembl, chromosomes)
 			ncbiLoader.CloseLog()
 		elif kb == "go":
-			loader					= load_go.GoLoader(bioDB)
+			loader = load_go.GoLoader(bioDB)
 			loader.InitLog()
 			loader.Load()
 			loader.CloseLog()
 		elif kb == "kegg":
-			loader					= load_kegg.KeggLoader(bioDB)
+			loader = load_kegg.KeggLoader(bioDB)
 			loader.InitLog()
 			loader.Load()
 			loader.CloseLog()
 		elif kb == "reactome":
-			loader					= load_reactome.ReactomeLoader(bioDB)
+			loader = load_reactome.ReactomeLoader(bioDB)
 			loader.InitLog()
-			ensembl					= GetEnsembl(bioDB, refreshEnsembl)
+			ensembl = GetEnsembl(bioDB, refreshEnsembl)
+			if refreshEnsembl:
+				loader.RefreshDatabase()
+			
 			loader.Load(ensembl)
 			loader.Commit()
 			bioDB.Commit()
 			loader.CloseLog()
 		elif kb == "netpath":
-			loader					= load_netpath.NetPathLoader(bioDB)
+			loader = load_netpath.NetPathLoader(bioDB)
 			loader.InitLog()
 			loader.Load(False)
 			loader.CloseLog()
 		elif kb == "pfam":
-			loader					= load_pfam.PFamLoader(bioDB)
+			loader = load_pfam.PFamLoader(bioDB)
 			loader.InitLog()
 			loader.Load()
 			bioDB.Commit()
 			loader.CloseLog()
 		elif kb == "dip":
-			loader					= load_dip.DIPLoader(bioDB)
+			loader = load_dip.DIPLoader(bioDB)
 			loader.InitLog()
 			#loader.Load()
 			#bioDB.Commit()
 			loader.CloseLog()
 		elif kb == "mint":
-			loader					= load_mint.MintLoader(bioDB)
+			loader = load_mint.MintLoader(bioDB)
 			loader.InitLog()
 			loader.Load()
 			bioDB.Commit()
 			loader.CloseLog()
 		elif kb == "biogrid":	
-			loader					= load_biogrid.BioGridLoader(bioDB)
+			loader = load_biogrid.BioGridLoader(bioDB)
 			loader.InitLog()
 			loader.Load()
 			bioDB.Commit()
 			loader.CloseLog()
 		elif kb == "pharmgkb":
 			print "Loading PharmGKB"
-			loader					= load_pharmgkb.PharmGKBLoader(bioDB)
+			loader = load_pharmgkb.PharmGKBLoader(bioDB)
 			loader.InitLog()
 			loader.Load()
 			print "Attempting to Commit the data"
@@ -121,7 +125,7 @@ def LoadKB(dbFilename, kbLoads, doReset = False, refreshEnsembl = False):
 			loader.CloseLog()
 		elif kb == "chainfiles":
 			print "Loading Chain files"
-			loader					= load_chainfiles.ChainLoader(bioDB)
+			loader = load_chainfiles.ChainLoader(bioDB)
 			loader.InitLog()
 			loader.Load()
 			loader.Commit()
@@ -133,26 +137,27 @@ def LoadKB(dbFilename, kbLoads, doReset = False, refreshEnsembl = False):
 			
 def RunCommands(configFilename):
 	global loadables
-	dbFilename 					= None
-	kbLoads						= []
-	doReset						= False
-	refreshEnsembl				= os.getenv("REFRESH_ENSEMBL", "FALSE") == "TRUE"
+	dbFilename = None
+	kbLoads = []
+	doReset = False
+	refreshEnsembl = os.getenv("REFRESH_ENSEMBL", "FALSE") == "TRUE"
 	if configFilename == "ALL":
 		kbLoads = loadables 
-		doReset					= True
+		# I want to reset, but hold off for now (takes soooooooo long)
+		#doReset = True
 	elif configFilename == "GROUPS":
 		kbLoads = ["genes"] + loadables
 	else:
 		for line in open(configFilename):
-			words 					= line.strip().split()
+			words = line.strip().split()
 			if words[0].strip().lower() == "db_name":
-				dbFilename 			= words[1].strip()
+				dbFilename = words[1].strip()
 			elif words[0].strip().lower() == "reload":
 				kbLoads.append(words[1].strip().lower())
 			elif words[0].strip().lower() == "db_reset":
-				doReset				= True
+				doReset = True
 			elif words[0].strip().lower() == "refresh_ensembl":
-				refreshEnsembl		= True
+				refreshEnsembl = True
 
 	if refreshEnsembl:
 		print "Refreshing Ensembl"

@@ -167,31 +167,31 @@ class NCBI_Loader(bioloader.BioLoader):
 		localFilename = self.FetchViaHTTP("ftp://ftp.ncbi.nlm.nih.gov/gene/DATA/gene_history.gz")
 		localFilename = self._ExtractGZ(localFilename)
 		
-		historicMods		= 0
-		lineCount					= 0
+		historicMods = 0
+		lineCount = 0
 		for line in open(localFilename):
 			if lineCount > 0:
 				words = line.strip().split()
 				
 				#ignore any but humans
 				if len(words) > 0 and words[0] == "9606":
-					newID			= words[1]
-					oldID			= int(words[2])
+					newID = words[1]
+					oldID = int(words[2])
 					self.biosettings.regions.AddEntrezHistory(oldID, newID)
 					historicMods += 1
 			lineCount+=1
 		print "%s Historic Entrez Genes Identified" % (historicMods)
 		
 	def ParseGene2Ensembl(self, filename):
-		linecount					= 0
+		linecount = 0
 		for line in open(filename):
 			if linecount > 0:
 				words = line.split("\t")
 				if len(words)==7:
-					taxID			= words[0]
+					taxID = words[0]
 					if taxID == "9606":
-						geneID			= int(words[1])
-						ensemblID		= words[2]
+						geneID = int(words[1])
+						ensemblID = words[2]
 						self.biosettings.regions.AddEnsemblID(geneID, ensemblID)
 			linecount+=1
 	

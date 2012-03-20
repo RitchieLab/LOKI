@@ -10,6 +10,12 @@ import bioloader, settings, sqlite3
 import MySQLdb
 import region_manager
 
+import subprocess
+import re
+import shlex
+
+sys.path.append("..")
+import dbsettings
 
 class EnsemblLoader(bioloader.BioLoader):
 	def __init__(self, biosettings, coord, rebuildDatabase = False):
@@ -19,8 +25,8 @@ class EnsemblLoader(bioloader.BioLoader):
 		self.ensembl = None
 		self.roles = dict()
 	
-	def ConnectToEnsemblDB(self, host = "badger", user="atf3", password="patO9FTPXUV0JonedaLe1COO"):
-		self.ensembl = MySQLdb.connect (host, user, password, db="ritchie_ensembl")
+	def ConnectToEnsemblDB(self, host = dbsettings.db_host, user=dbsettings.db_user, password=dbsettings.db_pass):
+		self.ensembl = MySQLdb.connect(host, user, password, db=dbsettings.db_name)
 	
 	def RefreshEnsemblDatabase(self):
 		#TODO: fix ensembl refresh with configurable database settings
@@ -32,6 +38,15 @@ class EnsemblLoader(bioloader.BioLoader):
 		os.chdir("ensembl")
 		self.OpenFTP("ftp.ensembl.org")
 		
+		core_prefix = "ens"
+		variation_prefix = "var"
+		
+		pass_cmd = ""
+		if dbsettings.db_pass:
+			pass_cmd = " -p'" + dbsettings.db_pass + "' "
+			
+		mysql_opts = "-h " + dbsettings.db_host + " -u " + dbsettings.db_user + pass_cmd + " " + dbsettings.db_name
+		
 		trunkPath = "pub/" + self.FtpGetLast("pub/release-*") + "/mysql/"
 		varPath = trunkPath + self.ListFtpFiles("%shomo_sapiens_variation_*" % trunkPath)[0].split()[-1]
 		corePath = trunkPath + self.ListFtpFiles("%shomo_sapiens_core_*" % trunkPath)[0].split()[-1]
@@ -41,49 +56,73 @@ class EnsemblLoader(bioloader.BioLoader):
 		
 		print "Ensembl Version: %s\tNCBI Version: %s" % (self.version, self.ncbiVersion)
 		
+		
 		variationFiles = self.ListFtpFiles("%s/var*.txt.gz" % varPath)
 		varSQL = self.FTPFile(varPath + "/" + self.ListFtpFiles("%s/homo_sapiens_var*.sql.gz" % varPath)[0])
 		os.system("mkdir -p variation")
 		os.system("mkdir -p core")
 		
-		for file in variationFiles:
-			localFile = self.FTPFile("%s/%s"% (varPath, file))
-			print localFile
-			os.system("mv %s variation" % (localFile))
+		for v_file in variationFiles:
+			localFile = self.FTPFile("%s/%s"% (varPath, v_file))
+			os.system("mv %s variation/%s_%s" % (localFile, variation_prefix, localFile))
 		
 		coreFiles = self.ListFtpFiles("%s/[egostux]*.txt.gz" % corePath)
 		coreSQL = self.FTPFile(corePath + "/" + self.ListFtpFiles("%s/homo_sapiens_core*.sql.gz" % corePath)[0])
 		
-		for file in coreFiles:
-			localFile = self.FTPFile("%s/%s"% (corePath, file))
-			os.system("mv %s core" % (localFile))
+		for c_file in coreFiles:
+			localFile = self.FTPFile("%s/%s"% (corePath, c_file))
+			os.system("mv %s core/%s_%s" % (localFile, core_prefix, localFile))
 		
-		raise
+
+		# We're going to fix up the SQL to prefix the table names appropriately
+		table_re = re.compile(r"CREATE TABLE `([^`]*)`", re.IGNORECASE)
+		view_re = re.compile(r"(CREATE.*?VIEW\s*`)([^`]*)(`)", re.IGNORECASE)
+		tn_re = re.compile(r"(`)([^`]*)(`\.`)", re.IGNORECASE)
+		tn2_re = re.compile(r"((?:from)\s*`)([^`]*)(`)", re.IGNORECASE)
+		def repl_view(prefix, mo): return "DROP VIEW IF EXISTS `%s_%s`;\n%s%s_%s%s" % (prefix, mo.group(2), mo.group(1), prefix, mo.group(2), mo.group(3))
+		def repl_tables(prefix, mo): return "DROP TABLE IF EXISTS `%s_%s`;\nCREATE TABLE `%s_%s`" % (prefix, mo.group(1), prefix, mo.group(1))
+		def repl_table_name(prefix, mo): return "%s%s_%s%s" % (mo.group(1), prefix, mo.group(2), mo.group(3))
 		
-		"""
-		print "mysql -h rogue -u torstees -p'SMOJ2010' -e \"DROP DATABASE IF EXISTS ensembl; CREATE DATABASE ensembl;\""
-		os.system("mysql -h rogue -u torstees -p'SMOJ2010' -e \"DROP DATABASE IF EXISTS ensembl; CREATE DATABASE ensembl;\"")
-		print "mysql -h rogue -u torstees -p'SMOJ2010' -e \"DROP DATABASE IF EXISTS variation; CREATE DATABASE variation;\""
-		os.system("mysql -h rogue -u torstees -p'SMOJ2010' -e \"DROP DATABASE IF EXISTS variation; CREATE DATABASE variation;\"")
+		varSQLf = file(varSQL,'r')
+		varSQL_str = varSQLf.read()
+		varSQLf.close()
+		varSQL_str_fix = table_re.sub(lambda x,p=variation_prefix: repl_tables(p,x), varSQL_str)
+		varSQL_str_fix = tn_re.sub(lambda x,p=variation_prefix: repl_table_name(p,x), varSQL_str_fix)
+		varSQL_str_fix = tn2_re.sub(lambda x,p=variation_prefix: repl_table_name(p,x), varSQL_str_fix)
+		varSQL_str_fix = view_re.sub(lambda x,p=variation_prefix: repl_view(p,x), varSQL_str_fix)
+
+		coreSQLf = file(coreSQL,'r')
+		coreSQL_str = coreSQLf.read()
+		coreSQLf.close()
+		coreSQL_str_fix = table_re.sub(lambda x,p=core_prefix: repl_tables(p,x), coreSQL_str)
+		coreSQL_str_fix = tn_re.sub(lambda x,p=core_prefix: repl_table_name(p,x), coreSQL_str_fix)
+		coreSQL_str_fix = tn2_re.sub(lambda x,p=core_prefix: repl_table_name(p,x), coreSQL_str_fix)		
+		coreSQL_str_fix = view_re.sub(lambda x,p=core_prefix: repl_view(p,x), coreSQL_str_fix)
+			
+		mysql_proc = subprocess.Popen(shlex.split("mysql " + mysql_opts), stdin=subprocess.PIPE)
+		mysql_proc.communicate(varSQL_str_fix)
+		mysql_proc = subprocess.Popen(shlex.split("mysql " + mysql_opts), stdin=subprocess.PIPE)
+		mysql_proc.communicate(coreSQL_str_fix)	
 		
-		print "cat %s | mysql -h rogue -u torstees -p'SMOJ2010' ensembl" % (coreSQL)
-		os.system("cat %s | mysql -h rogue -u torstees -p'SMOJ2010' ensembl" % (coreSQL))
-		print "cat %s | mysql -h rogue -u torstees -p'SMOJ2010' variation" % (varSQL)
-		os.system("cat %s | mysql -h rogue -u torstees -p'SMOJ2010' variation" % (varSQL))
+		#os.system("cat %s | mysql " % (varSQL) + mysql_opts)
 		
-		print "mysqlimport -u root ensembl -h rogue -u torstees -p'SMOJ2010' -L core/*.txt"
-		os.system("mysqlimport -u root ensembl -h rogue -u torstees -p'SMOJ2010' -L core/*.txt")
-		print "mysqlimport -u root variation -h rogue -u torstees -p'SMOJ2010' -L variation/*.txt"
-		os.system("mysqlimport -u root variation -h rogue -u torstees -p'SMOJ2010' -L variation/*.txt")
+		#print "cat %s | mysql -h rogue -u torstees -p'SMOJ2010' ensembl" % (coreSQL)
+		#os.system("cat %s | mysql " % (coreSQL) + mysql_opts)
 		
+		#print "mysqlimport -u root ensembl -h rogue -u torstees -p'SMOJ2010' -L core/*.txt"
+		os.system("mysqlimport -L " + mysql_opts + " core/*.txt")
+		#print "mysqlimport -u root variation -h rogue -u torstees -p'SMOJ2010' -L variation/*.txt"
+		os.system("mysqlimport -L " + mysql_opts + " variation/*.txt")
+				
 		os.system("mkdir -p processed; mv *.sql core variation processed")
-		os.system("mysql -h rogue -u torstees -p'SMOG2010' -e \"CREATE TABLE IF NOT EXISTS ensembl.biodb_versions (element VARCHAR(64), version VARCHAR(64))\"")
-		os.system("mysql -h rogue -u torstees -p'SMOG2010' -e \"DROP FROM TABKE ensembl.biodb_versions; INSERT INTO ensembl.biodb_versions VALUES ('build','%s'); INSERT INTO ensembl.biodb_versions VALUES ('ncbi', '%s');\"" % (self.ncbiVersion, self.version))
+		
+		os.system("mysql " + mysql_opts + " -e \"DROP TABLE IF EXISTS " + dbsettings.db_name + ".biodb_versions; CREATE TABLE " + dbsettings.db_name + ".biodb_versions (element VARCHAR(64), version VARCHAR(64)); INSERT INTO " + dbsettings.db_name + ".biodb_versions VALUES ('ensembl','%s'); INSERT INTO " % (self.version) + dbsettings.db_name + ".biodb_versions VALUES ('build', '%s');\"" % (self.ncbiVersion))
 		self.biosettings.SetVersion("build", self.ncbiVersion)
 		self.biosettings.SetVersion("ensembl", self.version)
-		"""
+		
 		
 		os.chdir(cwd)
+		
 	
 	def GrabEnsemblVersionDetails(self):
 		c= self.ensembl.cursor()
@@ -93,12 +132,12 @@ class EnsemblLoader(bioloader.BioLoader):
 		
 		c.execute("SELECT version FROM biodb_versions WHERE element='enembl'")
 		row = c.fetchone()
-		self.version     = row[0]
+		self.version = row[0]
 		self.biosettings.SetVersion("build", self.ncbiVersion)
 		self.biosettings.SetVersion("ensembl", self.version)
 	
 	def LoadRegionsFromEnsembl(self, chromosomes):
-		self.genes								= dict()
+		self.genes = dict()
 		for chrom in chromosomes:
 			self.biosettings.regions.LoadGenesOnChromosome(chrom, self.ensembl.cursor())
 		#self.LoadRegionAliasesFromEnsembl()
@@ -108,17 +147,17 @@ class EnsemblLoader(bioloader.BioLoader):
 		self.biosettings.regions.Commit(self.biosettings.db)
 	
 	def InitVariations(self, filename, chromosomes):
-		v						= int(time.time())
+		v = int(time.time())
 		d = datetime.datetime.now()
-		filename 				= "%s-ens.%s%02d%02d" % (filename, d.year, int(d.month), int(d.day))
+		filename = "%s-ens.%s%02d%02d" % (filename, d.year, int(d.month), int(d.day))
 		print "Creating Variations File: %s" % (filename)
 		self.biosettings.SetVersion("variations", filename)
-		variations 				= open(filename, "wb")
-		snpLog					= open("%s.txt" % (filename), "w")
+		variations = open(filename, "wb")
+		snpLog = open("%s.txt" % (filename), "w")
 		
-		self.roles								= dict()
+		self.roles = dict()
 		print "Variation Filename: ", filename
-		file 				= open(filename, "wb")
+		file = open(filename, "wb")
 		#print>>sys.stderr, "Gathering Variation Data"
 		
 		file.write(struct.pack('I', v))
@@ -141,17 +180,17 @@ class EnsemblLoader(bioloader.BioLoader):
 		return self.roles[role]
 	
 	def LoadSnpRoles(self, chrom):
-		cursor						= self.ensembl.cursor()
-		roles						= dict()
+		cursor = self.ensembl.cursor()
+		roles = dict()
 		cursor.execute("""
 SELECT 
 	a.name as rs_id,
 	seq_region_start AS position, 
 	b.consequence_type as role
 FROM 
-	variation a INNER JOIN 
-	variation_feature b ON (a.variation_id = b.variation_id) INNER JOIN 
-	(SELECT * FROM seq_region WHERE coord_system_id=%s AND name=%s) c ON (b.seq_region_id = c.seq_region_id)
+	var_variation a INNER JOIN 
+	var_variation_feature b ON (a.ariation_id = b.variation_id) INNER JOIN 
+	(SELECT * FROM var_seq_region WHERE coord_system_id=%s AND name=%s) c ON (b.seq_region_id = c.seq_region_id)
 WHERE a.name LIKE %s""", (self.coordinate, chrom, 'rs%'))
 		for row in cursor.fetchall():
 			roleID									= self.GetRoleID(row[2])
@@ -168,10 +207,10 @@ SELECT
   COUNT(a.name),
   c.name AS chromosome,
   MAX(seq_region_start) AS position
-FROM variation a
-INNER JOIN variation_feature b
+FROM var_variation a
+INNER JOIN var_variation_feature b
   ON a.variation_id = b.variation_id
-INNER JOIN seq_region c
+INNER JOIN var_seq_region c
   ON b.seq_region_id = c.seq_region_id
 WHERE c.coord_system_id=%s
   AND a.name REGEXP '%s'
@@ -185,10 +224,10 @@ SELECT
   COUNT(a.name),
   c.name AS chromosome,
   MAX(seq_region_start) AS position
-FROM variation a
-INNER JOIN variation_feature b
+FROM var_variation a
+INNER JOIN var_variation_feature b
   ON a.variation_id = b.variation_id
-INNER JOIN seq_region c
+INNER JOIN var_seq_region c
   ON b.seq_region_id = c.seq_region_id
 WHERE c.coord_system_id=%s
   AND a.name REGEXP %s
@@ -211,12 +250,12 @@ SELECT
   a.name as rs_id,
   seq_region_start AS position,
   b.consequence_type as role
-FROM variation a
-INNER JOIN variation_feature b
+FROM var_variation a
+INNER JOIN var_variation_feature b
   ON a.variation_id = b.variation_id
 INNER JOIN (
   SELECT *
-  FROM seq_region
+  FROM var_seq_region
   WHERE coord_system_id=%s
     AND name=%s
 ) c
@@ -227,7 +266,7 @@ WHERE a.name REGEXP %s
 		row = cursor.fetchone()
 		snpCount = 0
 		while (row):
-			roleID									= self.GetRoleID(row[2]);
+			roleID = self.GetRoleID(row[2]);
 			#print "%s\t%s\t%s" % (chrom, row[0], row[1])
 			file.write(struct.pack('III', (int)(row[0][2:]), row[1], roleID))
 			print>>textFile, "%s\t%s\t%s\t%s" % (chr, int(row[0][2:]), row[1], roleID)

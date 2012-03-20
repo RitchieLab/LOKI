@@ -12,19 +12,22 @@ import bioloader, settings
 from bioloader import Pathway
 import biosettings
 
+sys.path.append("..")
+import dbsettings
+
 class ReactomeEntity:
 	"""Generic reactome entity that can be represent either a reaction, event, pathway, etc"""
 	def __init__(self, entityType, entityID, entityName, description, groupTypeID):
 		"""Type is a string (BlackBoxEvent, Pathway, etc) and entityID is the DB_ID associated with the entity"""
-		self.type 		= entityType	#BlackBoxEvent, Pathway, etc
-		self.id			= entityID		#DB_ID - This is a unique integer over the entire DB
-		self.name		= entityName	#Common name (i.e. REACT_78)
-		self.desc		= description	#English summary of the entity
-		self.children 	= set()			#Children - 
-		self.genes		= set()			#Set of genes associated directly with this node
-		self.groupID	= 0				#this will be set during commit
-		self.parents	= set()
-		self.childLinks		= []
+		self.type = entityType	#BlackBoxEvent, Pathway, etc
+		self.id	= entityID		#DB_ID - This is a unique integer over the entire DB
+		self.name = entityName	#Common name (i.e. REACT_78)
+		self.desc = description	#English summary of the entity
+		self.children = set()			#Children - 
+		self.genes = set()			#Set of genes associated directly with this node
+		self.groupID = 0				#this will be set during commit
+		self.parents = set()
+		self.childLinks = []
 		self.groupTypeID = groupTypeID	#DB Key for group Type (reaction/pathway)
 	
 	def AddChild(self, entity, table):
@@ -133,16 +136,26 @@ class ReactomeLoader(bioloader.BioLoader):
 	def __init__(self, biosettings, id=9):
 		bioloader.BioLoader.__init__(self, biosettings, id)
 		biosettings.LoadAliases()
-		self.entityLookup						= dict()
+		self.entityLookup = dict()
 	
 	def RefreshDatabase(self, force=True):
+		
+		print "Reloading Reactome" 
+		
 		localFilename = self.FetchViaHTTP("http://www.reactome.org/download/current/sql.gz")
 		localFilename = self._ExtractGZ(localFilename)
 		
-		timestamp					= time.localtime(os.path.getmtime(localFilename))
+		timestamp = time.localtime(os.path.getmtime(localFilename))
 		if force or self.CheckTimestampAgainstServer(timestamp, self.groupID):
 			#TODO: fix reactome refresh with configurable database settings
-			pass
+			cmd_pass = ""
+			if dbsettings.db_pass:
+				cmd_pass = " -p'" + dbsettings.db_pass + "'"
+			
+			cmd = "mysql -h " + dbsettings.db_host + " -u " + db_user + cmd_pass + " " + dbsettings.db_name
+			
+			os.system("cat " + localFilename + " | " + cmd)
+			
 			"""
 			print "mysql -h rogue -u torstees -p'SMOJ2010' -e \"DROP DATABASE IF EXISTS reactome; CREATE DATABASE reactome;\""
 			os.system("mysql -h rogue -u torstees -p'SMOJ2010' -e \"DROP DATABASE IF EXISTS reactome; CREATE DATABASE reactome;\"")
@@ -308,7 +321,7 @@ class ReactomeLoader(bioloader.BioLoader):
 	
 	def Load(self, sourceDB):
 		"""Extract data from the database, sourceDB"""
-		cwd 					= os.getcwd()
+		cwd = os.getcwd()
 		os.system("mkdir -p reactome")
 		os.chdir("reactome")
 		

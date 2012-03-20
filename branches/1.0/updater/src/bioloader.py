@@ -45,12 +45,12 @@ class KnowledgeBase:
 
 class Pathway:
 	def __init__(self, groupTypeID, groupID, name, desc):
-		self.groupTypeID 			= groupTypeID
-		self.groupID				= groupID
-		self.name					= name
-		self.desc					= desc					
-		self.genes					= set()					#geneID
-		self.children				= dict()				#child ID -> relationship
+		self.groupTypeID = groupTypeID
+		self.groupID = groupID
+		self.name = name
+		self.desc = desc					
+		self.genes = set()					#geneID
+		self.children = dict()				#child ID -> relationship
 	
 	def AddGene(self, geneID):
 		#print>>sys.stderr,  geneID, self.genes
@@ -85,16 +85,22 @@ class BioLoader:
 		self.localFiles = []
 	
 	def InitLog(self, logfilename = None):
+		pass
+		"""
 		if logfilename == None:
 			logfilename = "%s.log"% (self.__module__)
 		self.std = sys.stdout
 		self.sck = open(logfilename, 'w')
 		print>>sys.stderr, "Log created: %s" % (logfilename)
 		sys.stdout = self.sck
+		"""
 	
 	def CloseLog(self):
+		pass
+		"""
 		sys.stdout = self.std
 		self.sck.close()
+		"""
 	
 	def _ExtractGZ(self, filename):
 		newFilename = filename[:len(filename)-3]
@@ -161,11 +167,18 @@ class BioLoader:
 		return localTS is None or localTS < remoteTS
 	
 	def FTP_Timestamp(self, filename):
-		try:
-			self.ftp.dir(filename, self._ParseFTPTimestamp)
-		except ftplib.error_perm, e:
-			print e
-			print filename
+		retry = True
+		while retry:
+			try:
+				self.ftp.dir(filename, self._ParseFTPTimestamp)
+				retry = False
+			except ftplib.error_perm, e:
+				retry = False
+				print e
+				print filename
+			except ftplib.error_temp, e:
+				print "Trying to reconnect..."
+				self.OpenFTP(self.ftp.host, self.ftp_user, self.ftp_pass)
 		return self.remoteTimestamp
 	
 	def _ExtractFilename(self, filename):
@@ -219,13 +232,15 @@ class BioLoader:
 		return localFilename
 	
 	def OpenFTP(self, url, u="anonymous", p="anonymous@"):
-		isDone					= False
+		isDone = False
 		
 		while not isDone:
 			try:
 				print "Opening FTP site: %s" % (url)
-				self.ftp = ftplib.FTP(url)
+				self.ftp = ftplib.FTP(url, timeout=3000)
 				self.ftp.login(u, p)
-				isDone			= True
+				self.ftp_user = u
+				self.ftp_pass = p
+				isDone = True
 			except ftplib.socket.error, e:
 				pass

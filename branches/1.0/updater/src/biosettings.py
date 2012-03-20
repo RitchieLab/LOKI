@@ -27,7 +27,7 @@ class BioSettings:
 	get away with just replacing this file.
 	'''
 	
-	nextID					= 100
+	nextID = 100
 	def NextID(self):
 		BioSettings.nextID += 1
 		print "ASDFASDFASDF:: The Next ID is: ", BioSettings.nextID
@@ -42,15 +42,15 @@ class BioSettings:
 			name = self.BuildDbFilename("bio-settings")
 		else:
 			name = os.path.join(self.cwd, name)
-		self.filename 		= name
-		self.db 			= None
-		self.snpRoles		= dict()
-		self.maxRoleID		= 1
-		self.aliasToID		= dict()		#entrezID -> geneID
-		self.regions		= region_manager.RegionManager()
+		self.filename = name
+		self.db = None
+		self.snpRoles = dict()
+		self.maxRoleID = 1
+		self.aliasToID = dict()		#entrezID -> geneID
+		self.regions = region_manager.RegionManager()
 	
 	def PurgeGroupData(self, groupTypeID):
-		cur					= self.db.cursor()
+		cur = self.db.cursor()
 		print "Purging all group data for type: ", groupTypeID
 		cur.execute("DELETE FROM group_associations WHERE EXISTS (SELECT * FROM groups WHERE group_associations.group_id=groups.group_id AND groups.group_type_id=?)", (groupTypeID,))
 		#print "DELETE FROM group_associations WHERE EXISTS (SELECT * FROM groups WHERE group_associations.group_id=groups.group_id AND groups.group_type_id=%s)" % (groupTypeID,)
@@ -62,7 +62,7 @@ class BioSettings:
 		#print "DELETE FROM group_type WHERE group_type_id=%s" % (groupTypeID)
 		self.Commit()
 		cur.execute("SELECT MAX(group_id) FROM groups")
-		maxid									= cur.fetchone()[0]
+		maxid = cur.fetchone()[0]
 		if maxid and maxid > 100:
 			BioSettings.nextID					= maxid  + 1
 		else:
@@ -101,6 +101,7 @@ class BioSettings:
 			print e[0]
 			sys.exit(1)
 		#print "INSERT INTO group_Associations (group_id, gene_id) VALUES (%s,%s)" % (groupID, geneID)
+		
 	def RelatePathways(self, parentID, childID, relationship, relationshipDesc):
 		cur		= self.GetCursor()
 
@@ -215,14 +216,14 @@ class BioSettings:
 		if not os.path.isfile(self.filename):
 			self.InitDB()
 		else:
-			self.db 		= sqlite3.connect(self.filename)
-			c				= self.db.cursor()
-			nextID			= 99
+			self.db = sqlite3.connect(self.filename)
+			c = self.db.cursor()
+			nextID = 99
 			c.execute("SELECT MAX(group_id) FROM groups")
-			row			= c.fetchone()
+			row = c.fetchone()
 			if row[0] != None:
-				nextID		= row[0]
-			BioSettings.nextID					= nextID + 1
+				nextID = row[0]
+			BioSettings.nextID = nextID + 1
 		return self.db.cursor()
 	
 	

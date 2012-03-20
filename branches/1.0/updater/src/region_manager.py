@@ -258,12 +258,12 @@ SELECT DISTINCT
 	e.description
 
 FROM 
-    gene AS a
-    INNER JOIN gene_stable_id AS b ON (a.gene_id=b.gene_id)
-    INNER JOIN seq_region c ON a.seq_region_id = c.seq_region_id
-    INNER JOIN transcript d ON a.gene_id=d.gene_id
-    INNER JOIN object_xref x ON d.canonical_translation_id=x.ensembl_id
-    INNER JOIN xref e ON x.xref_id=e.xref_id
+    ens_gene AS a
+    INNER JOIN ens_gene_stable_id AS b ON (a.gene_id=b.gene_id)
+    INNER JOIN ens_seq_region c ON a.seq_region_id = c.seq_region_id
+    INNER JOIN ens_transcript d ON a.gene_id=d.gene_id
+    INNER JOIN ens_object_xref x ON d.canonical_translation_id=x.ensembl_id
+    INNER JOIN ens_xref e ON x.xref_id=e.xref_id
 
 WHERE 
     x.ensembl_object_type='Translation'
@@ -345,12 +345,12 @@ SELECT DISTINCT
 	GROUP_CONCAT(DISTINCT IF(e.external_db_id=2000,e.dbprimary_acc,'') SEPARATOR ' ') AS trembl_id,
 	GROUP_CONCAT(DISTINCT IF(e.external_db_id=2200,e.dbprimary_acc,'') SEPARATOR ' ') AS swissprot_id
 FROM 
-    gene AS a
-    INNER JOIN gene_stable_id AS b ON (a.gene_id=b.gene_id)
-    INNER JOIN seq_region c ON a.seq_region_id = c.seq_region_id
-    INNER JOIN transcript d ON a.gene_id=d.gene_id
-    INNER JOIN object_xref x ON d.canonical_translation_id=x.ensembl_id
-    INNER JOIN xref e ON x.xref_id=e.xref_id
+    ens_gene AS a
+    INNER JOIN ens_gene_stable_id AS b ON (a.gene_id=b.gene_id)
+    INNER JOIN ens_seq_region c ON a.seq_region_id = c.seq_region_id
+    INNER JOIN ens_transcript d ON a.gene_id=d.gene_id
+    INNER JOIN ens_object_xref x ON d.canonical_translation_id=x.ensembl_id
+    INNER JOIN ens_xref e ON x.xref_id=e.xref_id
 
 WHERE 
     x.ensembl_object_type='Translation'
