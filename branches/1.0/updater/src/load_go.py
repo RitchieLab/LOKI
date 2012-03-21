@@ -14,11 +14,11 @@ import biosettings
 class OntologyTerm:
 	"""Used to parse the ontology files. There will be all possible terms loaded, even though many might not apply to humans"""
 	def __init__(self):
-		self.term_id		= ''	#The database we'll write our contents to
-		self.parents		= dict()#goID->(function description, relationship)
-		self.namespace		= ''	#GO Namespace ... not sure if we care about this
-		self.name			= ''	#GO name
-		self.description	= ''	#Long description of this entity
+		self.term_id = ''	#The database we'll write our contents to
+		self.parents = dict()#goID->(function description, relationship)
+		self.namespace = ''	#GO Namespace ... not sure if we care about this
+		self.name = ''	#GO name
+		self.description = ''	#Long description of this entity
 
 	def ParseLine(self, line):
 		"""Parses a single line, extracting necessary details-returns false if the line is "[Term]" """
@@ -65,15 +65,15 @@ class OntologyTerm:
 class GoTerm:
 	"""Storage for all details associated with a single GO Term within our area of interest (Human GOA)"""
 	def __init__(self, term_id, groupID):
-		self.associations 		= set()			#set of (gene_id, protein)
-		self.brokenAssociations	= set()			#set of details that can't be matched back to entrezgene IDs
-		self.parents			= dict()			#(parent_id, relationship, description)
-		self.badParents			= dict()
-		self.term_id			= term_id		#(GO:0000010) ID
-		self.description		= ''
-		self.name				= ''
-		self.namespace			= ''
-		self.groupID			= groupID
+		self.associations = set()			#set of (gene_id, protein)
+		self.brokenAssociations = set()			#set of details that can't be matched back to entrezgene IDs
+		self.parents = dict()			#(parent_id, relationship, description)
+		self.badParents = dict()
+		self.term_id = term_id		#(GO:0000010) ID
+		self.description = ''
+		self.name = ''
+		self.namespace = ''
+		self.groupID = groupID
 
 	def AddAssociation(self, gene_id, protein):
 		self.associations.add((gene_id, protein))
@@ -125,7 +125,7 @@ class GoLoader(bioloader.BioLoader):
 		print "Loading GO Ontologies"
 		reader = open(filename, "r")
 		#relationship = OntologyTerm()
-		print "Reading ontology file, ", filename
+		#print "Reading ontology file, ", filename
 		doContinue = True
 		entityCount = 0
 		while doContinue:
@@ -138,7 +138,7 @@ class GoLoader(bioloader.BioLoader):
 		print "\r....Completed...", entityCount, " Terms found."		
 	
 	def LoadGeneAssociation(self, line):
-		words = line.split('\t')
+		words = line .split('\t')
 		if words[0].strip().lower() in ['uniprotkb/swiss-prot', 'uniprotkb'] and words[12].strip().lower() == "taxon:9606":
 			uniprotID = words[1]
 			term_id = words[4]

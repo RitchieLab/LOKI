@@ -30,7 +30,7 @@ class BioSettings:
 	nextID = 100
 	def NextID(self):
 		BioSettings.nextID += 1
-		print "ASDFASDFASDF:: The Next ID is: ", BioSettings.nextID
+		#print "ASDFASDFASDF:: The Next ID is: ", BioSettings.nextID
 		return BioSettings.nextID - 1
 		
 	def __init__(self, name = None):
@@ -51,7 +51,7 @@ class BioSettings:
 	
 	def PurgeGroupData(self, groupTypeID):
 		cur = self.db.cursor()
-		print "Purging all group data for type: ", groupTypeID
+		#print "Purging all group data for type: ", groupTypeID
 		cur.execute("DELETE FROM group_associations WHERE EXISTS (SELECT * FROM groups WHERE group_associations.group_id=groups.group_id AND groups.group_type_id=?)", (groupTypeID,))
 		#print "DELETE FROM group_associations WHERE EXISTS (SELECT * FROM groups WHERE group_associations.group_id=groups.group_id AND groups.group_type_id=%s)" % (groupTypeID,)
 		cur.execute("DELETE FROM group_relationships WHERE EXISTS (SELECT * FROM groups WHERE group_relationships.child_id=groups.group_id AND groups.group_type_id=?)", (groupTypeID,))
@@ -69,6 +69,7 @@ class BioSettings:
 			BioSettings.nextID					= 100
 
 	def CommitGroup(self, typeID, roleID, name, desc, timestamp):
+		#print "CommitGroup"
 		cur		= self.GetCursor()
 		#print "DELETE FROM group_type WHERE group_type_id=%s" % typeID
 		cur.execute("DELETE FROM group_type WHERE group_type_id=?", (typeID,))
@@ -81,15 +82,17 @@ class BioSettings:
 
 	def CommitPathway(self, typeID, groupID, name, desc):
 		cur		= self.GetCursor()
-		if groupID < 100:
-			print>>sys.stderr, "\n----\nINSERT INTO groups (group_type_id, group_id, group_name, group_desc) VALUES (%s,%s,%s,%s)" % (typeID, groupID, name, desc)
-			traceback.print_exc(file=sys.stderr)
+		#if groupID < 100:
+		#	print>>sys.stderr, "\n----\nINSERT INTO groups (group_type_id, group_id, group_name, group_desc) VALUES (%s,%s,%s,%s)" % (typeID, groupID, name, desc)
+		#	traceback.print_exc(file=sys.stderr)
 		try:
 			cur.execute("INSERT INTO groups (group_type_id, group_id, group_name, group_desc) VALUES (?,?,?,?)", (typeID, groupID, name, desc))
 			#print "INSERT INTO groups (group_type_id, group_id, group_name, group_desc) VALUES (%s,%s,%s,%s)" % (typeID, groupID, name, desc)
 		except sqlite3.Error, e:
 			print "INSERT INTO groups (group_type_id,group_id, group_name, group_desc) VALUES (%s,%s,%s,%s)" % (typeID, groupID, name, desc)
 			print "Insertion error: ", e[0]
+			#self.Commit()
+			#raise
 			
 	def AssociateGene(self, groupID, geneID):
 		cur		= self.GetCursor()
@@ -112,6 +115,7 @@ class BioSettings:
 		except sqlite3.Error, e:
 			print "INSERT INTO group_relationships (child_id, parent_id, relationship, relationship_description) VALUES (%s,%s,%s,%s)" % (childID, parentID, relationship, relationshipDesc)
 			print "Insertion error: ", e[0]
+			#raise
 	
 	def AddAlias(self, alias, geneID, typeID, label="", desc=""):
 		if alias not in self.aliasToID:
@@ -129,6 +133,7 @@ class BioSettings:
 
 	def Commit(self):
 		self.db.commit()
+		
 	def GetCursor(self):
 		return self.db.cursor()
 
@@ -212,7 +217,7 @@ class BioSettings:
 		dest.execute("INSERT INTO versions VALUES (?,?)", (name, version))
 
 	def OpenDB(self):
-		print "DB: ", self.filename
+		#print "DB: ", self.filename
 		if not os.path.isfile(self.filename):
 			self.InitDB()
 		else:

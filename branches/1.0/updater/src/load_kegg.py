@@ -54,12 +54,12 @@ class KeggLoader(bioloader.BioLoader):
 		definition = remotePathway['definition'][0]
 		entryID = remotePathway['entry_id'][0]	
 		
-		print remotePathway	
+		#print remotePathway	
 		
 		genes = set()			# geneIDs identified with pathway
 		failedInsertions = 0
 		geneCount = 0
-		print "\n\nPathway(%s): %s - %s" % (groupID, entryID, definition)
+		#print "\n\nPathway(%s): %s - %s" % (groupID, entryID, definition)
 		
 		#because this could timeout, let's make sure it doesn't just faile
 		doContinue = False

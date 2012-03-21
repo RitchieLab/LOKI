@@ -7,7 +7,7 @@ import os, subprocess, time, ftplib
 import cStringIO
 import sys
 
-skipFTP								= False
+skipFTP	= False
 
 
 class KnowledgeBase:
@@ -18,7 +18,7 @@ class KnowledgeBase:
 		self.pathways = dict()				#pathway ID -> pathway
 		os.system("mkdir -p %s" % (name))
 		#os.chdir(name)
-		self.rootPathway							= Pathway(self.groupTypeID, self.groupTypeID, self.name, self.desc)
+		self.rootPathway = Pathway(self.groupTypeID, self.groupTypeID, self.name, self.desc)
 		self.AddPathway(self.rootPathway)
 	
 	def __del__(self):
@@ -37,13 +37,15 @@ class KnowledgeBase:
 	def Commit(self, biosettings, timestamp, roleID=1):
 		#print "Committing KB"
 		biosettings.CommitGroup(self.groupTypeID, roleID, self.name, self.desc, timestamp)
-		self.rootPathway.Commit(biosettings, roleID)
+		#self.rootPathway.Commit(biosettings, roleID)
 		for pathway in self.pathways:
 			self.pathways[pathway].Commit(biosettings)
 		biosettings.Commit()
 
 
 class Pathway:
+	committedNames = set()
+	
 	def __init__(self, groupTypeID, groupID, name, desc):
 		self.groupTypeID = groupTypeID
 		self.groupID = groupID
@@ -57,13 +59,15 @@ class Pathway:
 		self.genes.add(geneID)
 	
 	def Commit(self, biosettings, roleID = 1):
-		biosettings.CommitPathway(self.groupTypeID, self.groupID, self.name, self.desc)
-		#for gene in self.genes:
-		#	biosettings.AssociateGene(self.groupID, gene)
-		for child in self.children:
-			biosettings.RelatePathways(self.groupID, child, self.children[child], "")
-		for child in self.genes:
-			biosettings.AssociateGene(self.groupID, child)
+		if self.name not in Pathway.committedNames:
+			biosettings.CommitPathway(self.groupTypeID, self.groupID, self.name, self.desc)
+			Pathway.committedNames.add(self.name)
+			#for gene in self.genes:
+			#	biosettings.AssociateGene(self.groupID, gene)
+			for child in self.children:
+				biosettings.RelatePathways(self.groupID, child, self.children[child], "")
+			for child in self.genes:
+				biosettings.AssociateGene(self.groupID, child)
 	
 	def AddAssociation(self, childID, relationship):
 		#print "AddAssociation(%s,%s)"%(childID, relationship)
@@ -110,7 +114,7 @@ class BioLoader:
 	
 	def _Extract(self, filename, command):
 		results = cStringIO.StringIO()
-		print command % filename
+		#print command % filename
 		process = subprocess.Popen(command % filename, stdout=subprocess.PIPE, shell=True)
 		process.wait()
 		output, error = process.communicate()
@@ -132,7 +136,7 @@ class BioLoader:
 		#os.system("wget -Nq %s" % (filename))
 		os.system("curl -OL %s" % (filename))
 		localFilename = filename.split("/")[len(filename.split("/"))-1]
-		print>>sys.stderr, "Local filename: %s "% (localFilename)
+		#print>>sys.stderr, "Local filename: %s "% (localFilename)
 		os.system("chmod 666 %s" % (localFilename))
 		return localFilename
 	
@@ -187,7 +191,7 @@ class BioLoader:
 		if ext == ".tgz":
 			localFilename = self._Extract(filename, "tar -zxvf %s")
 		elif ext == ".zip":
-			localFilename = self._Extract(filename, "unzip %s")
+			localFilename = self._Extract(filename, "unzip -o %s")
 		elif ext == ".gz":
 			localFilename = self._ExtractGZ(filename)
 		else:
@@ -213,8 +217,6 @@ class BioLoader:
 		
 		if downloadFile:
 			print "RETR %s (-> %s)" % (filename, localFilename)
-			
-
 			self.ftp.retrbinary('RETR %s' % filename, open(localFilename, 'wb').write)
 		else:
 			print "-> %s (Skipping Download)" % (localFilename)

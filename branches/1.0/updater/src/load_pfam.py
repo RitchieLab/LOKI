@@ -37,7 +37,7 @@ class PFamMetaGroup(bioloader.Pathway):
 		biosettings.CommitPathway(self.groupTypeID, self.groupID, self.name, self.desc)
 		for pathway in self.pathways:
 			self.pathways[pathway].Commit(biosettings)
-		print "PFam Group: %s\tGene Count: %s" % (self.name, len(self.genes))
+		#print "PFam Group: %s\tGene Count: %s" % (self.name, len(self.genes))
 		for gene in self.genes:
 			biosettings.AssociateGene(self.groupID, gene)
 		for child in self.children:
@@ -71,7 +71,7 @@ class PFamLoader(bioloader.BioLoader):
 	#pfamseq_acc	Column 6
 	def LoadAssociations(self, filename):
 		print "Loading associations from file, ", filename
-		errReport					= open("%s.errors" % (filename), "w")
+		errReport = open("%s.errors" % (filename), "w")
 		reader = csv.reader(open(filename,"rU"), delimiter='\t', quotechar="'")
 		for cleanWords in reader:
 			if (cleanWords[0] in self.pfLookup):

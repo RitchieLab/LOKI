@@ -35,6 +35,7 @@ class MintLoader(bioloader.BioLoader):
 		self.ambiguousUni			= set()
 		
 		self.observedIDs			= set()		# Just to see if there are any groups that are more than pairs
+	
 	def Load(self, force=True):
 		cwd 					= os.getcwd()
 		os.system("mkdir -p mint")

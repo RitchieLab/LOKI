@@ -17,17 +17,17 @@ csv.field_size_limit(1000000000)				#Required to ensure that the long lines don'
 
 globalIDs = dict()								# Converts familiar names with integer IDs
 
-relationshipsFile					= open("observed_relationships.csv", "w")
+relationshipsFile = open("observed_relationships.csv", "w")
 
 class GkbEntity:
 	def __init__(self, biosettings, type):
-		self.biosettings			= biosettings
-		self.associations			= dict()			# Class => objects
-		self.id						= -1
-		self.alreadyCommitted	= []
-		self.name					= ""
-		self.acc						= ""
-		self.type					= type
+		self.biosettings = biosettings
+		self.associations = dict()			# Class => objects
+		self.id = -1
+		self.alreadyCommitted = set()
+		self.name = ""
+		self.acc = ""
+		self.type = type
 
 	def GetID(self):
 		if self.id == -1:
@@ -36,8 +36,8 @@ class GkbEntity:
 
 	def CommitToDB(self, kb, parentGroup):
 		if kb.groupTypeID not in self.alreadyCommitted:
-			self.alreadyCommitted.append(kb.groupTypeID)
-			curPathway 			= bioloader.Pathway(kb.groupTypeID, self.GetID(), self.acc, "%s (%s)" % (self.name, self.type))
+			self.alreadyCommitted.add(kb.groupTypeID)
+			curPathway = bioloader.Pathway(kb.groupTypeID, self.GetID(), self.acc, "%s (%s)" % (self.name, self.type))
 			parentGroup.AddAssociation(curPathway.groupID, "")
 			#kb.AddPathway(curPathway)
 			#curPathway.AssociatePathways(group_id, self.id, self.type)
@@ -95,26 +95,29 @@ class Gene(GkbEntity):
 		self.acc		= words[0]
 		self.entrez		= words[1]
 		self.ensID		= words[2]
-		self.unip		= words[3]
-		self.name		= words[4]
-		self.symbol		= words[5]
+		#self.unip		= words[3]
+		self.name		= words[3]
+		self.symbol		= words[4]
 
 		self.id			= -1
 
 		if len(self.entrez) > 0:
-			print "Looking for Entrez: ", self.entrez
+			#print "Looking for Entrez: ", self.entrez
 			aliases		= self.biosettings.regions.AliasToGeneID([self.entrez])
 			if len(aliases) > 0:
 				self.id		= aliases[0]
 		elif len(self.symbol) > 0:
-			print "Looking for Symbol: ", self.symbol
+			#print "Looking for Symbol: ", self.symbol
 			aliases		= self.biosettings.regions.AliasToGeneID([self.symbol])
 			if len(aliases) > 0:
 				self.id     = aliases[0]
 		else:
-			sys.exit("Empty entrez gene ID. Other options include: %s " % (",".join(words[0:6])))
+			print "symbol = ", self.symbol
+			print "entrez = ", self.entrez
+			raise Exception("Empty entrez gene ID. Other options include: %s " % (",".join(words[0:6])))
 
 		print >> relationshipsFile, "%s, %s, %s, %s [%s] %s" % (self.id, self.acc, self.name, self.symbol, aliases, self.entrez)
+
 class Drug(GkbEntity):
 	def __init__(self, biosettings):
 		GkbEntity.__init__(self, biosettings, "Drug")
@@ -142,8 +145,8 @@ class Disease(GkbEntity):
 		self.altNames	= []
 
 	def ParseLine(self, words):
-		self.acc		= words[0]
-		self.name		= words[1]
+		self.acc = words[0]
+		self.name = words[1]
 
 		#print >> sys.stderr, words[2]
 		for row in csv.reader(words[2], delimiter=",", quotechar='"'):
@@ -163,20 +166,20 @@ class PharmGKBLoader(bioloader.BioLoader):
 		self.biosettings.PurgeGroupData(id)
 
 		biosettings.LoadAliases()
-		self.kb						= bioloader.KnowledgeBase(id, "PharmGKB", "Pharmacogenomics Knowledge Base")
-		self.pathwayGroups		= bioloader.Pathway(self.kb.groupTypeID, id+1, "Pathways", "PharmGKB Pathways")
+		self.kb = bioloader.KnowledgeBase(id, "PharmGKB", "Pharmacogenomics Knowledge Base")
+		self.pathwayGroups = bioloader.Pathway(self.kb.groupTypeID, id+1, "Pathways", "PharmGKB Pathways")
 		self.kb.AddPathway(self.pathwayGroups, "PharmGKB Pathway")
-		self.pathways				= []
+		self.pathways = []
 		#self.diseaseGroups		= bioloader.KnowledgeBase(id+1, "PharmGKB-Diseases", "Pharmacogenomics Knowledge Base (Disease)")
-		self.diseaseGroups		= bioloader.Pathway(self.kb.groupTypeID, id+2, "Diseases", "PharmGKB Disease Associations")
+		self.diseaseGroups = bioloader.Pathway(self.kb.groupTypeID, id+2, "Diseases", "PharmGKB Disease Associations")
 		self.kb.AddPathway(self.diseaseGroups, "PharmGKB Disease")
 		#self.drugGroups			= bioloader.KnowledgeBase(id+2, "PharmGKB-Drugs", "Pharmacogenomics Knowledge Base (Drug)")
-		self.drugGroups			= bioloader.Pathway(self.kb.groupTypeID, id+3, "Drugs", "PharmGKB Drug Associations")
+		self.drugGroups = bioloader.Pathway(self.kb.groupTypeID, id+3, "Drugs", "PharmGKB Drug Associations")
 		self.kb.AddPathway(self.drugGroups, "PharmGKB Drug")
-		self.gkbentities			= dict()
-		self.gkbentities["Gene"]	= dict()
-		self.gkbentities["Drug"]	= dict()
-		self.gkbentities["Disease"]= dict()
+		self.gkbentities = dict()
+		self.gkbentities["Gene"] = dict()
+		self.gkbentities["Drug"] = dict()
+		self.gkbentities["Disease"] = dict()
 
 
 	def GetItem(self, identifier):
@@ -204,12 +207,14 @@ class PharmGKBLoader(bioloader.BioLoader):
 			output = subprocess.Popen(["unzip", "-o", "%s" % archive], stdout=subprocess.PIPE).communicate()[0]
 			#print >> sys.stderr, output
 			os.system("mv %s archives/" % (archive))
-			print output
-			files[file] = output.split("\n")[1].split(":")[1].strip()
+			#print output
+			files[file] = [o.split(":")[1].strip() for o in output.split("\n")[1:-1] if o.split(":")[1].strip().find("CREATED") != 0][0]
+			
+			#print "Archive " + archive + " has " + files[file]
 		return files
 
 	def LoadDrugData(self, filename):
-		print >> sys.stderr, filename
+		#print >> sys.stderr, filename
 		reader = csv.reader(open(filename), delimiter='\t', quotechar="'")
 		for words in reader:
 			if words[0] not in ["PharmGKB Accession Id"]:
@@ -241,33 +246,36 @@ class PharmGKBLoader(bioloader.BioLoader):
 
 	def LoadRelationships(self, filename):
 		for line in open(filename):
-			words				= line.split("\t")
+			words = line.split("\t")
 			if words[0] not in ["Entity1_id"]:
 				try:
-					left				= self.GetItem(words[0])
-					right				= self.GetItem(words[2])
+					left = self.GetItem(words[0])
+					right = self.GetItem(words[2])
 					left.AssociateOther(right)
 					right.AssociateOther(left)
 				except:
-					print "Missing data: ", line
+					pass
+					#print "Missing data: ", line
+					#raise
+
 	def Load(self, force=True):
 		#os.system("rm -rf pharmgkb")
-		cwd 					= os.getcwd()
+		cwd = os.getcwd()
 		os.system("mkdir -p pharmgkb")
 		os.chdir("pharmgkb")
 
 
-		files = self.DownloadFiles(["pathways-tsv.zip", "genes.zip", "diseases.zip", "drugs.zip", "relationships.zip"])
-		#files = self.DontDownloadFiles(["pathways-tsv.zip", "genes.zip", "diseases.zip", "drugs.zip", "relationships.zip"])
+		#files = self.DownloadFiles(["pathways-tsv.zip", "genes.zip", "diseases.zip", "drugs.zip", "relationships.zip"])
+		files = self.DontDownloadFiles(["pathways-tsv.zip", "genes.zip", "diseases.zip", "drugs.zip", "relationships.zip"])
 		#localFilename = self.FetchViaHTTP("http://www.pharmgkb.org/commonFileDownload.action?filename=pathways-tsv.zip")
 
 		#os.system("unzip %s" % (localFilename))
 		
-		dataFiles					= []
-		filename					= "pathways.tsv"
+		#dataFiles = []
+		#filename = "pathways.tsv"
 
 		#if force or self.CheckTimestampAgainstServer(timestamp, self.groupID):
-		self.biosettings.PurgeGroupData(self.groupID)
+		#self.biosettings.PurgeGroupData(self.groupID)
 		#self.biosettings.CommitGroup(self.groupID, "PharmGKB", "PharmGKB", time.strftime("%Y-%M-%d %H:%M:%S", timestamp))
 		self.LoadPathways(files["pathways-tsv.zip"])
 
@@ -287,26 +295,29 @@ class PharmGKBLoader(bioloader.BioLoader):
 	def LoadPathways(self, filename):
 		curPathway = None
 		for line in open(filename):
-			words 					= line.split(":")
+			words = line.split(":")
 			if len(words) > 1:
-				newID					= self.biosettings.NextID()
+				newID = self.biosettings.NextID()
 				if curPathway:
 					self.pathways.append(curPathway)
-				curPathway 			= bioloader.Pathway(self.groupID, newID, words[0].strip(), words[1].strip())
+				curPathway = bioloader.Pathway(self.groupID, newID, words[0].strip(), words[1].strip())
 				self.pathwayGroups.AddAssociation(curPathway.groupID, "Pathway")
 				#self.kb.AssociatePathways(self.groupID, newID, "Member")
 			else:
-				words					= line.split()
+				#pass
+				words = line.split()
 				if len(words) > 1 and words[0] == "Gene":
-					geneIDs			= self.biosettings.regions.AliasToGeneID([words[2].strip()])
+					geneIDs = self.biosettings.regions.AliasToGeneID([words[2].strip()])
 					if len(geneIDs) == 1:
 						curPathway.AddGene(geneIDs[0])
+				
 
 		if curPathway:
 			self.pathways.append(curPathway)
 		os.system("mv %s archives" % (filename))
+
 	def Commit(self):
-		timestamp					= time.localtime(os.path.getmtime("pharmgkb/archives/pathways.tsv"))
+		timestamp = time.localtime(os.path.getmtime("pharmgkb/archives/pathways.tsv"))
 		self.kb.Commit(self.biosettings, time.strftime("%Y-%M-%d %H:%M:%S", timestamp))
 		for pathway in self.pathways:
 			pathway.Commit(self.biosettings)
@@ -320,16 +331,17 @@ class PharmGKBLoader(bioloader.BioLoader):
 			self.gkbentities["Drug"][drug].Commit(self.kb, self.drugGroups)
 		self.drugGroups.Commit(self.biosettings)
 		self.biosettings.db.commit()
+
 if __name__ == '__main__':
 	filename = None
 	if len(sys.argv) > 1:
-		filename						= sys.argv[1]
+		filename = sys.argv[1]
 
 
-	bioDB								= biosettings.BioSettings(filename)
+	bioDB = biosettings.BioSettings(filename)
 	bioDB.OpenDB()
 	print "Initializing PharmGKB"
-	loader							= PharmGKBLoader(bioDB)
+	loader = PharmGKBLoader(bioDB)
 	print "Loading data"
 	loader.Load(False)
 	print "Load Completed"

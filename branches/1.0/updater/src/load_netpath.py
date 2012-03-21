@@ -31,7 +31,7 @@ class NetPathLoader(bioloader.BioLoader):
 		files						= os.listdir('netpath')
 		for filename in files:
 			dataFiles.append(os.path.join("netpath", filename))
-		print "%s files identified" % (len(dataFiles))
+		#print "%s files identified" % (len(dataFiles))
 		timestamp					= time.localtime(os.path.getmtime(localFilename))
 		#if force or self.CheckTimestampAgainstServer(timestamp, self.groupID):
 		self.biosettings.PurgeGroupData(self.groupID)
@@ -42,7 +42,7 @@ class NetPathLoader(bioloader.BioLoader):
 		os.chdir(cwd)
 
 	def LoadFile(self, groupID, filename):
-		print filename
+		#print filename
 		elements					= filename.split("_")
 		name						= "_".join(elements[:2])
 		
@@ -50,7 +50,7 @@ class NetPathLoader(bioloader.BioLoader):
 		if len(elements) > 1:
 			name = elements[1]
 		
-		print "Pathway Name:	    ", name
+		#print "Pathway Name:	    ", name
 		pathway						= bioloader.Pathway(self.groupID, groupID, name, filename)
 		
 		lineCount					= 0
@@ -78,7 +78,7 @@ class NetPathLoader(bioloader.BioLoader):
 					genesMissed+=1
 			lineCount+=1
 			
-		print "Lines in File: %s\nGenes Identified: %s\nGenes Unable to be Identified: %s" % (lineCount, geneCount, genesMissed)
+		#print "Lines in File: %s\nGenes Identified: %s\nGenes Unable to be Identified: %s" % (lineCount, geneCount, genesMissed)
 		pathway.Commit(self.biosettings)
 		self.biosettings.RelatePathways(self.groupID, groupID, "", "")
 if __name__ == '__main__':

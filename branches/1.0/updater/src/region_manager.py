@@ -232,7 +232,7 @@ class RegionManager:
 		if aliasTypeID > 0:
 			for alias in aliases:
 				if alias in self.aliases[aliasTypeID]:
-					print "%s --> %s" % (alias, self.aliases[aliasTypeID][alias])
+					#print "%s --> %s" % (alias, self.aliases[aliasTypeID][alias])
 					return list(self.aliases[aliasTypeID][alias])
 				else:
 					#print "Trying to find alias: %s in set of %s aliases." % (",".join(aliases), len(self.aliases[aliasTypeID]))
@@ -240,7 +240,7 @@ class RegionManager:
 		for type in self.aliases:
 			for alias in aliases:
 				if alias in self.aliases[type]:
-					print "%s - %s ==> %s" % (aliases, alias, self.aliases[type][alias])
+					#print "%s - %s ==> %s" % (aliases, alias, self.aliases[type][alias])
 					return list(self.aliases[type][alias])
 		return []
 	
@@ -405,7 +405,8 @@ GROUP BY b.gene_id""", (chromosome, 2))
 						else:
 							totalUpdates += 1
 				if len(swissprotIDs) > 20 or len(uniprotIDs) > 20:
-					print "%s\t%s\t%s\t%s" % (",".join(["%s" % e for e in entrezIDs]), stableID,",".join(uniprotIDs), ",".join(swissprotIDs))
+					pass
+					#print "%s\t%s\t%s\t%s" % (",".join(["%s" % e for e in entrezIDs]), stableID,",".join(uniprotIDs), ",".join(swissprotIDs))
 				for a in swissprotIDs:
 					self.AddAlias(2200, a, entrez)
 				for u in uniprotIDs:
@@ -475,7 +476,7 @@ GROUP BY b.gene_id""", (chromosome, 2))
 	
 	def LoadAliasesFromDB(self, db):
 		if len(self.aliases[1300]) == 0:
-			print "Attempting to load aliases from sqlite database"
+			#print "Attempting to load aliases from sqlite database"
 			cursor									= db.cursor()
 			
 			cursor.execute("SELECT alias, gene_id, region_alias_type_id FROM region_alias")
@@ -489,8 +490,8 @@ GROUP BY b.gene_id""", (chromosome, 2))
 			nextID = cursor.fetchone()[0]
 			if nextID:
 				GenomicRegion.nextID = nextID + 1
-			for type in self.aliases:
-				print "%s aliases loaded from DB %s" % (len(self.aliases[type]), type)
+			#for type in self.aliases:
+			#	print "%s aliases loaded from DB %s" % (len(self.aliases[type]), type)
 			
 		else:
 			print "Aliases already loaded"
@@ -571,9 +572,9 @@ GROUP BY b.gene_id""", (chromosome, 2))
 									if geneID in self.historic:
 										geneID = self.historic[geneID]
 									if geneID=="-":
-										print "WTF? ", aliasType, alias, geneID, geneCount, gid
+										print "Unknown Error ", aliasType, alias, geneID, geneCount, gid
 									elif geneCount == 0:
-										print "ACK! ", aliasType, alias, geneID, geneCount, gid
+										print "No genes ", aliasType, alias, geneID, geneCount, gid
 									
 									#In some cases, the primary name is the same as other aliases...we can't afford to have that sort of indirection, since we are trying to identify genes based 
 									#on their name

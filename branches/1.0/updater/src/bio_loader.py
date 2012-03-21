@@ -44,7 +44,7 @@ def LoadKB(dbFilename, kbLoads, doReset = False, refreshEnsembl = False):
 
 	if kbLoads[0] == "ALL":
 		kbLoads = allgroups
-		refreshEnsembl = True
+		#refreshEnsembl = True
 
 	for kb in kbLoads:
 		kb = kb.strip().lower()

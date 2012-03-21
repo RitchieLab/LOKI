@@ -144,7 +144,7 @@ class ReactomeLoader(bioloader.BioLoader):
 		
 		localFilename = self.FetchViaHTTP("http://www.reactome.org/download/current/sql.gz")
 		localFilename = self._ExtractGZ(localFilename)
-		
+			
 		timestamp = time.localtime(os.path.getmtime(localFilename))
 		if force or self.CheckTimestampAgainstServer(timestamp, self.groupID):
 			#TODO: fix reactome refresh with configurable database settings
@@ -152,18 +152,10 @@ class ReactomeLoader(bioloader.BioLoader):
 			if dbsettings.db_pass:
 				cmd_pass = " -p'" + dbsettings.db_pass + "'"
 			
-			cmd = "mysql -h " + dbsettings.db_host + " -u " + db_user + cmd_pass + " " + dbsettings.db_name
+			cmd = "mysql -h " + dbsettings.db_host + " -u " + dbsettings.db_user + cmd_pass + " " + dbsettings.db_name
 			
 			os.system("cat " + localFilename + " | " + cmd)
-			
-			"""
-			print "mysql -h rogue -u torstees -p'SMOJ2010' -e \"DROP DATABASE IF EXISTS reactome; CREATE DATABASE reactome;\""
-			os.system("mysql -h rogue -u torstees -p'SMOJ2010' -e \"DROP DATABASE IF EXISTS reactome; CREATE DATABASE reactome;\"")
-			
-			print "cat %s | mysql -h rogue -u torstees -p'SMOJ2010' reactome" % (localFilename)
-			os.system("cat %s | mysql -h rogue -u torstees -p'SMOJ2010' reactome" % (localFilename))
-			"""
-	
+				
 	def LoadSimpleBaseEntity(self, dbCursor, tableName, typeID):
 		"""Loads entities which don't have matching DatabaseObject entries...."""
 		sql = """SELECT DB_ID FROM %s""" % tableName

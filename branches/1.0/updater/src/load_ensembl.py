@@ -201,23 +201,7 @@ WHERE a.name LIKE %s""", (self.coordinate, chrom, 'rs%'))
 		cursor = self.ensembl.cursor()
 		#outCur = dest.OpenDB()
 		offset = 0
-		
-		print>> sys.stderr, """
-SELECT
-  COUNT(a.name),
-  c.name AS chromosome,
-  MAX(seq_region_start) AS position
-FROM var_variation a
-INNER JOIN var_variation_feature b
-  ON a.variation_id = b.variation_id
-INNER JOIN var_seq_region c
-  ON b.seq_region_id = c.seq_region_id
-WHERE c.coord_system_id=%s
-  AND a.name REGEXP '%s'
-  AND c.name=%s
-GROUP BY c.name
-""" % (self.coordinate, '^rs[0-9]+$', chrom)
-		
+				
 		#Table of Contents for the variations
 		cursor.execute("""
 SELECT
@@ -269,7 +253,7 @@ WHERE a.name REGEXP %s
 			roleID = self.GetRoleID(row[2]);
 			#print "%s\t%s\t%s" % (chrom, row[0], row[1])
 			file.write(struct.pack('III', (int)(row[0][2:]), row[1], roleID))
-			print>>textFile, "%s\t%s\t%s\t%s" % (chr, int(row[0][2:]), row[1], roleID)
+			#print>>textFile, "%s\t%s\t%s\t%s" % (chr, int(row[0][2:]), row[1], roleID)
 			#print>>textFile, "%s %s %s" % (row[0][2:], row[1], roleID)
 			row=cursor.fetchone()
 			snpCount+=1
