@@ -16,7 +16,7 @@ allgroups = ["genes", "go", "kegg", "reactome", "netpath", "pfam", "dip", "biogr
 def GetEnsembl(bioDB, refreshEnsembl):
 	global ensembl
 	if ensembl == None:
-		ensembl = load_ensembl.EnsemblLoader(bioDB, 2)
+		ensembl = load_ensembl.EnsemblLoader(bioDB, 0)
 		if refreshEnsembl:
 			print "Refreshing"
 			ensembl.RefreshEnsemblDatabase()
@@ -30,6 +30,7 @@ def GetEnsembl(bioDB, refreshEnsembl):
 def LoadKB(dbFilename, kbLoads, doReset = False, refreshEnsembl = False):
 	global loadables
 	chromosomes = ('1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', 'X', 'Y', 'MT')
+	#chromosomes = ('22','MT')
 	bioDB = biosettings.BioSettings(dbFilename)
 	bioDB.OpenDB()
 	
@@ -43,7 +44,7 @@ def LoadKB(dbFilename, kbLoads, doReset = False, refreshEnsembl = False):
 	ncbiLoader = ncbi_loader.NCBI_Loader(bioDB)
 
 	if kbLoads[0] == "ALL":
-		kbLoads = allgroups
+		kbLoads = loadables
 		#refreshEnsembl = True
 
 	for kb in kbLoads:

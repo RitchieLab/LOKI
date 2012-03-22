@@ -109,7 +109,7 @@ class PFamLoader(bioloader.BioLoader):
 		seqFile				= self.FetchViaHTTP("ftp://ftp.sanger.ac.uk/pub/databases/Pfam/current_release/database_files/seq_info.txt.gz")
 		#seqFile				= "seq_info.txt.gz"
 		seqFile				= self._ExtractGZ(seqFile)
-		os.system("dos2unix %s" % (seqFile))
+		#os.system("dos2unix %s" % (seqFile))
 		
 		self.biosettings.PurgeGroupData(self.groupID)
 		for submeta in self.submetas:

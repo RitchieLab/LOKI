@@ -58,6 +58,7 @@ class EnsemblLoader(bioloader.BioLoader):
 		
 		
 		variationFiles = self.ListFtpFiles("%s/var*.txt.gz" % varPath)
+		variationFiles.append(self.ListFtpFiles("%s/seq*.txt.gz" % varPath))
 		varSQL = self.FTPFile(varPath + "/" + self.ListFtpFiles("%s/homo_sapiens_var*.sql.gz" % varPath)[0])
 		os.system("mkdir -p variation")
 		os.system("mkdir -p core")
@@ -149,20 +150,19 @@ class EnsemblLoader(bioloader.BioLoader):
 	def InitVariations(self, filename, chromosomes):
 		v = int(time.time())
 		d = datetime.datetime.now()
-		filename = "%s-ens.%s%02d%02d" % (filename, d.year, int(d.month), int(d.day))
+		#filename = "%s-ens.%s%02d%02d" % (filename, d.year, int(d.month), int(d.day))
 		print "Creating Variations File: %s" % (filename)
 		self.biosettings.SetVersion("variations", filename)
-		variations = open(filename, "wb")
-		snpLog = open("%s.txt" % (filename), "w")
+		f = open(os.path.join("..", filename), "wb")
+		snpLog = open(os.path.join("..", filename) + ".txt", "w")
 		
 		self.roles = dict()
 		print "Variation Filename: ", filename
-		file = open(filename, "wb")
 		#print>>sys.stderr, "Gathering Variation Data"
 		
-		file.write(struct.pack('I', v))
+		f.write(struct.pack('I', v))
 		for chrom in chromosomes:
-			self.WriteChromosome(file, chrom, snpLog)
+			self.WriteChromosome(f, chrom, snpLog)
 		
 		c= self.biosettings.db.cursor()
 		for role in self.roles:
@@ -197,7 +197,7 @@ WHERE a.name LIKE %s""", (self.coordinate, chrom, 'rs%'))
 			roles[row[1]] = (int(row[0][2:]), roleID)
 		return roles	
 	
-	def WriteChromosome(self, file, chrom, textFile):
+	def WriteChromosome(self, f, chrom, textFile):
 		cursor = self.ensembl.cursor()
 		#outCur = dest.OpenDB()
 		offset = 0
@@ -219,17 +219,19 @@ WHERE c.coord_system_id=%s
 GROUP BY c.name
 """, (self.coordinate, '^rs[0-9]+$', chrom))
 		row = cursor.fetchone()
-		chr = row[1]
-		if (len(chr) > 1):
-			file.write(chr[:2])
-		else:
-			file.write(chr)
-			file.write(' ')
-		file.write(struct.pack('II', row[0], row[2]))
-		#snpCount = row[0]
 		totalSNPs = 0
-		# Iterate over the return according to the step increments
-		cursor.execute("""
+		if row:
+			chr = row[1]
+			if (len(chr) > 1):
+				f.write(chr[:2])
+			else:
+				f.write(chr)
+				f.write(' ')
+			f.write(struct.pack('II', row[0], row[2]))
+			#snpCount = row[0]
+
+			# Iterate over the return according to the step increments
+			cursor.execute("""
 SELECT
   a.name as rs_id,
   seq_region_start AS position,
@@ -246,18 +248,18 @@ INNER JOIN (
   ON b.seq_region_id = c.seq_region_id
 WHERE a.name REGEXP %s
 """, (self.coordinate, chrom, '^rs[0-9]+$'))
-		offset += cursor.rowcount
-		row = cursor.fetchone()
-		snpCount = 0
-		while (row):
-			roleID = self.GetRoleID(row[2]);
-			#print "%s\t%s\t%s" % (chrom, row[0], row[1])
-			file.write(struct.pack('III', (int)(row[0][2:]), row[1], roleID))
-			#print>>textFile, "%s\t%s\t%s\t%s" % (chr, int(row[0][2:]), row[1], roleID)
-			#print>>textFile, "%s %s %s" % (row[0][2:], row[1], roleID)
-			row=cursor.fetchone()
-			snpCount+=1
-			totalSNPs+=1
+			offset += cursor.rowcount
+			row = cursor.fetchone()
+			snpCount = 0
+			while (row):
+				roleID = self.GetRoleID(row[2]);
+				#print "%s\t%s\t%s" % (chrom, row[0], row[1])
+				f.write(struct.pack('III', (int)(row[0][2:]), row[1], roleID))
+				#print>>textFile, "%s\t%s\t%s\t%s" % (chr, int(row[0][2:]), row[1], roleID)
+				#print>>textFile, "%s %s %s" % (row[0][2:], row[1], roleID)
+				row=cursor.fetchone()
+				snpCount+=1
+				totalSNPs+=1
 		print "Chromosome ", chrom, " completed. ", totalSNPs, " total variations written to file."
 		
 		self.biosettings.Commit()

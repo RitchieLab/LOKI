@@ -89,7 +89,7 @@ class KeggLoader(bioloader.BioLoader):
 				geneCount+=1
 			pathway.Commit(self.biosettings)
 			self.biosettings.RelatePathways(self.groupID, groupID, "", "")
-		print "Genes Identified: %s\nGenes unable to be inserted: %s\nTotal genes associated : %s" % (geneCount, failedInsertions, len(genes))
+		#print "Genes Identified: %s\nGenes unable to be inserted: %s\nTotal genes associated : %s" % (geneCount, failedInsertions, len(genes))
 
 if __name__ == '__main__':
 	filename = None

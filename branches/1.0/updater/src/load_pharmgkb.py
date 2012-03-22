@@ -265,8 +265,8 @@ class PharmGKBLoader(bioloader.BioLoader):
 		os.chdir("pharmgkb")
 
 
-		#files = self.DownloadFiles(["pathways-tsv.zip", "genes.zip", "diseases.zip", "drugs.zip", "relationships.zip"])
-		files = self.DontDownloadFiles(["pathways-tsv.zip", "genes.zip", "diseases.zip", "drugs.zip", "relationships.zip"])
+		files = self.DownloadFiles(["pathways-tsv.zip", "genes.zip", "diseases.zip", "drugs.zip", "relationships.zip"])
+		#files = self.DontDownloadFiles(["pathways-tsv.zip", "genes.zip", "diseases.zip", "drugs.zip", "relationships.zip"])
 		#localFilename = self.FetchViaHTTP("http://www.pharmgkb.org/commonFileDownload.action?filename=pathways-tsv.zip")
 
 		#os.system("unzip %s" % (localFilename))
@@ -275,17 +275,17 @@ class PharmGKBLoader(bioloader.BioLoader):
 		#filename = "pathways.tsv"
 
 		#if force or self.CheckTimestampAgainstServer(timestamp, self.groupID):
-		#self.biosettings.PurgeGroupData(self.groupID)
+		self.biosettings.PurgeGroupData(self.groupID)
 		#self.biosettings.CommitGroup(self.groupID, "PharmGKB", "PharmGKB", time.strftime("%Y-%M-%d %H:%M:%S", timestamp))
 		self.LoadPathways(files["pathways-tsv.zip"])
 
 		#Disease Related
-		#self.biosettings.PurgeGroupData(self.diseaseGroups.groupTypeID)
+		self.biosettings.PurgeGroupData(self.diseaseGroups.groupTypeID)
 		#Drug Related
-		#self.biosettings.PurgeGroupData(self.drugGroups.groupTypeID)
+		self.biosettings.PurgeGroupData(self.drugGroups.groupTypeID)
 
 		self.LoadGeneData(files["genes.zip"])
-		self.LoadDrugData(files["drugs.zip"])
+		#self.LoadDrugData(files["drugs.zip"])
 		self.LoadDiseaseData(files["diseases.zip"])
 
 		self.LoadRelationships(files["relationships.zip"])

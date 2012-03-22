@@ -44,7 +44,7 @@ class ReactomeEntity:
 	
 	def AddGene(self, gene_id):
 		"""Adds a gene to the gene_list associated directly with this entity."""
-		print "Adding gene (%s) to group (%s)" % (gene_id, self.name)
+		#print "Adding gene (%s) to group (%s)" % (gene_id, self.name)
 		self.genes.add(gene_id)
 	
 	def GetGenes(self, visited, entityLookup):
@@ -79,11 +79,12 @@ class ReactomeEntity:
 		
 		if doContinue:
 			if len(genes) == 0:
-				print "No genes associated with group %s (%s) of type %s" % (self.name, groupID, self.type)
+				pass
+				#print "No genes associated with group %s (%s) of type %s" % (self.name, groupID, self.type)
 			for gene in genes:
 				try:
 					cursor.execute("INSERT INTO group_associations VALUES (?,?)", (self.groupID, gene))
-					print "---", self.groupID, gene, self.name, self.type
+					#print "---", self.groupID, gene, self.name, self.type
 				except sqlite3.Error, e:
 						print e[0], typeID, self.groupID, gene
 		if doContinue:
@@ -104,14 +105,14 @@ class ReactomeEntity:
 				type = self.groupTypeID + 1
 				if self.type=="Reaction":
 					type+=1
-				print "CommitRelationships: %s (%s) %s->%s" % (self.name, self.type, self.groupID, type)
+				#print "CommitRelationships: %s (%s) %s->%s" % (self.name, self.type, self.groupID, type)
 				cursor.execute("INSERT INTO group_relationships VALUES (?,?,?,?)", (self.groupID, type, self.type, self.type))
-				print "INSERT INTO group_relationships VALUES (%s,%s,%s,%s)" % (self.groupID, type, self.type, self.type)
+				#print "INSERT INTO group_relationships VALUES (%s,%s,%s,%s)" % (self.groupID, type, self.type, self.type)
 			except sqlite3.Error, e:
 				print e[0], self.groupID, self.groupID
 		for parent in self.parents:
 			try:
-				print "CommitRelationships: %s (%s) %s->%s" % (self.name, self.type, self.groupID, entityLookup[parent.id].groupID)
+				#print "CommitRelationships: %s (%s) %s->%s" % (self.name, self.type, self.groupID, entityLookup[parent.id].groupID)
 				cursor.execute("INSERT INTO group_relationships VALUES (?,?,?,?)", (self.groupID, entityLookup[parent.id].groupID, self.type, entityLookup[parent.id].type))
 			except sqlite3.Error, e:
 				print e[0], self.groupID, entityLookup[parent.id].groupID
