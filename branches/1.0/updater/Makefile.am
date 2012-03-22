@@ -34,10 +34,15 @@ nodist_data_DATA=knowledge.bio variations variations.txt
 
 knowledge.bio:
 
+variations:
+
+variations.txt:
+
 install-data: pre-install-data
 
 pre-install-data:
 	rm -rf knowledge.bio
 	$(LOKI_CMDS)
+	chmod a-wx knowledge.bio variations variations.txt
 
 
