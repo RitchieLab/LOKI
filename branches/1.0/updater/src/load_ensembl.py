@@ -32,7 +32,7 @@ class EnsemblLoader(bioloader.BioLoader):
 		#TODO: fix ensembl refresh with configurable database settings
 		#pass
 		
-		print "Refreshing Ensembl Database"
+		#print "Refreshing Ensembl Database"
 		cwd = os.getcwd()
 		os.system("mkdir -p ensembl")
 		os.chdir("ensembl")
@@ -54,25 +54,25 @@ class EnsemblLoader(bioloader.BioLoader):
 		self.version = pieces[len(pieces)-2]
 		self.ncbiVersion = pieces[-1]
 		
-		print "Ensembl Version: %s\tNCBI Version: %s" % (self.version, self.ncbiVersion)
+		#print "Ensembl Version: %s\tNCBI Version: %s" % (self.version, self.ncbiVersion)
 		
 		
 		variationFiles = self.ListFtpFiles("%s/var*.txt.gz" % varPath)
-		variationFiles.append(self.ListFtpFiles("%s/seq*.txt.gz" % varPath))
+		variationFiles.extend(self.ListFtpFiles("%s/seq*.txt.gz" % varPath))
 		varSQL = self.FTPFile(varPath + "/" + self.ListFtpFiles("%s/homo_sapiens_var*.sql.gz" % varPath)[0])
 		os.system("mkdir -p variation")
 		os.system("mkdir -p core")
 		
 		for v_file in variationFiles:
-			localFile = self.FTPFile("%s/%s"% (varPath, v_file))
-			os.system("mv %s variation/%s_%s" % (localFile, variation_prefix, localFile))
+			localFile = self.FTPFile("%s/%s"% (varPath, v_file), variation_prefix + "_")
+			os.system("mv %s variation" % (localFile,))
 		
 		coreFiles = self.ListFtpFiles("%s/[egostux]*.txt.gz" % corePath)
 		coreSQL = self.FTPFile(corePath + "/" + self.ListFtpFiles("%s/homo_sapiens_core*.sql.gz" % corePath)[0])
 		
 		for c_file in coreFiles:
-			localFile = self.FTPFile("%s/%s"% (corePath, c_file))
-			os.system("mv %s core/%s_%s" % (localFile, core_prefix, localFile))
+			localFile = self.FTPFile("%s/%s"% (corePath, c_file), core_prefix + "_")
+			os.system("mv %s core/" % (localFile,))
 		
 
 		# We're going to fix up the SQL to prefix the table names appropriately
@@ -151,13 +151,13 @@ class EnsemblLoader(bioloader.BioLoader):
 		v = int(time.time())
 		d = datetime.datetime.now()
 		#filename = "%s-ens.%s%02d%02d" % (filename, d.year, int(d.month), int(d.day))
-		print "Creating Variations File: %s" % (filename)
+		#print "Creating Variations File: %s" % (filename)
 		self.biosettings.SetVersion("variations", filename)
 		f = open(os.path.join("..", filename), "wb")
 		snpLog = open(os.path.join("..", filename) + ".txt", "w")
 		
 		self.roles = dict()
-		print "Variation Filename: ", filename
+		#print "Variation Filename: ", filename
 		#print>>sys.stderr, "Gathering Variation Data"
 		
 		f.write(struct.pack('I', v))
@@ -198,10 +198,11 @@ WHERE a.name LIKE %s""", (self.coordinate, chrom, 'rs%'))
 		return roles	
 	
 	def WriteChromosome(self, f, chrom, textFile):
+		print "\tFinding Variants for chomosome %s." % (chrom,),
 		cursor = self.ensembl.cursor()
 		#outCur = dest.OpenDB()
 		offset = 0
-				
+
 		#Table of Contents for the variations
 		cursor.execute("""
 SELECT
@@ -260,7 +261,7 @@ WHERE a.name REGEXP %s
 				row=cursor.fetchone()
 				snpCount+=1
 				totalSNPs+=1
-		print "Chromosome ", chrom, " completed. ", totalSNPs, " total variations written to file."
+		print "Complete;", totalSNPs, " total variations written to file."
 		
 		self.biosettings.Commit()
 		cursor.close()

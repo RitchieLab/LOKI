@@ -28,7 +28,7 @@ class ChainLoader(bioloader.BioLoader):
 		for file in targetFiles:
 			filename					= self.FetchViaHTTP(file)
 			filename					= self._ExtractGZ(filename)
-			print "filename: ", filename
+			#print "filename: ", filename
 			origAssembly			= filename.split("To")[0][2:]
 			f							= open(filename).read()
 			chains					= f.split("chain")

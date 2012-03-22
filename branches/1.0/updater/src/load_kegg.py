@@ -73,11 +73,11 @@ class KeggLoader(bioloader.BioLoader):
 				gene = geneHSA[4:]
 				geneIDs = self.biosettings.regions.AliasToGeneID([gene])
 				if len(geneIDs) == 0:
-					print "-----(%s, %s)\tUnable to recognize gene" % (gene, geneHSA)
+					#print "-----(%s, %s)\tUnable to recognize gene" % (gene, geneHSA)
 					failedInsertions+=1
 				elif len(geneIDs) != 1:
 					failedInsertions+=1
-					print "-----(%s,%s)\tUnable to disambiguate gene ID (%s distinct ids) " % (gene, geneHSA, len(geneIDs))
+					#print "-----(%s,%s)\tUnable to disambiguate gene ID (%s distinct ids) " % (gene, geneHSA, len(geneIDs))
 				else:
 					genes.add(geneIDs[0])
 			

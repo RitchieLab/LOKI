@@ -219,7 +219,8 @@ class RegionManager:
 				self.aliases[aliasTypeID][alias] = set()
 			self.aliases[aliasTypeID][alias].add(int(geneID))
 		else:
-			print "Skipping alias: %s -> %s" % (geneID, alias)
+			pass
+			#print "Skipping alias: %s -> %s" % (geneID, alias)
 	
 	def AddAliasToEnsemblID(self, alias, ensemblID, type):
 		if ensemblID in self.genes:
@@ -324,12 +325,12 @@ ORDER BY e.external_db_id, e.dbprimary_acc""", (chromosome, 2))
 					for id in geneIDs:
 						self.AddAlias(dbID, name, id)
 		
-		print "Chromosome :  %s" % (chromosome)
-		print "\tNew Genes: %s (out of %s)" % (geneCount, totalGenes)
-		print "\tStubs IDd: %s (out of %s)" % (stubCount, totalStubs)
-		print "\tEnsembl  : %s" % (ensemblUpdate)
-		print "\tUpdated  : %s" % (totalUpdates)
-		print "\tSkipped  : %s" % (totalSkipped)
+		print "\tLoaded Chromosome %s" % (chromosome)
+		#print "\tNew Genes: %s (out of %s)" % (geneCount, totalGenes)
+		#print "\tStubs IDd: %s (out of %s)" % (stubCount, totalStubs)
+		#print "\tEnsembl  : %s" % (ensemblUpdate)
+		#print "\tUpdated  : %s" % (totalUpdates)
+		#print "\tSkipped  : %s" % (totalSkipped)
 	
 	def LoadGenesOnChromosome2(self, chromosome, c):
 		csel = "c"+str(chromosome)+"_%"
@@ -494,7 +495,8 @@ GROUP BY b.gene_id""", (chromosome, 2))
 			#	print "%s aliases loaded from DB %s" % (len(self.aliases[type]), type)
 			
 		else:
-			print "Aliases already loaded"
+			pass
+			#print "Aliases already loaded"
 		
 		cursor										= db.cursor()
 	
@@ -516,16 +518,16 @@ GROUP BY b.gene_id""", (chromosome, 2))
 			cur.execute("DELETE FROM region_bounds")
 			cur.execute("DELETE FROM populations")
 			
-			print "Commiting data to database"
+			#print "Commiting data to database"
 			#alias types
 			cur.execute("INSERT INTO populations(population_id, population_label, pop_ld_comment, pop_description) VALUES (0, 'NO-LD', 'No LD', 'Gene Boundaries represent those described by entrez gene')")
 			
-			print "%s Alias Types" % (len(aliasTypeIDs))
+			#print "%s Alias Types" % (len(aliasTypeIDs))
 			for aliasType in aliasTypeIDs:
 				cur.execute("INSERT INTO region_alias_type(region_alias_type_id, region_alias_type_desc) VALUES (?, ?)", (aliasType, aliasTypeIDs[aliasType]))
 			
 			redirectedGeneCount				= 0
-			print "%s Genes" % (len(self.genes))
+			#print "%s Genes" % (len(self.genes))
 			#This takes care of regions and region_bounds
 			for gene in self.genes:
 				gene = int(gene)
@@ -533,12 +535,12 @@ GROUP BY b.gene_id""", (chromosome, 2))
 					primaryName				= self.genes[gene].primaryName
 					if primaryName in self.primaryNames and len(self.primaryNames[primaryName]) > 1:
 						if self.genes[gene].hgnc == 0:
-							print "Resetting primary name (%s : %s) due to collision: Other values (%s)" % (primaryName, gene, self.primaryNames[primaryName])
+							#print "Resetting primary name (%s : %s) due to collision: Other values (%s)" % (primaryName, gene, self.primaryNames[primaryName])
 							self.genes[gene].primaryName = self.genes[gene].geneID
 					self.genes[gene].Commit(dest, self.aliases)
 				else:
 					redirectedGeneCount += 1
-			print "Skipping commit of %s genes due to it's presence as a redirected gene ID" % (redirectedGeneCount)
+			#print "Skipping commit of %s genes due to it's presence as a redirected gene ID" % (redirectedGeneCount)
 			
 			for oldID in self.historic:
 				newID = self.historic[oldID]
@@ -596,6 +598,6 @@ GROUP BY b.gene_id""", (chromosome, 2))
 						#	notsingularEnsembl += 1
 					else:
 						primaryOverlaps += 1
-				print "Comitting Aliases: %s : %s (%s, %s) out of %s" % (aliasType, aliasesCommited, notsingularEnsembl, primaryOverlaps, len(self.aliases[aliasType]))
+				#print "Comitting Aliases: %s : %s (%s, %s) out of %s" % (aliasType, aliasesCommited, notsingularEnsembl, primaryOverlaps, len(self.aliases[aliasType]))
 			
 			dest.commit()

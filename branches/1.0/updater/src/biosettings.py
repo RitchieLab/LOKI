@@ -78,7 +78,8 @@ class BioSettings:
 			cur.execute("INSERT INTO group_type (group_type_id, role_id, group_type, download_date) VALUES (?,?,?,?)", (typeID, roleID, name, timestamp))
 			cur.execute("INSERT INTO groups (group_type_id, group_id, group_name, group_desc) VALUES (?,?,?,?)", (typeID, typeID, name, ""))
 		except sqlite3.Error, e:
-			print "Insertion error: ", e[0]
+			pass
+			#print "Insertion error: ", e[0]
 
 	def CommitPathway(self, typeID, groupID, name, desc):
 		cur		= self.GetCursor()
@@ -89,8 +90,9 @@ class BioSettings:
 			cur.execute("INSERT INTO groups (group_type_id, group_id, group_name, group_desc) VALUES (?,?,?,?)", (typeID, groupID, name, desc))
 			#print "INSERT INTO groups (group_type_id, group_id, group_name, group_desc) VALUES (%s,%s,%s,%s)" % (typeID, groupID, name, desc)
 		except sqlite3.Error, e:
-			print "INSERT INTO groups (group_type_id,group_id, group_name, group_desc) VALUES (%s,%s,%s,%s)" % (typeID, groupID, name, desc)
-			print "Insertion error: ", e[0]
+			pass
+			#print "INSERT INTO groups (group_type_id,group_id, group_name, group_desc) VALUES (%s,%s,%s,%s)" % (typeID, groupID, name, desc)
+			#print "Insertion error: ", e[0]
 			#self.Commit()
 			#raise
 			
@@ -100,9 +102,10 @@ class BioSettings:
 		try:
 			cur.execute("INSERT INTO group_associations (group_id, gene_id) VALUES (?,?)", (groupID, geneID))
 		except sqlite3.Error, e:
-			print "SQL Error: INSERT INTO group_associations (group_id, gene_id) VALUES (?,?)", (groupID, geneID)
-			print e[0]
-			sys.exit(1)
+			pass
+			#print "SQL Error: INSERT INTO group_associations (group_id, gene_id) VALUES (?,?)", (groupID, geneID)
+			#print e[0]
+			#sys.exit(1)
 		#print "INSERT INTO group_Associations (group_id, gene_id) VALUES (%s,%s)" % (groupID, geneID)
 		
 	def RelatePathways(self, parentID, childID, relationship, relationshipDesc):
@@ -113,8 +116,9 @@ class BioSettings:
 		try:
 			cur.execute("INSERT INTO group_relationships (child_id, parent_id, relationship, relationship_description) VALUES (?,?,?,?)", (childID, parentID, relationship, relationshipDesc))
 		except sqlite3.Error, e:
-			print "INSERT INTO group_relationships (child_id, parent_id, relationship, relationship_description) VALUES (%s,%s,%s,%s)" % (childID, parentID, relationship, relationshipDesc)
-			print "Insertion error: ", e[0]
+			pass
+			#print "INSERT INTO group_relationships (child_id, parent_id, relationship, relationship_description) VALUES (%s,%s,%s,%s)" % (childID, parentID, relationship, relationshipDesc)
+			#print "Insertion error: ", e[0]
 			#raise
 	
 	def AddAlias(self, alias, geneID, typeID, label="", desc=""):

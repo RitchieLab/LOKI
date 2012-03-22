@@ -75,7 +75,8 @@ class ReactomeEntity:
 			cursor.execute("INSERT INTO groups VALUES (?,?,?,?)", (self.groupTypeID, groupID, self.name, "%s-%s" % (self.type, self.desc)))
 			doContinue=True
 		except sqlite3.Error, e:
-				print e[0], typeID, self.groupID, self.name, self.desc
+			pass
+			#print e[0], typeID, self.groupID, self.name, self.desc
 		
 		if doContinue:
 			if len(genes) == 0:
@@ -86,7 +87,8 @@ class ReactomeEntity:
 					cursor.execute("INSERT INTO group_associations VALUES (?,?)", (self.groupID, gene))
 					#print "---", self.groupID, gene, self.name, self.type
 				except sqlite3.Error, e:
-						print e[0], typeID, self.groupID, gene
+					pass
+					#print e[0], typeID, self.groupID, gene
 		if doContinue:
 			return groupID +1
 		else:
@@ -109,13 +111,15 @@ class ReactomeEntity:
 				cursor.execute("INSERT INTO group_relationships VALUES (?,?,?,?)", (self.groupID, type, self.type, self.type))
 				#print "INSERT INTO group_relationships VALUES (%s,%s,%s,%s)" % (self.groupID, type, self.type, self.type)
 			except sqlite3.Error, e:
-				print e[0], self.groupID, self.groupID
+				pass
+				#print e[0], self.groupID, self.groupID
 		for parent in self.parents:
 			try:
 				#print "CommitRelationships: %s (%s) %s->%s" % (self.name, self.type, self.groupID, entityLookup[parent.id].groupID)
 				cursor.execute("INSERT INTO group_relationships VALUES (?,?,?,?)", (self.groupID, entityLookup[parent.id].groupID, self.type, entityLookup[parent.id].type))
 			except sqlite3.Error, e:
-				print e[0], self.groupID, entityLookup[parent.id].groupID
+				pass
+				#print e[0], self.groupID, entityLookup[parent.id].groupID
 	
 	def Print(self, indentionLevel, visited):
 		"""Display contents. indentionLevel allows N tabs, visited allows us to avoid recursive loops""" 
@@ -189,7 +193,7 @@ class ReactomeLoader(bioloader.BioLoader):
 				self.entityLookup[entityID].AddParent(self.entityLookup[dbID])
 				associationsMade+=1
 		report = ' ' * (10-len(str(associationsMade))) + str(associationsMade) + " out of "  + ' ' * (10-len(str(len(rows)))) + str(len(rows))
-		print "%s associations made -- EWAS " %(report)
+		#print "%s associations made -- EWAS " %(report)
 	
 	def LoadCatalystActivities(self, cursor):
 		"""Catalyst Activity table is different from most of the others, and has it's links built in (1 to 1 relationship, apparently)"""
@@ -206,7 +210,7 @@ class ReactomeLoader(bioloader.BioLoader):
 				self.entityLookup[entityID].AddParent(self.entityLookup[dbID])
 				associationsMade+=1
 		report = ' ' * (10-len(str(associationsMade))) + str(associationsMade) + " out of "  + ' ' * (10-len(str(len(rows)))) + str(len(rows))
-		print "%s associations made -- CatalystActivity " %(report)
+		#print "%s associations made -- CatalystActivity " %(report)
 	
 	def LoadEWAS(self, cursor):
 		"""Entity w Accession Seq table is different from most of the others, and has it's links built in (1 to 1 relationship, apparently)"""
@@ -223,7 +227,7 @@ class ReactomeLoader(bioloader.BioLoader):
 				self.entityLookup[entityID].AddParent(self.entityLookup[dbID])
 				associationsMade+=1
 		report = ' ' * (10-len(str(associationsMade))) + str(associationsMade) + " out of "  + ' ' * (10-len(str(len(rows)))) + str(len(rows))
-		print "%s associations made -- EWAS " %(report)
+		#print "%s associations made -- EWAS " %(report)
 	
 	def LoadCatalystActivities(self, cursor):
 		"""Catalyst Activity table is different from most of the others, and has it's links built in (1 to 1 relationship, apparently)"""
@@ -240,7 +244,7 @@ class ReactomeLoader(bioloader.BioLoader):
 				self.entityLookup[entityID].AddParent(self.entityLookup[dbID])
 				associationsMade+=1
 		report = ' ' * (10-len(str(associationsMade))) + str(associationsMade) + " out of "  + ' ' * (10-len(str(len(rows)))) + str(len(rows))
-		print "%s associations made -- CatalystActivity " %(report)
+		#print "%s associations made -- CatalystActivity " %(report)
 	
 	def LoadAssociation(self, dbCursor, tableName):
 		sql = "SELECT * FROM %s" % tableName
@@ -260,7 +264,7 @@ class ReactomeLoader(bioloader.BioLoader):
 						self.entityLookup[row[2]].AddParent(self.entityLookup[dbID])
 						associationsMade+=1
 		report = ' ' * (10-len(str(associationsMade))) + str(associationsMade) + " out of "  + ' ' * (10-len(str(len(rows)))) + str(len(rows))
-		print "%s associations made -- %s " %(report, tableName)		
+		#print "%s associations made -- %s " %(report, tableName)		
 	
 	def LoadReferencePeptideToGene(self, cursor):
 		sql = """SELECT DISTINCT a.DB_ID, c.identifier , d.name
@@ -282,11 +286,12 @@ class ReactomeLoader(bioloader.BioLoader):
 			if dbID in self.entityLookup:
 				if entrezID in self.biosettings.regions.genes:
 					gene							= self.biosettings.regions.genes[entrezID]
-					print "This is the gene we found: ", gene.Print(sys.stderr)
-					print "Not skipping geneID: ", entrezID, "-->", gene.geneID, " -- ", row
+					#print "This is the gene we found: ", gene.Print(sys.stderr)
+					#print "Not skipping geneID: ", entrezID, "-->", gene.geneID, " -- ", row
 					self.entityLookup[dbID].AddGene(gene.geneID)
 				else:
-					print "Skipping geneID: ", entrezID, " (", len(self.biosettings.regions.genes), ") genes"
+					pass
+					#print "Skipping geneID: ", entrezID, " (", len(self.biosettings.regions.genes), ") genes"
 			else:
 				if superDebug:
 					print "Can't find, ", dbID
@@ -302,7 +307,7 @@ class ReactomeLoader(bioloader.BioLoader):
 		rows = dbCursor.fetchall()
 		
 		if len(rows) == 0:
-			print tableName, "...............Returned an empty set. Trying a simpler query"
+			#print tableName, "...............Returned an empty set. Trying a simpler query"
 			self.LoadSimpleBaseEntity(dbCursor, tableName)
 		for row in rows:
 			if row[0] in self.entityLookup:

@@ -48,7 +48,7 @@ class MintLoader(bioloader.BioLoader):
 
 		#v 						= filename.split("/")[-1].split(".")[0][18:len(filename)-4]
 		self.biosettings.SetVersion("mint", v)
-		print "Downloading file, ", filename
+		#print "\tDownloading file, ", filename
 		filename	 				= self.FetchViaHTTP("ftp://mint.bio.uniroma2.it/pub/release/mitab26/current/%s" % filename)
 
 		timestamp					= time.localtime(time.time())
@@ -64,12 +64,12 @@ class MintLoader(bioloader.BioLoader):
 			else:
 				failures += 1
 
-		print "Missing UniProt IDs:"
-		print "\t%s" % (",".join(self.missingUni))
-		print "Ambiguous UniProt IDs:"
-		print "\t%s" % (",".join(self.ambiguousUni))
-		print "DIP Groups Committed: %s" % (success)
-		print "DIP Groups Failed: %s" % (failures)
+		#print "Missing UniProt IDs:"
+		#print "\t%s" % (",".join(self.missingUni))
+		#print "Ambiguous UniProt IDs:"
+		#print "\t%s" % (",".join(self.ambiguousUni))
+		#print "DIP Groups Committed: %s" % (success)
+		#print "DIP Groups Failed: %s" % (failures)
 
 		self.biosettings.Commit()
 		os.chdir(cwd)

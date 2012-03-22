@@ -18,19 +18,20 @@ def GetEnsembl(bioDB, refreshEnsembl):
 	if ensembl == None:
 		ensembl = load_ensembl.EnsemblLoader(bioDB, 0)
 		if refreshEnsembl:
-			print "Refreshing"
+			print "Refreshing Ensembl Database"
 			ensembl.RefreshEnsemblDatabase()
 		else:
-			print "Not refreshing"
+			pass
+			#print "Not refreshing"
 		ensembl.ConnectToEnsemblDB()
 	else:
-		print "--Ensembl Reused"
+		pass
+		#print "--Ensembl Reused"
 	return ensembl
 
 def LoadKB(dbFilename, kbLoads, doReset = False, refreshEnsembl = False):
 	global loadables
 	chromosomes = ('1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', 'X', 'Y', 'MT')
-	#chromosomes = ('22','MT')
 	bioDB = biosettings.BioSettings(dbFilename)
 	bioDB.OpenDB()
 	
@@ -45,11 +46,12 @@ def LoadKB(dbFilename, kbLoads, doReset = False, refreshEnsembl = False):
 
 	if kbLoads[0] == "ALL":
 		kbLoads = loadables
-		#refreshEnsembl = True
+		ensembl = GetEnsembl(bioDB, True)
 
 	for kb in kbLoads:
 		kb = kb.strip().lower()
 		if kb == "snps":
+			print "Loading SNPs"
 			ncbiLoader.InitLog("snps.log")
 			cwd = os.getcwd()
 			ensembl = GetEnsembl(bioDB, refreshEnsembl)
@@ -60,22 +62,26 @@ def LoadKB(dbFilename, kbLoads, doReset = False, refreshEnsembl = False):
 			ensembl.InitVariations("variations", chromosomes)
 			ncbiLoader.CloseLog()
 		elif kb == "genes":
+			print "Loading Genes"
 			ncbiLoader.InitLog("genes.log")
 			ensembl = GetEnsembl(bioDB, refreshEnsembl)
 			#ensembl.ConnectToEnsemblDB(bioDB)
 			ncbiLoader.UpdateGenes(ensembl, chromosomes)
 			ncbiLoader.CloseLog()
 		elif kb == "go":
+			print "Loading GO"
 			loader = load_go.GoLoader(bioDB)
 			loader.InitLog()
 			loader.Load()
 			loader.CloseLog()
 		elif kb == "kegg":
+			print "Loading KEGG"
 			loader = load_kegg.KeggLoader(bioDB)
 			loader.InitLog()
 			loader.Load()
 			loader.CloseLog()
 		elif kb == "reactome":
+			print "Loading Reactome"
 			loader = load_reactome.ReactomeLoader(bioDB)
 			loader.InitLog()
 			ensembl = GetEnsembl(bioDB, refreshEnsembl)
@@ -87,29 +93,34 @@ def LoadKB(dbFilename, kbLoads, doReset = False, refreshEnsembl = False):
 			bioDB.Commit()
 			loader.CloseLog()
 		elif kb == "netpath":
+			print "Loading Netpath"
 			loader = load_netpath.NetPathLoader(bioDB)
 			loader.InitLog()
 			loader.Load(False)
 			loader.CloseLog()
 		elif kb == "pfam":
+			print "Loading PFAM"
 			loader = load_pfam.PFamLoader(bioDB)
 			loader.InitLog()
 			loader.Load()
 			bioDB.Commit()
 			loader.CloseLog()
 		elif kb == "dip":
+			print "Loading DIP -- DISABLED"
 			loader = load_dip.DIPLoader(bioDB)
 			loader.InitLog()
 			#loader.Load()
 			#bioDB.Commit()
 			loader.CloseLog()
 		elif kb == "mint":
+			print "Loading MINT"
 			loader = load_mint.MintLoader(bioDB)
 			loader.InitLog()
 			loader.Load()
 			bioDB.Commit()
 			loader.CloseLog()
 		elif kb == "biogrid":	
+			print "Loading Biogrid"
 			loader = load_biogrid.BioGridLoader(bioDB)
 			loader.InitLog()
 			loader.Load()
@@ -120,7 +131,7 @@ def LoadKB(dbFilename, kbLoads, doReset = False, refreshEnsembl = False):
 			loader = load_pharmgkb.PharmGKBLoader(bioDB)
 			loader.InitLog()
 			loader.Load()
-			print "Attempting to Commit the data"
+			#print "Attempting to Commit the data"
 			loader.Commit()
 			bioDB.Commit()
 			loader.CloseLog()
@@ -160,10 +171,10 @@ def RunCommands(configFilename):
 			elif words[0].strip().lower() == "refresh_ensembl":
 				refreshEnsembl = True
 
-	if refreshEnsembl:
-		print "Refreshing Ensembl"
-	else:
-		print "Reusing Ensembl DB"
+	#if refreshEnsembl:
+	#	print "Refreshing Ensembl"
+	#else:
+	#	print "Reusing Ensembl DB"
 	LoadKB(dbFilename, kbLoads, doReset, refreshEnsembl)
 
 if __name__ == '__main__':

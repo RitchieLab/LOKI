@@ -52,19 +52,19 @@ class BioGridLoader(bioloader.BioLoader):
 			
 			success						= 0
 			failures					= 0
-			print "Loading BioGrid Data from file, %s" % filename[0]
+			#print "Loading BioGrid Data from file, %s" % filename[0]
 			for line in open(filename[0]):
 				if self.LoadAssociation(line):
 					success += 1
 				else:
 					failures += 1
 	
-			print "Missing Entrez IDs:"
-			print "\t%s" % (",".join(["%s"%s for s in self.missing]))
-			print "Ambiguous Entrez IDs:"
-			print "\t%s" % (",".join(["%s"%s for s in self.ambiguous]))
-			print "DIP Groups Committed: %s" % (success)
-			print "DIP Groups Failed: %s" % (failures)
+			#print "Missing Entrez IDs:"
+			#print "\t%s" % (",".join(["%s"%s for s in self.missing]))
+			#print "Ambiguous Entrez IDs:"
+			#print "\t%s" % (",".join(["%s"%s for s in self.ambiguous]))
+			#print "DIP Groups Committed: %s" % (success)
+			#print "DIP Groups Failed: %s" % (failures)
 	
 			self.biosettings.Commit()
 		else:
@@ -103,7 +103,8 @@ class BioGridLoader(bioloader.BioLoader):
 			#else:
 			#	print "Unknown tax ID: ", taxA, taxB
 		else:
-			print "Unable to find one or more genes (%s, %s) in %s total genes" % (geneA, geneB, len(self.biosettings.regions.genes))
+			pass
+			#print "Unable to find one or more genes (%s, %s) in %s total genes" % (geneA, geneB, len(self.biosettings.regions.genes))
 		return success
 	def Commit(self):
 		self.biosettings.Commit()

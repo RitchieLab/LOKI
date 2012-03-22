@@ -132,9 +132,9 @@ class BioLoader:
 		self.remoteTimestamp = time.strptime(date, "%Y-%m-%d")
 	
 	def FetchViaHTTP(self, filename):
-		print>>sys.stderr, "Fetching %s" % filename
+		print>>sys.stderr, "\tFetching %s" % filename
 		#os.system("wget -Nq %s" % (filename))
-		os.system("curl -OL %s" % (filename))
+		os.system("curl -s -OL %s" % (filename))
 		localFilename = filename.split("/")[len(filename.split("/"))-1]
 		#print>>sys.stderr, "Local filename: %s "% (localFilename)
 		os.system("chmod 666 %s" % (localFilename))
@@ -181,7 +181,7 @@ class BioLoader:
 				print e
 				print filename
 			except ftplib.error_temp, e:
-				print "Trying to reconnect..."
+				#print "Trying to reconnect..."
 				self.OpenFTP(self.ftp.host, self.ftp_user, self.ftp_pass)
 		return self.remoteTimestamp
 	
@@ -198,8 +198,8 @@ class BioLoader:
 			print "Unable to understand how to extract (%s) files from: %s" % (ext, filename)
 		return localFilename
 	
-	def FTPFile(self, filename):
-		localFilename = os.path.basename(filename)
+	def FTPFile(self, filename, prefix=""):
+		localFilename = prefix + os.path.basename(filename)
 		if self.localdir != ".":
 			localFilename = os.path.join(self.localdir, localFilename)
 			
@@ -215,11 +215,14 @@ class BioLoader:
 		except os.error, e:
 			pass
 		
+		print "\tFetching ftp://%s/%s" % (self.ftp.host,filename)
+		
 		if downloadFile:
-			print "RETR %s (-> %s)" % (filename, localFilename)
+			#print "RETR %s (-> %s)" % (filename, localFilename)
 			self.ftp.retrbinary('RETR %s' % filename, open(localFilename, 'wb').write)
 		else:
-			print "-> %s (Skipping Download)" % (localFilename)
+			pass
+			#print "-> %s (Skipping Download)" % (localFilename)
 			
 		if ext == ".tgz":
 			localFilename = self._Extract(localFilename, "tar -zxvf %s")
@@ -238,7 +241,7 @@ class BioLoader:
 		
 		while not isDone:
 			try:
-				print "Opening FTP site: %s" % (url)
+				#print "Opening FTP site: %s" % (url)
 				self.ftp = ftplib.FTP(url, timeout=3000)
 				self.ftp.login(u, p)
 				self.ftp_user = u

@@ -122,7 +122,7 @@ class GoLoader(bioloader.BioLoader):
 		self.terms					= dict() #term_id -> GoTerm
 
 	def ParseOntologies(self, filename):
-		print "Loading GO Ontologies"
+		#print "Loading GO Ontologies"
 		reader = open(filename, "r")
 		#relationship = OntologyTerm()
 		#print "Reading ontology file, ", filename
@@ -135,7 +135,7 @@ class GoLoader(bioloader.BioLoader):
 				self.terms[goGroup.term_id].ParseOntology(goGroup, self.terms)
 			entityCount+=1
 		
-		print "\r....Completed...", entityCount, " Terms found."		
+		#print "\r....Completed...", entityCount, " Terms found."		
 	
 	def LoadGeneAssociation(self, line):
 		words = line .split('\t')
@@ -170,11 +170,11 @@ class GoLoader(bioloader.BioLoader):
 			else:
 				self.terms[term_id].AddUnknownAssociation(geneLabel, protein)
 				if len(geneIDs) == 0:
-					print "-----(%s, %s)\tUnable to recognize gene (%s)" % (geneLabel, term_id, words[12].strip())
+					#print "-----(%s, %s)\tUnable to recognize gene (%s)" % (geneLabel, term_id, words[12].strip())
 					failedInsertions+=1
 				elif len(geneIDs) != 1:
 					failedInsertions+=1
-					print "-----(%s,%s)\tUnable to disambiguate gene ID (%s distinct ids) " % (geneLabel, term_id, len(geneIDs))
+					#print "-----(%s,%s)\tUnable to disambiguate gene ID (%s distinct ids) " % (geneLabel, term_id, len(geneIDs))
 		
 	def Commit(self):
 		for term in self.terms:

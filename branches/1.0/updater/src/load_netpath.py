@@ -25,7 +25,7 @@ class NetPathLoader(bioloader.BioLoader):
 		os.chdir("netpath")
 
 		localFilename = self.FetchViaHTTP("http://www.netpath.org/data/batch/NetPath_GeneReg_TSV.zip")
-		os.system("unzip %s -d netpath" % (localFilename))
+		os.system("unzip -qq %s -d netpath" % (localFilename))
 		
 		dataFiles					= []
 		files						= os.listdir('netpath')
@@ -72,9 +72,11 @@ class NetPathLoader(bioloader.BioLoader):
 						pathway.AddGene(geneIDs.pop())
 						geneCount+=1
 					else:
-						print "-----(%s,%s)\tUnable to disambiguate gene ID (%s distinct ids) " % (geneName, entrezID, len(geneIDs))
+						pass
+						#print "-----(%s,%s)\tUnable to disambiguate gene ID (%s distinct ids) " % (geneName, entrezID, len(geneIDs))
 				else:
-					print "-----(%s,%s)\tUnable to recognize gene" % (entrezID, geneName)
+					pass
+					#print "-----(%s,%s)\tUnable to recognize gene" % (entrezID, geneName)
 					genesMissed+=1
 			lineCount+=1
 			

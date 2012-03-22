@@ -286,9 +286,9 @@ class PharmGKBLoader(bioloader.BioLoader):
 
 		self.LoadGeneData(files["genes.zip"])
 		#self.LoadDrugData(files["drugs.zip"])
-		self.LoadDiseaseData(files["diseases.zip"])
+		#self.LoadDiseaseData(files["diseases.zip"])
 
-		self.LoadRelationships(files["relationships.zip"])
+		#self.LoadRelationships(files["relationships.zip"])
 
 		os.chdir(cwd)
 

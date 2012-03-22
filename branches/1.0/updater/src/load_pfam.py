@@ -70,7 +70,7 @@ class PFamLoader(bioloader.BioLoader):
 	#pfamA_acc		Column 0
 	#pfamseq_acc	Column 6
 	def LoadAssociations(self, filename):
-		print "Loading associations from file, ", filename
+		#print "Loading associations from file, ", filename
 		errReport = open("%s.errors" % (filename), "w")
 		reader = csv.reader(open(filename,"rU"), delimiter='\t', quotechar="'")
 		for cleanWords in reader:

@@ -54,7 +54,7 @@ class NCBI_Loader(bioloader.BioLoader):
 						#We'll try to pull these items out of ensembl
 						self.biosettings.regions.AddEntrezStub(geneID, accID, proteinAcc)
 			linecount+=1
-		print "%s - %s" % (validGeneCount, filename)
+		#print "%s - %s" % (validGeneCount, filename)
 
 	def ParseGeneinfo(self, geneinfo):
 		linecount = 0
@@ -202,8 +202,8 @@ class NCBI_Loader(bioloader.BioLoader):
 		geneinfo = self._ExtractGZ(geneinfo)
 		#gene2ensembl				= self.FetchViaHTTP("ftp://ftp.ncbi.nlm.nih.gov/gene/DATA/gene2ensembl.gz")
 		#gene2ensembl				= self._ExtractGZ(gene2ensembl)
-		print "Gene To Refseq: %s" % (refseq)
-		print "Gene Info:      %s" % (geneinfo)
+		# "Gene To Refseq: %s" % (refseq)
+		#print "Gene Info:      %s" % (geneinfo)
 		self.ParseGene2Refseq(refseq)
 		self.ParseGeneinfo(geneinfo)
 		#self.ParseGene2Ensembl(gene2ensembl)
@@ -227,7 +227,7 @@ class NCBI_Loader(bioloader.BioLoader):
 	def LoadChromosome(self, chrom, dest, snpLog, roles):
 		chrFile = self.FetchViaHTTP("ftp://ftp.ncbi.nih.gov/snp/organisms/human_9606/chr_rpts/chr_%s.txt.gz" % chrom)
 		chrFile	= self._ExtractGZ(chrFile)
-		print chrFile
+		#print chrFile
 		file = open(chrFile)
 		snps = []
 		maxPosition = 0
@@ -295,7 +295,7 @@ class NCBI_Loader(bioloader.BioLoader):
 		self.OpenFTP("ftp.ncbi.nih.gov")
 		v = int(time.time())
 		filename = "%s.%s" % (filename, v)
-		print "Creating Variations File: %s" % (filename)
+		#print "Creating Variations File: %s" % (filename)
 		self.biosettings.SetVersion("variations", filename)
 		variations = open(filename, "wb")
 		snpLog = open("%s.txt" % (filename), "w")
@@ -307,7 +307,7 @@ class NCBI_Loader(bioloader.BioLoader):
 		v = filename.split("/")[-1].split(".")[0][18:len(filename)-4]
 		self.biosettings.SetVersion("ncbi", v)
 
-		print "--%s\nVersion: %s" % (filename.split("/")[0], v)
+		#print "--%s\nVersion: %s" % (filename.split("/")[0], v)
 		#Load up the SNP data
 		for chrom in chromosomes:
 			snpRoles = ensembl.LoadSnpRoles(chrom)
