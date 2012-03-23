@@ -8,8 +8,7 @@ Created on May 17, 2010
 
 
 import os, time, struct, sys
-import bioloader, settings
-import biosettings
+from util import bioloader, settings, biosettings
 
 
 class EntrezGeneHistory(bioloader.BioLoader):

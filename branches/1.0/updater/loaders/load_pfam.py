@@ -7,9 +7,7 @@ Created on Jun 8, 2010
 '''
 
 import os, time, struct, sys, csv
-import bioloader, settings
-from bioloader import Pathway
-import biosettings
+from util import bioloader, settings, biosettings
 
 
 class PFamMetaGroup(bioloader.Pathway):

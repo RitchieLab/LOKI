@@ -79,7 +79,7 @@ class BioLoader:
 	classdocs
 	'''
 	
-	def __init__(self, biosettings, groupID = 0, localSubdir= "."):
+	def __init__(self, biosettings, dbsettings_in=None, groupID = 0, localSubdir= "."):
 		"""Most group related things will assume that groupID is not zero. If it is, they should be skipped"""
 		self.ftp = None		#Local FTP Server, in case we want our classes downloading via FTP
 		self.biosettings = biosettings
@@ -87,6 +87,7 @@ class BioLoader:
 		self.localdir = localSubdir
 		os.system("mkdir -p %s" % localSubdir)
 		self.localFiles = []
+		self.db_settings = dbsettings_in
 	
 	def InitLog(self, logfilename = None):
 		pass

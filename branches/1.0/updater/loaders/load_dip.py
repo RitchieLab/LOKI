@@ -14,10 +14,7 @@ ftp://etorstenson:F5bXRV8s@dip.doe-mbi.ucla.edu/2009/tab25/Hsapi20091230.txt.gz
 '''
 
 import os, time, struct, sys, csv
-import bioloader, settings
-from bioloader import Pathway
-import biosettings
-
+from util import bioloader, settings, biosettings
 
 class DIPLoader(bioloader.BioLoader):
 	def __init__(self, biosettings, id=12):
@@ -85,7 +82,7 @@ class DIPLoader(bioloader.BioLoader):
 				
 				if geneA != geneB:
 					groupID			= self.biosettings.NextID()
-					pathway			= Pathway(self.groupID, groupID, name, comment)
+					pathway			= bioloader.Pathway(self.groupID, groupID, name, comment)
 					pathway.AddGene(geneA)
 					pathway.AddGene(geneB)
 					pathway.Commit(self.biosettings)

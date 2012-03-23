@@ -13,9 +13,7 @@ ftp://mint.bio.uniroma2.it/pub/release/mitab26/current/*-mint-human-binary.mitab
 '''
 
 import os, time, struct, sys, csv
-import bioloader, settings
-from bioloader import Pathway
-import biosettings
+from util import bioloader, settings, biosettings
 
 def BuildLookup(word, colSep="|", keySep=":"):
 	cols = word.split(colSep)
@@ -111,7 +109,7 @@ class MintLoader(bioloader.BioLoader):
 						print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
 						print thisdoesnt.exit
 					self.observedIDs.add(idLookup["mint"])
-					pathway			= Pathway(self.groupID, groupID, idLookup["mint"], "")
+					pathway			= bioloader.Pathway(self.groupID, groupID, idLookup["mint"], "")
 					pathway.AddGene(geneA)
 					pathway.AddGene(geneB)
 					pathway.Commit(self.biosettings)

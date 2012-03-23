@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import bioloader, biosettings
+from util import bioloader, biosettings
 import sys, os
 #For now, we don't really know how to id the local build...so,
 #we'll stick with UCSC's numbers

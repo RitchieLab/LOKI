@@ -13,9 +13,8 @@ import os, time, struct, sys
 
 from suds.client import Client
 
-import bioloader, settings
-from bioloader import Pathway
-import biosettings
+from util import bioloader, settings, biosettings
+
 
 import logging
 logging.basicConfig(level=logging.INFO)
@@ -83,7 +82,7 @@ class KeggLoader(bioloader.BioLoader):
 			
 		
 		if len(genes) > 0:
-			pathway	= Pathway(self.groupID, groupID, entryID[5:], definition)
+			pathway	= bioloader.Pathway(self.groupID, groupID, entryID[5:], definition)
 			for geneID in genes:
 				pathway.AddGene(geneID)
 				geneCount+=1

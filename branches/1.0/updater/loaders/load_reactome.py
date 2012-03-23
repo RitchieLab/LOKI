@@ -8,12 +8,7 @@ Created on May 19, 2010
 
 
 import os, time, struct, sys, MySQLdb, sqlite3
-import bioloader, settings
-from bioloader import Pathway
-import biosettings
-
-sys.path.append("..")
-import dbsettings
+from util import bioloader, settings, biosettings
 
 class ReactomeEntity:
 	"""Generic reactome entity that can be represent either a reaction, event, pathway, etc"""
@@ -138,8 +133,8 @@ class ReactomeEntity:
 
 
 class ReactomeLoader(bioloader.BioLoader):
-	def __init__(self, biosettings, id=9):
-		bioloader.BioLoader.__init__(self, biosettings, id)
+	def __init__(self, biosettings, db_set, id=9):
+		bioloader.BioLoader.__init__(self, biosettings, db_set, id)
 		biosettings.LoadAliases()
 		self.entityLookup = dict()
 	
@@ -154,10 +149,10 @@ class ReactomeLoader(bioloader.BioLoader):
 		if force or self.CheckTimestampAgainstServer(timestamp, self.groupID):
 			#TODO: fix reactome refresh with configurable database settings
 			cmd_pass = ""
-			if dbsettings.db_pass:
-				cmd_pass = " -p'" + dbsettings.db_pass + "'"
+			if self.db_settings.db_pass:
+				cmd_pass = " -p'" + self.db_settings.db_pass + "'"
 			
-			cmd = "mysql -h " + dbsettings.db_host + " -u " + dbsettings.db_user + cmd_pass + " " + dbsettings.db_name
+			cmd = "mysql -h " + self.db_settings.db_host + " -u " + self.db_settings.db_user + cmd_pass + " " + self.db_settings.db_name
 			
 			os.system("cat " + localFilename + " | " + cmd)
 				

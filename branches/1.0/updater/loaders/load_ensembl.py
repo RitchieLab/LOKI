@@ -5,27 +5,30 @@ Created on May 7, 2010
 
 @author: torstees
 """
-import os, time, struct, sys, datetime
-import bioloader, settings, sqlite3
+import os, time, struct, sys, datetime, sqlite3
+from util import bioloader, settings, region_manager
 import MySQLdb
-import region_manager
 
 import subprocess
 import re
 import shlex
 
-import ..dbsettings
-
 class EnsemblLoader(bioloader.BioLoader):
-	def __init__(self, biosettings, coord, rebuildDatabase = False):
-		bioloader.BioLoader.__init__(self, biosettings, 0)
+	def __init__(self, biosettings, db_set, coord, rebuildDatabase = False):
+		bioloader.BioLoader.__init__(self, biosettings, db_set, 0)
 		self.coordinate = coord
 		self.rebuildDatabase = rebuildDatabase
 		self.ensembl = None
 		self.roles = dict()
 	
-	def ConnectToEnsemblDB(self, host = dbsettings.db_host, user=dbsettings.db_user, password=dbsettings.db_pass):
-		self.ensembl = MySQLdb.connect(host, user, password, db=dbsettings.db_name)
+	def ConnectToEnsemblDB(self, host = None, user=None, password=None):
+		if host is None:
+			host = self.db_settings.db_host
+		if user is None:
+			user = self.db_settings.db_user
+		if password is None:
+			password = self.db_settings.db_pass
+		self.ensembl = MySQLdb.connect(host, user, password, db=self.db_settings.db_name)
 	
 	def RefreshEnsemblDatabase(self):
 		#TODO: fix ensembl refresh with configurable database settings
@@ -41,10 +44,10 @@ class EnsemblLoader(bioloader.BioLoader):
 		variation_prefix = "var"
 		
 		pass_cmd = ""
-		if dbsettings.db_pass:
-			pass_cmd = " -p'" + dbsettings.db_pass + "' "
+		if self.db_settings.db_pass:
+			pass_cmd = " -p'" + self.db_settings.db_pass + "' "
 			
-		mysql_opts = "-h " + dbsettings.db_host + " -u " + dbsettings.db_user + pass_cmd + " " + dbsettings.db_name
+		mysql_opts = "-h " + self.db_settings.db_host + " -u " + self.db_settings.db_user + pass_cmd + " " + self.db_settings.db_name
 		
 		trunkPath = "pub/" + self.FtpGetLast("pub/release-*") + "/mysql/"
 		varPath = trunkPath + self.ListFtpFiles("%shomo_sapiens_variation_*" % trunkPath)[0].split()[-1]
@@ -116,7 +119,7 @@ class EnsemblLoader(bioloader.BioLoader):
 				
 		os.system("mkdir -p processed; mv *.sql core variation processed")
 		
-		os.system("mysql " + mysql_opts + " -e \"DROP TABLE IF EXISTS " + dbsettings.db_name + ".biodb_versions; CREATE TABLE " + dbsettings.db_name + ".biodb_versions (element VARCHAR(64), version VARCHAR(64)); INSERT INTO " + dbsettings.db_name + ".biodb_versions VALUES ('ensembl','%s'); INSERT INTO " % (self.version) + dbsettings.db_name + ".biodb_versions VALUES ('build', '%s');\"" % (self.ncbiVersion))
+		os.system("mysql " + mysql_opts + " -e \"DROP TABLE IF EXISTS " + self.db_settings.db_name + ".biodb_versions; CREATE TABLE " + self.db_settings.db_name + ".biodb_versions (element VARCHAR(64), version VARCHAR(64)); INSERT INTO " + self.db_settings.db_name + ".biodb_versions VALUES ('ensembl','%s'); INSERT INTO " % (self.version) + self.db_settings.db_name + ".biodb_versions VALUES ('build', '%s');\"" % (self.ncbiVersion))
 		self.biosettings.SetVersion("build", self.ncbiVersion)
 		self.biosettings.SetVersion("ensembl", self.version)
 		

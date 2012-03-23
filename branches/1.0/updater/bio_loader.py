@@ -4,19 +4,21 @@ Created on Jun 10, 2010
 
 @author: torstees
 '''
-import load_chainfiles
-import biosettings, ncbi_loader, load_go, load_kegg, load_netpath, load_reactome
-import load_pfam, load_ensembl, load_dip, load_mint, load_biogrid, load_pharmgkb
+from loaders import load_chainfiles
+import loaders.util.biosettings as biosettings
+from loaders import ncbi_loader, load_go, load_kegg, load_netpath, load_reactome
+from loaders import load_pfam, load_ensembl, load_dip, load_mint, load_biogrid, load_pharmgkb
 import sys, os
+import dbsettings
 
 ensembl = None
 loadables = ["snps", "genes", "go", "kegg", "reactome", "netpath", "pfam", "dip", "biogrid", "mint", "pharmgkb", "chainfiles"]
 allgroups = ["genes", "go", "kegg", "reactome", "netpath", "pfam", "dip", "biogrid", "mint", "pharmgkb", "chainfiles"]
 
-def GetEnsembl(bioDB, refreshEnsembl):
+def GetEnsembl(bioDB, refreshEnsembl, db_set):
 	global ensembl
 	if ensembl == None:
-		ensembl = load_ensembl.EnsemblLoader(bioDB, 0)
+		ensembl = load_ensembl.EnsemblLoader(bioDB, db_set, 0)
 		if refreshEnsembl:
 			print "Refreshing Ensembl Database"
 			ensembl.RefreshEnsemblDatabase()
@@ -34,6 +36,7 @@ def LoadKB(dbFilename, kbLoads, doReset = False, refreshEnsembl = False):
 	chromosomes = ('1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', 'X', 'Y', 'MT')
 	bioDB = biosettings.BioSettings(dbFilename)
 	bioDB.OpenDB()
+	db_set = dbsettings.DBSettings()
 	
 	if doReset:
 		bioDB.ResetDB()
@@ -46,7 +49,7 @@ def LoadKB(dbFilename, kbLoads, doReset = False, refreshEnsembl = False):
 
 	if kbLoads[0] == "ALL":
 		kbLoads = loadables
-		ensembl = GetEnsembl(bioDB, True)
+		ensembl = GetEnsembl(bioDB, True, db_set)
 
 	for kb in kbLoads:
 		kb = kb.strip().lower()
@@ -54,7 +57,7 @@ def LoadKB(dbFilename, kbLoads, doReset = False, refreshEnsembl = False):
 			print "Loading SNPs"
 			ncbiLoader.InitLog("snps.log")
 			cwd = os.getcwd()
-			ensembl = GetEnsembl(bioDB, refreshEnsembl)
+			ensembl = GetEnsembl(bioDB, refreshEnsembl, db_set)
 			os.system("mkdir -p NCBI")
 			os.chdir("NCBI")
 			#ncbiLoader.UpdateSNPs(chromosomes, "variations", ensembl)
@@ -64,7 +67,7 @@ def LoadKB(dbFilename, kbLoads, doReset = False, refreshEnsembl = False):
 		elif kb == "genes":
 			print "Loading Genes"
 			ncbiLoader.InitLog("genes.log")
-			ensembl = GetEnsembl(bioDB, refreshEnsembl)
+			ensembl = GetEnsembl(bioDB, refreshEnsembl, db_set)
 			#ensembl.ConnectToEnsemblDB(bioDB)
 			ncbiLoader.UpdateGenes(ensembl, chromosomes)
 			ncbiLoader.CloseLog()
@@ -82,9 +85,9 @@ def LoadKB(dbFilename, kbLoads, doReset = False, refreshEnsembl = False):
 			loader.CloseLog()
 		elif kb == "reactome":
 			print "Loading Reactome"
-			loader = load_reactome.ReactomeLoader(bioDB)
+			loader = load_reactome.ReactomeLoader(bioDB, db_set)
 			loader.InitLog()
-			ensembl = GetEnsembl(bioDB, refreshEnsembl)
+			ensembl = GetEnsembl(bioDB, refreshEnsembl, db_set)
 			if refreshEnsembl:
 				loader.RefreshDatabase()
 			

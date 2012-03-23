@@ -15,9 +15,8 @@ Unfortunately, this isn't available via automation-so we'll have to manually ext
 '''
 
 import os, time, struct, sys, csv
-import bioloader, settings
+from util import bioloader, settings, biosettings
 from bioloader import Pathway
-import biosettings
 
 
 class DIPLoader(bioloader.BioLoader):

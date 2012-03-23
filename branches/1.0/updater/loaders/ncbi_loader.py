@@ -6,9 +6,8 @@ Created on May 10, 2010
 @author: torstees
 '''
 
-import bioloader, settings, struct
-import os, sys, time
-import load_ensembl
+from util import bioloader, settings
+import os, sys, time, struct
 
 class Variant:
 	"""Storage for SNP data during chromosome loading"""
@@ -329,11 +328,11 @@ if __name__ == '__main__':
 	#variations 				= biodb.BuildDbFilename("bio-settings", "var")
 
 	
-	
-	ensembl = load_ensembl.EnsemblLoader(biodb, 2)
-	ensembl.ConnectToEnsemblDB()
-	ncbiLoader = NCBI_Loader(biodb)
+# Disable doing anything meaningful from the command line here!	
+#	ensembl = load_ensembl.EnsemblLoader(biodb, 2)
+#	ensembl.ConnectToEnsemblDB()
+#	ncbiLoader = NCBI_Loader(biodb)
 #	ncbiLoader.UpdateSNPs(chromosomes, "variations", ensembl)
-	ncbiLoader.UpdateGenes(ensembl, chromosomes)
+#	ncbiLoader.UpdateGenes(ensembl, chromosomes)
 
 		

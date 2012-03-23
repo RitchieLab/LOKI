@@ -13,9 +13,7 @@ http://thebiogrid.org/downloads/archives/Release%20Archive/BIOGRID-3.0.65/BIOGRI
 '''
 
 import os, time, struct, sys, csv, glob
-import bioloader, settings
-from bioloader import Pathway
-import biosettings
+from util import bioloader, settings, biosettings
 
 def BuildLookup(word, colSep="|", keySep=":"):
 	cols = word.split(colSep)
@@ -94,7 +92,7 @@ class BioGridLoader(bioloader.BioLoader):
 		
 			if not cantContinue:
 				groupID			= self.biosettings.NextID()
-				pathway			= Pathway(self.groupID, groupID, name, "")
+				pathway			= bioloader.Pathway(self.groupID, groupID, name, "")
 				pathway.AddGene(geneA)
 				pathway.AddGene(geneB)
 				pathway.Commit(self.biosettings)

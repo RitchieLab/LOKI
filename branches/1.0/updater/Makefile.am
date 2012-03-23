@@ -1,28 +1,23 @@
 noinst_LTLIBRARIES=liblokiupdate.la
 
-liblokiupdate_la_PYTHON=dbsettings.py\
-src/settings.py \
-src/region_manager.py \
-src/pydot.py \
-src/plot_group_relationships.py \
-src/ncbi_loader.py \
-src/load_reactome.py \
-src/load_pharmgkb.py \
-src/load_pharmgkb-orig.py \
-src/load_pfam.py \
-src/load_netpath.py \
-src/load_mint.py \
-src/load_kegg.py \
-src/load_hprd.py \
-src/load_go.py \
-src/load-entrezgene-history.py \
-src/load_ensembl.py \
-src/load_dip.py \
-src/load_chainfiles.py \
-src/load_biogrid.py \
-src/biosettings.py \
-src/bioloader.py \
-src/bio_loader.py
+liblokiupdate_la_SOURCES=dbsettings.py\
+bio_loader.py \
+loaders/ncbi_loader.py \
+loaders/load_reactome.py \
+loaders/load_pharmgkb.py \
+loaders/load_pfam.py \
+loaders/load_netpath.py \
+loaders/load_mint.py \
+loaders/load_kegg.py \
+loaders/load_go.py \
+loaders/load_ensembl.py \
+loaders/load_dip.py \
+loaders/load_chainfiles.py \
+loaders/load_biogrid.py \
+loaders/util/settings.py \
+loaders/util/region_manager.py \
+loaders/util/biosettings.py \
+loaders/util/bioloader.py 
 
 if LOKI_INSTALL
 LOKI_CMDS=$(srcdir)/src/bio_loader.py LOAD knowledge.bio ALL
@@ -32,15 +27,13 @@ endif
 
 nodist_data_DATA=knowledge.bio variations variations.txt
 
-knowledge.bio:
+CLEANFILES=knowledge.bio variations variations.txt
 
-variations:
+variations: knowledge.bio
 
-variations.txt:
+variations.txt : knowledge.bio
 
-install-data: pre-install-data
-
-pre-install-data:
+knowledge.bio: liblokiupdate.la
 	rm -rf knowledge.bio
 	$(LOKI_CMDS)
 	chmod a-wx knowledge.bio variations variations.txt

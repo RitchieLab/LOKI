@@ -8,8 +8,8 @@ Created on May 14, 2010
 '''
 
 import os, time, struct, sys
-import bioloader, settings
-import biosettings, subprocess
+from util import bioloader, settings, biosettings
+import subprocess
 import csv
 
 #http://lethain.com/entry/2009/jan/22/handling-very-large-csv-and-xml-files-in-python/

@@ -6,9 +6,8 @@ Created on Jun 7, 2010
 @author: torstees
 '''
 import os, time, struct, sys
-import bioloader, settings
-from bioloader import Pathway
-import biosettings
+from util import bioloader, settings, biosettings
+#import bioloader.Pathway as Pathway
 
 
 class OntologyTerm:
@@ -100,7 +99,7 @@ class GoTerm:
 
 	def Commit(self, groupTypeID, biosettings):
 		#First, we'll add ourselves to the groups table
-		pathway							= Pathway(groupTypeID, self.groupID, self.term_id, self.description)
+		pathway							= bioloader.Pathway(groupTypeID, self.groupID, self.term_id, self.description)
 		#Next, add our associations to the association table
 		for association in self.associations:
 			pathway.AddGene(association[0])
