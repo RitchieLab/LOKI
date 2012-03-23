@@ -1,18 +1,25 @@
 import os
 
+# Old settings
+# host = badger
+# user = atf3
+# pass = patO9FTPXUV0JonedaLe1COO
+# name = ritchie_ensembl
 class DBSettings:
 	
 	def __init__(self):
-
-		# Define the host, user, password and database here
 		self.db_host = "localhost"
 		self.db_user = "root"
 		self.db_pass = ""
 		self.db_name = "LOKI"
 
-		# Alternatively, you can use the environment variables:
-		# DB_HOST DB_USER DB_PASS and DB_NAME
-		# environment variables trump the variables above
+		# PSU specific settings
+		self.db_host = "ritchiedb.rcc.psu.edu"
+		self.db_user = "loki_test"
+		self.db_name = "loki_test"
+		self.db_pass = "44NTx7NeEMyVrtdc"
+
+		# Get these from the environment if they exist
 		self.db_host = os.environ.get("DB_HOST", self.db_host)
 		self.db_user = os.environ.get("DB_USER", self.db_user)
 		self.db_pass = os.environ.get("DB_PASS", self.db_pass)
