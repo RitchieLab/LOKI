@@ -25,7 +25,7 @@ src/bioloader.py \
 src/bio_loader.py
 
 if LOKI_INSTALL
-LOKI_CMDS=./src/bio_loader.py LOAD knowledge.bio ALL
+LOKI_CMDS=$(srcdir)/src/bio_loader.py LOAD knowledge.bio ALL
 else
 LOKI_CMDS=touch knowledge.bio variations variations.txt
 endif

@@ -14,8 +14,7 @@ import subprocess
 import re
 import shlex
 
-sys.path.append("..")
-import dbsettings
+import ..dbsettings
 
 class EnsemblLoader(bioloader.BioLoader):
 	def __init__(self, biosettings, coord, rebuildDatabase = False):
