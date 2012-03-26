@@ -2,6 +2,7 @@ noinst_LTLIBRARIES=liblokiupdate.la
 
 liblokiupdate_la_SOURCES=dbsettings.py\
 bio_loader.py \
+__init__.py \
 loaders/ncbi_loader.py \
 loaders/load_reactome.py \
 loaders/load_pharmgkb.py \
@@ -14,20 +15,22 @@ loaders/load_ensembl.py \
 loaders/load_dip.py \
 loaders/load_chainfiles.py \
 loaders/load_biogrid.py \
+loaders/__init__.py \
 loaders/util/settings.py \
 loaders/util/region_manager.py \
 loaders/util/biosettings.py \
-loaders/util/bioloader.py 
+loaders/util/bioloader.py \
+loaders/util/__init__.py 
 
 if LOKI_INSTALL
-LOKI_CMDS=$(srcdir)/src/bio_loader.py LOAD knowledge.bio ALL
+LOKI_CMDS=$(srcdir)/bio_loader.py LOAD knowledge.bio ALL
 else
-LOKI_CMDS=touch knowledge.bio variations variations.txt
+LOKI_CMDS=$(srcdir)/bio_loader.py LOAD knowledge.bio TEST
 endif
 
 nodist_data_DATA=knowledge.bio variations variations.txt
 
-CLEANFILES=knowledge.bio variations variations.txt
+CLEANFILES=knowledge.bio variations variations.txt observed_relationships.csv
 
 variations: knowledge.bio
 

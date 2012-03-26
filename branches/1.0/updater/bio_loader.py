@@ -32,7 +32,12 @@ def GetEnsembl(bioDB, refreshEnsembl, db_set):
 	return ensembl
 
 def LoadKB(dbFilename, kbLoads, doReset = False, refreshEnsembl = False):
-	global loadables
+	global loadables	
+	
+	if kbLoads[0] == "TEST":
+		LoadTest(dbFilename)
+		return
+	
 	chromosomes = ('1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', 'X', 'Y', 'MT')
 	bioDB = biosettings.BioSettings(dbFilename)
 	bioDB.OpenDB()
@@ -50,7 +55,7 @@ def LoadKB(dbFilename, kbLoads, doReset = False, refreshEnsembl = False):
 	if kbLoads[0] == "ALL":
 		kbLoads = loadables
 		ensembl = GetEnsembl(bioDB, True, db_set)
-
+	
 	for kb in kbLoads:
 		kb = kb.strip().lower()
 		if kb == "snps":
@@ -149,6 +154,15 @@ def LoadKB(dbFilename, kbLoads, doReset = False, refreshEnsembl = False):
 		else:
 			print>>sys.stderr, "Unknown kb name: %s. Options include: %s" % (kb, ",".join(loadables))
 		
+def LoadTest(dbFilename):
+	"""
+	Loads a test database using fake data
+	"""
+	
+	# For now, just delete any files in the way, and create empty files
+	os.system("rm -f variations variations.txt " + dbFilename)
+	os.system("touch " + dbFilename)
+	os.system("touch variations variations.txt")
 			
 def RunCommands(configFilename):
 	global loadables
@@ -158,7 +172,6 @@ def RunCommands(configFilename):
 	refreshEnsembl = os.getenv("REFRESH_ENSEMBL", "FALSE") == "TRUE"
 	if configFilename == "ALL":
 		kbLoads = loadables 
-		# I want to reset, but hold off for now (takes soooooooo long)
 		#doReset = True
 	elif configFilename == "GROUPS":
 		kbLoads = ["genes"] + loadables
