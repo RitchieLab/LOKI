@@ -11,6 +11,8 @@ from loaders import load_pfam, load_ensembl, load_dip, load_mint, load_biogrid, 
 import sys, os
 import dbsettings
 
+import sqlite3, time, struct
+
 ensembl = None
 loadables = ["snps", "genes", "go", "kegg", "reactome", "netpath", "pfam", "dip", "biogrid", "mint", "pharmgkb", "chainfiles"]
 allgroups = ["genes", "go", "kegg", "reactome", "netpath", "pfam", "dip", "biogrid", "mint", "pharmgkb", "chainfiles"]
@@ -161,8 +163,78 @@ def LoadTest(dbFilename):
 	
 	# For now, just delete any files in the way, and create empty files
 	os.system("rm -f variations variations.txt " + dbFilename)
-	os.system("touch " + dbFilename)
-	os.system("touch variations variations.txt")
+	# Construct the tables.  This is the ONLY time I'll use biosettings
+	biodb = biosettings.BioSettings(dbFilename)
+	biodb.InitDB()
+	
+	# get a cursor to the database:
+	db = sqlite3.connect(dbFilename)
+	c = db.cursor()
+	
+	gene_ids = [1, 2, 3, 4]
+	
+	# Now, add in some genes:
+	for g in gene_ids:
+		c.execute("INSERT INTO regions VALUES (%d, 'G%d', '%d', 'Gene %d');" % (g,g,g,g))
+	
+	# Add in the default population
+	c.execute("INSERT INTO populations VALUES (0, 'NO-LD', 'default population', 'default');")
+	c.execute("INSERT INTO populations VALUES (1, 'PLUS5', 'Shifted populations', 'regions shifted +5');")
+	
+	# Add in those region bounds, which are defined to be 2*(g-1) + (5, 15) + 5*(pop)
+	for g in gene_ids:
+		c.execute("INSERT INTO region_bounds VALUES (%d, 0, %d, %d);" % (g, 2*(g-1)*10 + 5, 2*(g-1)*10 + 15))
+		c.execute("INSERT INTO region_bounds VALUES (%d, 1, %d, %d);" % (g, 2*(g-1)*10 + 10, 2*(g-1)*10 + 20))
+	
+	# OK, add in a source or two for pathways
+	c.execute("INSERT INTO group_type (group_type_id, group_type) VALUES (1, 'Source 1');")
+	c.execute("INSERT INTO group_type (group_type_id, group_type) VALUES (2, 'Source 2');")
+	
+	# Add a few pathways
+	c.execute("INSERT INTO groups VALUES (1, 1, 'P1', 'Pathway 1 (Src 1)');")
+	c.execute("INSERT INTO groups VALUES (1, 2, 'P2', 'Pathway 2 (Src 1)');")
+	c.execute("INSERT INTO groups VALUES (2, 3, 'P3', 'Pathway 3 (Src 2)');")
+	
+	# Add the appropriate relationships among pathways
+	c.execute("INSERT INTO group_relationships VALUES (2, 1, 0, 'P1 parent of P2');")
+	
+	# Add some relationships between pathways and genes
+	c.execute("INSERT INTO group_associations VALUES (1,1);")
+	c.execute("INSERT INTO group_associations VALUES (1,2);")
+	c.execute("INSERT INTO group_associations VALUES (3,2);")
+	c.execute("INSERT INTO group_associations VALUES (3,3);")
+	c.execute("INSERT INTO group_associations VALUES (2,4);")
+	
+	# Now, add in some SNPs
+	# SNPs will occur every 7 positions and will be numbered sequentially
+	# starting from 1.
+	# The role will be determined by their "oddness", with odd SNPs
+	# (rs1, rs3,...) being exons and even SNPs being introns
+	c.execute("INSERT INTO snp_role VALUES (1, 'Exon');")
+	c.execute("INSERT INTO snp_role VALUES (2, 'Intron');")
+	
+	c.execute("INSERT INTO versions VALUES ('variations', 'variations');")
+	
+	db.commit()
+	
+	snp_ids = [x + 1 for x in range((2*max(gene_ids)+20)/7)]
+	
+	# open up the variations file
+	f = file("variations", "wb")
+	
+	# Write the file header
+	f.write(struct.pack('I', int(time.time())))
+	
+	# Write the chromosome header
+	f.write(struct.pack('II', len(snp_ids), max(snp_ids)*7))
+	
+	# Write each SNP
+	for s in snp_ids:
+		f.write(struct.pack('III', s, 7*s, (s+1) % 2 + 1))
+	
+	f.close()
+	
+	os.system("touch variations.txt")
 			
 def RunCommands(configFilename):
 	global loadables
