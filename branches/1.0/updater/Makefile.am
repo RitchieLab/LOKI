@@ -24,13 +24,7 @@ loaders/util/__init__.py
 
 if LOKI_INSTALL
 LOKI_CMDS=$(srcdir)/bio_loader.py LOAD knowledge.bio ALL
-else
-LOKI_CMDS=$(srcdir)/bio_loader.py LOAD knowledge.bio TEST
-endif
-
-nodist_data_DATA=knowledge.bio variations variations.txt
-
-CLEANFILES=knowledge.bio variations variations.txt observed_relationships.csv
+VAR_FILES=knowledge.bio variations variations.txt
 
 variations: knowledge.bio
 
@@ -40,5 +34,27 @@ knowledge.bio: liblokiupdate.la
 	rm -rf knowledge.bio
 	$(LOKI_CMDS)
 	chmod a-wx knowledge.bio variations variations.txt
+	
+else
+LOKI_CMDS=$(srcdir)/bio_loader.py LOAD test.bio TEST
+VAR_FILES=test.bio variations-test variations-test.txt
+
+variations-test: test.bio
+
+variations-test.txt: test.bio
+
+test.bio: liblokiupdate.la
+	rm -rf test.bio
+	$(LOKI_CMDS)
+		
+endif
+
+nodist_data_DATA=$(VAR_FILES)
+
+CLEANFILES=test.bio knowledge.bio variations* observed_relationships.csv
+
+
+
+
 
 

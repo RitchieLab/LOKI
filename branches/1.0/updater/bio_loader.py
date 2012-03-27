@@ -213,14 +213,14 @@ def LoadTest(dbFilename):
 	c.execute("INSERT INTO snp_role VALUES (1, 'Exon');")
 	c.execute("INSERT INTO snp_role VALUES (2, 'Intron');")
 	
-	c.execute("INSERT INTO versions VALUES ('variations', 'variations');")
+	c.execute("INSERT INTO versions VALUES ('variations', 'variations-test');")
 	
 	db.commit()
 	
 	snp_ids = [x + 1 for x in range((2*max(gene_ids)+20)/7)]
 	
 	# open up the variations file
-	f = file("variations", "wb")
+	f = file("variations-test", "wb")
 	
 	# Write the file header
 	f.write(struct.pack('I', int(time.time())))
@@ -234,7 +234,7 @@ def LoadTest(dbFilename):
 	
 	f.close()
 	
-	os.system("touch variations.txt")
+	os.system("touch variations-test.txt")
 			
 def RunCommands(configFilename):
 	global loadables
