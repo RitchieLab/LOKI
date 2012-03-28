@@ -172,19 +172,39 @@ def LoadTest(dbFilename):
 	c = db.cursor()
 	
 	gene_ids = [1, 2, 3, 4]
-	
-	# Now, add in some genes:
-	for g in gene_ids:
-		c.execute("INSERT INTO regions VALUES (%d, 'G%d', '%d', 'Gene %d');" % (g,g,g,g))
-	
+
 	# Add in the default population
 	c.execute("INSERT INTO populations VALUES (0, 'NO-LD', 'default population', 'default');")
 	c.execute("INSERT INTO populations VALUES (1, 'PLUS5', 'Shifted populations', 'regions shifted +5');")
 	
-	# Add in those region bounds, which are defined to be 2*(g-1) + (5, 15) + 5*(pop)
+	# Add in region alias types
+	c.execute("INSERT INTO region_alias_type VALUES (10, 'G# gene names')")
+	c.execute("INSERT INTO region_alias_type VALUES (11, 'R# gene names')")
+	c.execute("INSERT INTO region_alias_type VALUES (12, 'Ambiguous gene names')")
+	
+	# Now, add in some genes:
 	for g in gene_ids:
+		c.execute("INSERT INTO regions VALUES (%d, 'G%d', '1', 'Gene %d');" % (g,g,g))
 		c.execute("INSERT INTO region_bounds VALUES (%d, 0, %d, %d);" % (g, 2*(g-1)*10 + 5, 2*(g-1)*10 + 15))
 		c.execute("INSERT INTO region_bounds VALUES (%d, 1, %d, %d);" % (g, 2*(g-1)*10 + 10, 2*(g-1)*10 + 20))
+		c.execute("INSERT INTO region_alias VALUES (10, 'G%d', %d, 1);" % (g,g))
+		c.execute("INSERT INTO region_alias VALUES (11, 'R%d', %d, 1);" % (g,g))
+
+	# Add in genes 5 and 6
+	c.execute("INSERT INTO regions VALUES (%d, 'G%d', '1', 'Gene %d');" % (5,5,5))
+	c.execute("INSERT INTO regions VALUES (%d, 'G%d', '2', 'Gene %d');" % (6,6,6))
+	c.execute("INSERT INTO region_bounds VALUES (%d, 0, %d, %d);" % (5,30,50))
+	c.execute("INSERT INTO region_bounds VALUES (%d, 1, %d, %d);" % (5,35,55))
+	c.execute("INSERT INTO region_bounds VALUES (%d, 0, %d, %d);" % (6,10,20))
+	c.execute("INSERT INTO region_bounds VALUES (%d, 1, %d, %d);" % (6,15,25))
+	c.execute("INSERT INTO region_alias VALUES (10, 'G%d', %d, 1);" % (5,5))
+	c.execute("INSERT INTO region_alias VALUES (11, 'R%d', %d, 1);" % (5,5))
+	c.execute("INSERT INTO region_alias VALUES (10, 'G%d', %d, 1);" % (6,6))
+	c.execute("INSERT INTO region_alias VALUES (11, 'R%d', %d, 1);" % (6,6))
+	
+	# Add in ambiguous gene alias
+	c.execute("INSERT INTO region_alias VALUES (12, 'G23', 2, 2);")
+	c.execute("INSERT INTO region_alias VALUES (12, 'G23', 3, 2);")
 	
 	# OK, add in a source or two for pathways
 	c.execute("INSERT INTO group_type (group_type_id, group_type) VALUES (1, 'Source 1');")
@@ -217,7 +237,7 @@ def LoadTest(dbFilename):
 	
 	db.commit()
 	
-	snp_ids = [x + 1 for x in range((2*max(gene_ids)+20)/7)]
+	snp_ids_1 = [x + 1 for x in range((2*max(gene_ids)+20)/7)]
 	
 	# open up the variations file
 	f = file("variations-test", "wb")
@@ -226,11 +246,20 @@ def LoadTest(dbFilename):
 	f.write(struct.pack('I', int(time.time())))
 	
 	# Write the chromosome header
-	f.write(struct.pack('II', len(snp_ids), max(snp_ids)*7))
+	f.write(struct.pack('II', len(snp_ids_1), max(snp_ids_1)*7))
 	
 	# Write each SNP
-	for s in snp_ids:
+	for s in snp_ids_1:
 		f.write(struct.pack('III', s, 7*s, (s+1) % 2 + 1))
+	
+	snp_ids_2 = [21 + x for x in range(4)]
+
+	# Write the chromosome header
+	f.write(struct.pack('II', len(snp_ids_2), (max(snp_ids_2)-20)*7))
+	
+	# Write each SNP
+	for s in snp_ids_2:
+		f.write(struct.pack('III', s, 7*(s-20), (s+1) % 2 + 1))
 	
 	f.close()
 	

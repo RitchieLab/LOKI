@@ -25,33 +25,51 @@ loaders/util/__init__.py
 if LOKI_INSTALL
 LOKI_CMDS=$(srcdir)/bio_loader.py LOAD knowledge.bio ALL
 VAR_FILES=knowledge.bio variations variations.txt
+	
+else
+LOKI_CMDS=$(srcdir)/bio_loader.py LOAD test.bio TEST
+VAR_FILES=test.bio variations-test variations-test.txt
+	
+endif
 
 variations: knowledge.bio
 
 variations.txt : knowledge.bio
 
-knowledge.bio: liblokiupdate.la
+knowledge.bio: liblokiupdate.la create
 	rm -rf knowledge.bio
 	$(LOKI_CMDS)
-	chmod a-wx knowledge.bio variations variations.txt
-	
-else
-LOKI_CMDS=$(srcdir)/bio_loader.py LOAD test.bio TEST
-VAR_FILES=test.bio variations-test variations-test.txt
 
 variations-test: test.bio
 
 variations-test.txt: test.bio
 
-test.bio: liblokiupdate.la
+test.bio: liblokiupdate.la create
 	rm -rf test.bio
 	$(LOKI_CMDS)
-		
-endif
+	
+create:
+	date +"%Y.%m.%d" > .creation
+
+DATE_PREFIX:=$(shell cat .creation).
+
+install-data-hook:
+	for f in $(VAR_FILES); do \ 
+		mv -f $(DESTDIR)$(datadir)/$$f $(DESTDIR)$(datadir)/$(DATE_PREFIX)$$f; \
+		chmod a-wx $(DESTDIR)$(datadir)/$(DATE_PREFIX)$$f; \
+		ln -s $(DESTDIR)$(datadir)/$(DATE_PREFIX)$$f $(DESTDIR)$(datadir)/$$f; \
+	done
+
+uninstall-hook:
+	rm -f $(DESTDIR)$(datadir)/*test.bio $(DESTDIR)$(datadir)/*variations* $(DESTDIR)$(datadir)/*knowledge.bio
+	
+
 
 nodist_data_DATA=$(VAR_FILES)
 
-CLEANFILES=test.bio knowledge.bio variations* observed_relationships.csv
+CLEANFILES=test.bio knowledge.bio variations* observed_relationships.csv .creation
+
+
 
 
 
