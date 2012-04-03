@@ -36,7 +36,7 @@ variations: knowledge.bio
 
 variations.txt : knowledge.bio
 
-knowledge.bio: liblokiupdate.la create
+knowledge.bio: liblokiupdate.la .creation
 	rm -rf knowledge.bio
 	$(LOKI_CMDS)
 
@@ -44,17 +44,17 @@ variations-test: test.bio
 
 variations-test.txt: test.bio
 
-test.bio: liblokiupdate.la create
+test.bio: liblokiupdate.la .creation
 	rm -rf test.bio
 	$(LOKI_CMDS)
 	
-create:
+.creation:
 	date +"%Y.%m.%d" > .creation
 
 DATE_PREFIX:=$(shell cat .creation).
 
 install-data-hook:
-	for f in $(VAR_FILES); do \ 
+	for f in $(VAR_FILES); do \
 		mv -f $(DESTDIR)$(datadir)/$$f $(DESTDIR)$(datadir)/$(DATE_PREFIX)$$f; \
 		chmod a-wx $(DESTDIR)$(datadir)/$(DATE_PREFIX)$$f; \
 		ln -s $(DESTDIR)$(datadir)/$(DATE_PREFIX)$$f $(DESTDIR)$(datadir)/$$f; \

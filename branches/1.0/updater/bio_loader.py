@@ -207,8 +207,8 @@ def LoadTest(dbFilename):
 	c.execute("INSERT INTO region_alias VALUES (12, 'G23', 3, 2);")
 	
 	# OK, add in a source or two for pathways
-	c.execute("INSERT INTO group_type (group_type_id, group_type) VALUES (1, 'Source 1');")
-	c.execute("INSERT INTO group_type (group_type_id, group_type) VALUES (2, 'Source 2');")
+	c.execute("INSERT INTO group_type (group_type_id, group_type) VALUES (1, 'S1');")
+	c.execute("INSERT INTO group_type (group_type_id, group_type) VALUES (2, 'S2');")
 	
 	# Add a few pathways
 	c.execute("INSERT INTO groups VALUES (1, 1, 'P1', 'Pathway 1 (Src 1)');")
