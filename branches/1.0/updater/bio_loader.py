@@ -211,12 +211,19 @@ def LoadTest(dbFilename):
 	c.execute("INSERT INTO group_type (group_type_id, group_type) VALUES (2, 'S2');")
 	
 	# Add a few pathways
-	c.execute("INSERT INTO groups VALUES (1, 1, 'P1', 'Pathway 1 (Src 1)');")
-	c.execute("INSERT INTO groups VALUES (1, 2, 'P2', 'Pathway 2 (Src 1)');")
-	c.execute("INSERT INTO groups VALUES (2, 3, 'P3', 'Pathway 3 (Src 2)');")
+	# Add the parent "meta-groups"
+	c.execute("INSERT INTO groups VALUES (1, 1, 'S1', 'Src 1 Metagroup');")
+	c.execute("INSERT INTO groups VALUES (2, 2, 'S2', 'Src 2 Metagroup');")
+	c.execute("INSERT INTO groups VALUES (1, 101, 'P1', 'Pathway 1 (Src 1)');")
+	c.execute("INSERT INTO groups VALUES (1, 102, 'P2', 'Pathway 2 (Src 1)');")
+	c.execute("INSERT INTO groups VALUES (2, 201, 'P3', 'Pathway 3 (Src 2)');")
 	
 	# Add the appropriate relationships among pathways
-	c.execute("INSERT INTO group_relationships VALUES (2, 1, 0, 'P1 parent of P2');")
+	c.execute("INSERT INTO group_relationships VALUES (101, 1, 0, 'P1 from S1');")
+	c.execute("INSERT INTO group_relationships VALUES (102, 1, 0, 'P2 from S1');")
+	c.execute("INSERT INTO group_relationships VALUES (201, 2, 0, 'P3 from S2');")
+	c.execute("INSERT INTO group_relationships VALUES (102, 101, 0, 'P1 parent of P2');")
+	
 	
 	# Add some relationships between pathways and genes
 	c.execute("INSERT INTO group_associations VALUES (1,1);")
