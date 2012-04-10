@@ -207,8 +207,8 @@ def LoadTest(dbFilename):
 	c.execute("INSERT INTO region_alias VALUES (12, 'G23', 3, 2);")
 	
 	# OK, add in a source or two for pathways
-	c.execute("INSERT INTO group_type (group_type_id, group_type) VALUES (1, 'S1');")
-	c.execute("INSERT INTO group_type (group_type_id, group_type) VALUES (2, 'S2');")
+	c.execute("INSERT INTO group_type (group_type_id, group_type, role_id) VALUES (1, 'S1', 1);")
+	c.execute("INSERT INTO group_type (group_type_id, group_type, role_id) VALUES (2, 'S2', 1);")
 	
 	# Add a few pathways
 	# Add the parent "meta-groups"
@@ -217,20 +217,27 @@ def LoadTest(dbFilename):
 	c.execute("INSERT INTO groups VALUES (1, 101, 'P1', 'Pathway 1 (Src 1)');")
 	c.execute("INSERT INTO groups VALUES (1, 102, 'P2', 'Pathway 2 (Src 1)');")
 	c.execute("INSERT INTO groups VALUES (2, 201, 'P3', 'Pathway 3 (Src 2)');")
+	c.execute("INSERT INTO groups VALUES (2, 202, 'P4', 'Pathway 4 (== P1) (Src 2)');")
 	
 	# Add the appropriate relationships among pathways
 	c.execute("INSERT INTO group_relationships VALUES (101, 1, 0, 'P1 from S1');")
 	c.execute("INSERT INTO group_relationships VALUES (102, 1, 0, 'P2 from S1');")
 	c.execute("INSERT INTO group_relationships VALUES (201, 2, 0, 'P3 from S2');")
+	c.execute("INSERT INTO group_relationships VALUES (202, 2, 0, 'P4 from S2');")
 	c.execute("INSERT INTO group_relationships VALUES (102, 101, 0, 'P1 parent of P2');")
 	
 	
 	# Add some relationships between pathways and genes
-	c.execute("INSERT INTO group_associations VALUES (1,1);")
-	c.execute("INSERT INTO group_associations VALUES (1,2);")
-	c.execute("INSERT INTO group_associations VALUES (3,2);")
-	c.execute("INSERT INTO group_associations VALUES (3,3);")
-	c.execute("INSERT INTO group_associations VALUES (2,4);")
+	c.execute("INSERT INTO group_associations VALUES (101,1);")
+	c.execute("INSERT INTO group_associations VALUES (101,2);")
+	c.execute("INSERT INTO group_associations VALUES (201,2);")
+	c.execute("INSERT INTO group_associations VALUES (201,3);")
+	c.execute("INSERT INTO group_associations VALUES (102,4);")
+	c.execute("INSERT INTO group_associations VALUES (202,1);")
+	c.execute("INSERT INTO group_associations VALUES (202,2);")
+	
+	# Add the build as "37"
+	c.execute("INSERT INTO versions VALUES ('build','37');")
 	
 	# Now, add in some SNPs
 	# SNPs will occur every 7 positions and will be numbered sequentially
@@ -244,8 +251,8 @@ def LoadTest(dbFilename):
 	
 	db.commit()
 	
-	snp_ids_1 = [x + 1 for x in range((2*max(gene_ids)+20)/7)]
-	
+	snp_ids_1 = [x + 1 for x in range((20*max(gene_ids))/7)]
+		
 	# open up the variations file
 	f = file("variations-test", "wb")
 	
@@ -253,6 +260,7 @@ def LoadTest(dbFilename):
 	f.write(struct.pack('I', int(time.time())))
 	
 	# Write the chromosome header
+	f.write('1 ')
 	f.write(struct.pack('II', len(snp_ids_1), max(snp_ids_1)*7))
 	
 	# Write each SNP
@@ -262,6 +270,7 @@ def LoadTest(dbFilename):
 	snp_ids_2 = [21 + x for x in range(4)]
 
 	# Write the chromosome header
+	f.write('2 ')
 	f.write(struct.pack('II', len(snp_ids_2), (max(snp_ids_2)-20)*7))
 	
 	# Write each SNP
