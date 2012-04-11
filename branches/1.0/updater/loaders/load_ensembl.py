@@ -15,7 +15,7 @@ import shlex
 
 class EnsemblLoader(bioloader.BioLoader):
 	def __init__(self, biosettings, db_set, coord, rebuildDatabase = False):
-		bioloader.BioLoader.__init__(self, biosettings, db_set, 0)
+		bioloader.BioLoader.__init__(self, biosettings, 0, dbsettings_in=db_set)
 		self.coordinate = coord
 		self.rebuildDatabase = rebuildDatabase
 		self.ensembl = None

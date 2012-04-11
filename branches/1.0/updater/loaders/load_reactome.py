@@ -134,7 +134,7 @@ class ReactomeEntity:
 
 class ReactomeLoader(bioloader.BioLoader):
 	def __init__(self, biosettings, db_set, id=9):
-		bioloader.BioLoader.__init__(self, biosettings, db_set, id)
+		bioloader.BioLoader.__init__(self, biosettings, id, dbsettings_in=db_set)
 		biosettings.LoadAliases()
 		self.entityLookup = dict()
 	
