@@ -35,126 +35,138 @@ def GetEnsembl(bioDB, refreshEnsembl, db_set):
 
 def LoadKB(dbFilename, kbLoads, doReset = False, refreshEnsembl = False):
 	global loadables	
-	
+		
 	if kbLoads[0] == "TEST":
 		LoadTest(dbFilename)
 		return
 	
-	chromosomes = ('1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', 'X', 'Y', 'MT')
-	bioDB = biosettings.BioSettings(dbFilename)
-	bioDB.OpenDB()
-	db_set = dbsettings.DBSettings()
 	
-	if doReset:
-		bioDB.ResetDB()
-
-	os.system("mkdir -p download")
-	os.chdir("download")
-
-	#variations 				= bioDB.BuildDbFilename(bioDB.filename, "var")
-	ncbiLoader = ncbi_loader.NCBI_Loader(bioDB)
-
-	if kbLoads[0] == "ALL":
-		kbLoads = loadables
-		ensembl = GetEnsembl(bioDB, True, db_set)
+	try:
+		chromosomes = ('1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', 'X', 'Y', 'MT')
+		db_exists = os.path.exists(dbFilename)
+		bioDB = biosettings.BioSettings(dbFilename)
+		bioDB.OpenDB()
+		db_set = dbsettings.DBSettings()
+		
+		if doReset:
+			bioDB.ResetDB()
 	
-	for kb in kbLoads:
-		kb = kb.strip().lower()
-		if kb == "snps":
-			print "Loading SNPs"
-			ncbiLoader.InitLog("snps.log")
-			cwd = os.getcwd()
-			ensembl = GetEnsembl(bioDB, refreshEnsembl, db_set)
-			os.system("mkdir -p NCBI")
-			os.chdir("NCBI")
-			#ncbiLoader.UpdateSNPs(chromosomes, "variations", ensembl)
-			os.chdir(cwd)
-			ensembl.InitVariations("variations", chromosomes)
-			ncbiLoader.CloseLog()
-		elif kb == "genes":
-			print "Loading Genes"
-			ncbiLoader.InitLog("genes.log")
-			ensembl = GetEnsembl(bioDB, refreshEnsembl, db_set)
-			#ensembl.ConnectToEnsemblDB(bioDB)
-			ncbiLoader.UpdateGenes(ensembl, chromosomes)
-			ncbiLoader.CloseLog()
-		elif kb == "go":
-			print "Loading GO"
-			loader = load_go.GoLoader(bioDB)
-			loader.InitLog()
-			loader.Load()
-			loader.CloseLog()
-		elif kb == "kegg":
-			print "Loading KEGG"
-			loader = load_kegg.KeggLoader(bioDB)
-			loader.InitLog()
-			loader.Load()
-			loader.CloseLog()
-		elif kb == "reactome":
-			print "Loading Reactome"
-			loader = load_reactome.ReactomeLoader(bioDB, db_set)
-			loader.InitLog()
-			ensembl = GetEnsembl(bioDB, refreshEnsembl, db_set)
-			if refreshEnsembl:
-				loader.RefreshDatabase()
-			
-			loader.Load(ensembl)
-			loader.Commit()
-			bioDB.Commit()
-			loader.CloseLog()
-		elif kb == "netpath":
-			print "Loading Netpath"
-			loader = load_netpath.NetPathLoader(bioDB)
-			loader.InitLog()
-			loader.Load(False)
-			loader.CloseLog()
-		elif kb == "pfam":
-			print "Loading PFAM"
-			loader = load_pfam.PFamLoader(bioDB)
-			loader.InitLog()
-			loader.Load()
-			bioDB.Commit()
-			loader.CloseLog()
-		elif kb == "dip":
-			print "Loading DIP -- DISABLED"
-			loader = load_dip.DIPLoader(bioDB)
-			loader.InitLog()
-			#loader.Load()
-			#bioDB.Commit()
-			loader.CloseLog()
-		elif kb == "mint":
-			print "Loading MINT"
-			loader = load_mint.MintLoader(bioDB)
-			loader.InitLog()
-			loader.Load()
-			bioDB.Commit()
-			loader.CloseLog()
-		elif kb == "biogrid":	
-			print "Loading Biogrid"
-			loader = load_biogrid.BioGridLoader(bioDB)
-			loader.InitLog()
-			loader.Load()
-			bioDB.Commit()
-			loader.CloseLog()
-		elif kb == "pharmgkb":
-			print "Loading PharmGKB"
-			loader = load_pharmgkb.PharmGKBLoader(bioDB)
-			loader.InitLog()
-			loader.Load()
-			#print "Attempting to Commit the data"
-			loader.Commit()
-			bioDB.Commit()
-			loader.CloseLog()
-		elif kb == "chainfiles":
-			print "Loading Chain files"
-			loader = load_chainfiles.ChainLoader(bioDB)
-			loader.InitLog()
-			loader.Load()
-			loader.Commit()
-			bioDB.Commit()
-			loader.Commit()
-		else:
-			print>>sys.stderr, "Unknown kb name: %s. Options include: %s" % (kb, ",".join(loadables))
+		os.system("mkdir -p download")
+		os.chdir("download")
+	
+		#variations 				= bioDB.BuildDbFilename(bioDB.filename, "var")
+		ncbiLoader = ncbi_loader.NCBI_Loader(bioDB)
+	
+		if kbLoads[0] == "ALL":
+			kbLoads = loadables
+			ensembl = GetEnsembl(bioDB, True, db_set)
+		
+		for kb in kbLoads:
+			kb = kb.strip().lower()
+			if kb == "snps":
+				print "Loading SNPs"
+				ncbiLoader.InitLog("snps.log")
+				cwd = os.getcwd()
+				ensembl = GetEnsembl(bioDB, refreshEnsembl, db_set)
+				os.system("mkdir -p NCBI")
+				os.chdir("NCBI")
+				#ncbiLoader.UpdateSNPs(chromosomes, "variations", ensembl)
+				os.chdir(cwd)
+				ensembl.InitVariations("variations", chromosomes)
+				ncbiLoader.CloseLog()
+			elif kb == "genes":
+				print "Loading Genes"
+				ncbiLoader.InitLog("genes.log")
+				ensembl = GetEnsembl(bioDB, refreshEnsembl, db_set)
+				#ensembl.ConnectToEnsemblDB(bioDB)
+				ncbiLoader.UpdateGenes(ensembl, chromosomes)
+				ncbiLoader.CloseLog()
+			elif kb == "go":
+				print "Loading GO"
+				loader = load_go.GoLoader(bioDB)
+				loader.InitLog()
+				loader.Load()
+				loader.CloseLog()
+			elif kb == "kegg":
+				print "Loading KEGG"
+				loader = load_kegg.KeggLoader(bioDB)
+				loader.InitLog()
+				loader.Load()
+				loader.CloseLog()
+			elif kb == "reactome":
+				print "Loading Reactome"
+				loader = load_reactome.ReactomeLoader(bioDB, db_set)
+				loader.InitLog()
+				ensembl = GetEnsembl(bioDB, refreshEnsembl, db_set)
+				if refreshEnsembl:
+					loader.RefreshDatabase()
+				
+				loader.Load(ensembl)
+				loader.Commit()
+				bioDB.Commit()
+				loader.CloseLog()
+			elif kb == "netpath":
+				print "Loading Netpath"
+				loader = load_netpath.NetPathLoader(bioDB)
+				loader.InitLog()
+				loader.Load(False)
+				loader.CloseLog()
+			elif kb == "pfam":
+				print "Loading PFAM"
+				loader = load_pfam.PFamLoader(bioDB)
+				loader.InitLog()
+				loader.Load()
+				bioDB.Commit()
+				loader.CloseLog()
+			elif kb == "dip":
+				print "Loading DIP -- DISABLED"
+				loader = load_dip.DIPLoader(bioDB)
+				loader.InitLog()
+				#loader.Load()
+				#bioDB.Commit()
+				loader.CloseLog()
+			elif kb == "mint":
+				print "Loading MINT"
+				loader = load_mint.MintLoader(bioDB)
+				loader.InitLog()
+				loader.Load()
+				bioDB.Commit()
+				loader.CloseLog()
+			elif kb == "biogrid":	
+				print "Loading Biogrid"
+				loader = load_biogrid.BioGridLoader(bioDB)
+				loader.InitLog()
+				loader.Load()
+				bioDB.Commit()
+				loader.CloseLog()
+			elif kb == "pharmgkb":
+				print "Loading PharmGKB"
+				loader = load_pharmgkb.PharmGKBLoader(bioDB)
+				loader.InitLog()
+				loader.Load()
+				#print "Attempting to Commit the data"
+				loader.Commit()
+				bioDB.Commit()
+				loader.CloseLog()
+			elif kb == "chainfiles":
+				print "Loading Chain files"
+				loader = load_chainfiles.ChainLoader(bioDB)
+				loader.InitLog()
+				loader.Load()
+				loader.Commit()
+				bioDB.Commit()
+				loader.Commit()
+			else:
+				print>>sys.stderr, "Unknown kb name: %s. Options include: %s" % (kb, ",".join(loadables))
+				
+	except Exception, e:
+		#unhandled exception means something went VERY wrong
+		# close the db:
+		bioDB.close()
+		# if it was a new db, just delete it!
+		if not db_exists:
+			os.remove(dbFilename)
+		
 		
 def LoadTest(dbFilename):
 	"""
