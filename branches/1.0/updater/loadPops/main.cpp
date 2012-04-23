@@ -10,10 +10,18 @@
 #include <iostream>
 
 using std::string;
-using std::cout;
+using std::cerr;
 
 void printHelp(){
-
+	cerr << "usage: pop_loader [OPTIONS]\n\n";
+	cerr << "pop_loader is a helper function for the LOKI database that will create\n";
+	cerr << "population-specific boundaries in LOKI from an LDSpline file.\n\n";
+	cerr << "Options Include:\n";
+	cerr << "\t-h [--help]               Show this help message\n";
+	cerr << "\t-d [--DB] <filename>      Give the location of the LOKI database \n"
+		 << "\t                          (default: knowledge.bio)\n";
+	cerr << "\t-c [--config] <filename>  Give the location of the Config file\n"
+	     << "\t                          (default: ldspline.cfg)\n";
 }
 
 int main(int argc, char** argv){
