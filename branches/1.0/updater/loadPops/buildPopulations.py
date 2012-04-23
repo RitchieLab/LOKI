@@ -157,13 +157,13 @@ def genPops(popList, dprimes, rsquared, opts):
 		os.system(opts.ldspline + " import-lomap " + pop_ext + " 37")
 		
 		# print this population's LDspline location 
-		print >> cfg_f, pop_ext, os.path.join(os.getcwd(), pop_ext+"-b37.ldspline"), pop_ext + " population from HapMap")
+		print >> cfg_f, pop_ext, os.path.join(os.getcwd(), pop_ext+"-b37.ldspline"), pop_ext + " population from HapMap"
 
 	cfg_f.close()
 	
 	# OK, we're done w/ all the populations, time to give it to biofilter!
 	print "Creating populations in biofilter"
-	os.system(opt.biofilter + " --DB " + opts.db + " --ldspline " + cfg_f.name)
+	os.system(opt.poploader + " --DB " + opts.db + " --config " + cfg_f.name)
 	
 	#.... and we're done, so clean up after yourself, please!
 	os.chdir("..")
@@ -184,23 +184,26 @@ if __name__ == "__main__":
 	parser.add_option("-s", "--ldspline", dest="ldspline", action="store",
 		help="Location of the ldspline executable (default is in path)",
 		default="ldspline")
-	parser.add_option("-f", "--biofilter", dest="biofilter", action="store",
-		help="Location of the biofilter executable (default is in path)",
-		default="biofilter")
+	parser.add_option("-o", "--poploader", dest="poploader", action="store",
+		help="Location of the pop_loader executable (default is in path)",
+		default="pop_loader")
 	parser.add_option("-b", "--db", dest="db", action="store",
 		help="Location of the LOKI databse (default 'knowledge.bio')",
 		default="knowledge.bio")
 		
 	(opts, args) = parser.parse_args();
-	
+	rsq = []
 	try:
-		rsq = [float(f) for f in itertools.chain(*(a.split(",") for a in opts.rsq))]
+		if opts.rsq is not None:
+			rsq = [float(f) for f in itertools.chain(*(a.split(",") for a in opts.rsq))]
 	except ValueError, e:
 		print "Error: Invalid R-Squared value"
 		sys.exit(1)
 		
+	dprime = []
 	try:
-		dprime = [float(f) for f in itertools.chain(*(a.split(",") for a in opts.dprime))]
+		if opts.dprime is not None:
+			dprime = [float(f) for f in itertools.chain(*(a.split(",") for a in opts.dprime))]
 	except ValueError, e:
 		print "Error: Invalid R-Squared value"	
 		sys.exit(2)
@@ -209,7 +212,13 @@ if __name__ == "__main__":
 		print "Error: You must provide R-squared or D-prime cutoffs"
 		sys.exit(3)
 	
-	pops = [s.upper() for s in itertools.chain(*(a.split(",") for a in opts.pops))]
+	pops = []
+	if opts.pops is not None:
+		pops = [s.upper() for s in itertools.chain(*(a.split(",") for a in opts.pops))]
+		
+	if not pops:
+		print "Error: You must supply at least one population"
+		sys.exit(5)	
 	
 	# Try to find all of the child programs needed now
 	exe_error = False
@@ -219,9 +228,9 @@ if __name__ == "__main__":
 		print "Error: could not find ldspline executable"
 		exe_error = True
 	try:
-		subprocess.call(opts.biofilter)
+		subprocess.call(opts.poploader)
 	except OSError, e:
-		print "Error: could not find biofilter executable"
+		print "Error: could not find pop_loader executable"
 		exe_error = True
 	try:
 		subprocess.call(opts.liftover)
@@ -231,11 +240,6 @@ if __name__ == "__main__":
 	if exe_error:
 		sys.exit(6)
 		
-	
-	if not pops:
-		print "Error: You must supply at least one population"
-		sys.exit(5)
-	
 	try:
 		genPops(pops, dprime, rsq, opts)
 	except KeyError, e:
