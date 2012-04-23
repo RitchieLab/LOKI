@@ -31,7 +31,7 @@ int main(int argc, char** argv){
 	// Parse the command line here
 	int curr = 0;
 	while (++curr < argc){
-		string arg = argv[i];
+		string arg = argv[curr];
 		if((arg == "--DB" || arg == "-d") && curr < argc){
 			db_fn = argv[++curr];
 		}

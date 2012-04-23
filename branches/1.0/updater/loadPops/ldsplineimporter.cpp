@@ -12,13 +12,16 @@
 #include <sys/stat.h>
 #include <sstream>
 
+#include <utility>
+
+using std::pair;
 using std::stringstream;
 
 LdSplineImporter::LdSplineImporter(const string& fn, const string& db_fn) :
-		_self_load(true) {
+		_self_open(true), _write_db(false) {
 	LoadConfiguration(fn.c_str());
 
-	string dbFilename = db_fn;
+	dbFilename = db_fn;
 	boost::filesystem::path dbPath = boost::filesystem::path(db_fn);
 	bool fileFound = false;
 	if (boost::filesystem::is_regular_file(dbPath)) {
@@ -69,17 +72,25 @@ LdSplineImporter::LdSplineImporter(const string& fn, const string& db_fn) :
 }
 
 LdSplineImporter::LdSplineImporter(const string& fn, sqlite3 *db_conn) :
-		_db(db_conn), _self_load(false) {
-	LoadConfiguration(fn);
+		_db(db_conn), _self_open(false), _write_db(false) {
+	LoadConfiguration(fn.c_str());
 }
 
 LdSplineImporter::~LdSplineImporter() {
-	if (_self_load) {
+	if (_self_open) {
 		sqlite3_close(_db);
+	}
+
+	// If we set the write bit, it's now time to unset it
+	if(_write_db){
+		struct stat results;
+		if(!stat(dbFilename.c_str(), &results)){
+			chmod(dbFilename.c_str(), results.st_mode & (~S_IWUSR));
+		}
 	}
 }
 
-LdSplineImporter::loadPops() {
+void LdSplineImporter::loadPops() {
 
 	vector<PopulationSpline>::const_iterator spItr = splines.begin();
 	vector<PopulationSpline>::const_iterator spEnd = splines.end();
@@ -94,8 +105,8 @@ LdSplineImporter::loadPops() {
 
 		map<string, LocusLookup> chromosomes =
 				ldspline.GetChromosomes();
-		map<string, LocusLookup>::const_iterator chr = chromosomes.begin();
-		map<string, LocusLookup>::const_iterator end = chromosomes.end();
+		map<string, LocusLookup>::iterator chr = chromosomes.begin();
+		map<string, LocusLookup>::iterator end = chromosomes.end();
 
 		while (chr != end) {
 			LoadGenes(chr->second.Chromosome());
@@ -172,34 +183,6 @@ void LdSplineImporter::LoadConfiguration(const char *filename) {
 	}
 }
 
-void LdSplineImporter::Process(soci::session& sociDB) {
-
-	std::vector<PopulationSpline>::iterator spItr = splines.begin();
-	std::vector<PopulationSpline>::iterator spEnd = splines.end();
-
-	while (spItr != spEnd) {
-		std::map<std::string, int> popIDs;
-		InitPopulationIDs(sociDB, popIDs, *spItr, "DP", dp);
-		InitPopulationIDs(sociDB, popIDs, *spItr, "RS", rs);
-
-		LdSpline ldspline;
-		ldspline.OpenBinary(spItr->filename.c_str());
-
-		std::map<std::string, LocusLookup> chromosomes =
-				ldspline.GetChromosomes();
-		std::map<std::string, LocusLookup>::iterator chr = chromosomes.begin();
-		std::map<std::string, LocusLookup>::iterator end = chromosomes.end();
-
-		while (chr != end) {
-			LoadGenes(sociDB, chr->second.Chromosome().c_str());
-			ProcessLD(sociDB, chr->second, *spItr, popIDs);
-			chr->second.Release();
-			chr++;
-		}
-		spItr++;
-	}
-}
-
 void LdSplineImporter::ProcessLD(LocusLookup& chr,
 		const PopulationSpline& sp, const map<std::string, int>& popIDs) {
 
@@ -226,19 +209,23 @@ void LdSplineImporter::ProcessLD(LocusLookup& chr,
 		vector<float>::const_iterator vEnd = dp.end();
 
 		while (vItr != vEnd) {
-			int popID = popIDs[sp.GetPopulationName("DP", *vItr)];
+			map<string, int>::const_iterator pop_itr = popIDs.find(
+					sp.GetPopulationName("DP", *vItr));
+			if (pop_itr != popIDs.end()) {
+				int popID = (*pop_itr).second;
 
-			pair<int, int> bounds = chr.GetRangeBoundariesDP(lower, upper,
-					*vItr);
-			if (bounds.first != lower || bounds.second != upper) {
-				incCount++;
-//				cerr<<"Update: "<<regItr->geneID<<" "<<lower<<" "<<upper<<" : "<<bounds.first<<" "<<bounds.second<<"\n";
-				stringstream query_ss;
-				query_ss << "UPDATE region_bounds SET start=" << bounds.first
-						<< ", end=" << bounds.second << "WHERE gene_id="
-						<< regItr->geneID << " AND population_id=" << popID << ";";
+				pair<int, int> bounds = chr.GetRangeBoundariesDP(lower, upper,
+						*vItr);
+				if (bounds.first != lower || bounds.second != upper) {
+					incCount++;
+					stringstream query_ss;
+					query_ss << "UPDATE region_bounds SET start="
+							<< bounds.first << ", end=" << bounds.second
+							<< "WHERE gene_id=" << regItr->geneID
+							<< " AND population_id=" << popID << ";";
 
-				sqlite3_exec(_db, query_ss.str().c_str(), NULL, NULL, NULL);
+					sqlite3_exec(_db, query_ss.str().c_str(), NULL, NULL, NULL);
+				}
 			}
 			vItr++;
 		}
@@ -246,18 +233,22 @@ void LdSplineImporter::ProcessLD(LocusLookup& chr,
 		vItr = rs.begin();
 		vEnd = rs.end();
 		while (vItr != vEnd) {
-			int popID = popIDs[sp.GetPopulationName("RS", *vItr)];
-			pair<int, int> bounds = chr.GetRangeBoundariesRS(lower, upper,
-					*vItr);
-			if (bounds.first != lower || bounds.second != upper) {
-				incCount++;
-//				cerr<<"Update: "<<regItr->geneID<<" "<<lower<<" "<<upper<<" : "<<bounds.first<<" "<<bounds.second<<"\n";
-				stringstream query_ss;
-				query_ss << "UPDATE region_bounds SET start=" << bounds.first
-						<< ", end=" << bounds.second << "WHERE gene_id="
-						<< regItr->geneID << " AND population_id=" << popID << ";";
+			map<string, int>::const_iterator pop_itr = popIDs.find(
+					sp.GetPopulationName("RS", *vItr));
+			if (pop_itr != popIDs.end()) {
+				int popID = (*pop_itr).second;
+				pair<int, int> bounds = chr.GetRangeBoundariesRS(lower, upper,
+						*vItr);
+				if (bounds.first != lower || bounds.second != upper) {
+					incCount++;
+					stringstream query_ss;
+					query_ss << "UPDATE region_bounds SET start="
+							<< bounds.first << ", end=" << bounds.second
+							<< "WHERE gene_id=" << regItr->geneID
+							<< " AND population_id=" << popID << ";";
 
-				sqlite3_exec(_db, query_ss.str().c_str(), NULL, NULL, NULL);
+					sqlite3_exec(_db, query_ss.str().c_str(), NULL, NULL, NULL);
+				}
 			}
 			vItr++;
 		}
@@ -283,7 +274,7 @@ void LdSplineImporter::InitPopulationIDs(map<string, int>& popIDs,
 		string pop_query = "SELECT population_id FROM populations where population_label='"+popName+"';";
 		int popID = -1;
 
-		sqlite3_exec(_db, pop_query.c_str(), parsePopId, &popID, NULL);
+		sqlite3_exec(_db, pop_query.c_str(), parsePopID, &popID, NULL);
 
 		if (popID > 0) {
 			cerr << "Clearing out all bounds associated with population"
@@ -297,7 +288,7 @@ void LdSplineImporter::InitPopulationIDs(map<string, int>& popIDs,
 
 		} else {
 			pop_query = "SELECT MAX(population_id) FROM populations;";
-			sqlite3_exec(_db, pop_query.c_str(), parsePopId, &popID, NULL);
+			sqlite3_exec(_db, pop_query.c_str(), parsePopID, &popID, NULL);
 			popID++;
 		}
 
@@ -342,12 +333,12 @@ int LdSplineImporter::parseGenes(void* obj, int n_cols, char** col_names, char**
 
 }
 
-int LdSplineImporter::parsePopId(void* pop_id, int n_cols, char** col_names, char** col_vals){
+int LdSplineImporter::parsePopID(void* pop_id, int n_cols, char** col_names, char** col_vals){
 	if(n_cols !=  1){
 		return 2;
 	}
 
-	int* result = (int*) obj;
+	int* result = (int*) pop_id;
 	(*result) = atoi(col_vals[0]);
 	return 0;
 }

@@ -15,10 +15,13 @@ using namespace Spline;
 #include <string>
 #include <map>
 #include <vector>
+#include <iostream>
+#include <iomanip>
 
 using std::string;
 using std::map;
 using std::vector;
+using std::cerr;
 
 class LdSplineImporter {
 private:
@@ -28,9 +31,9 @@ private:
 		string desc;					///< comment to help inform users who might not be familiar with the 3 letter names
 		string filename;			///< The filename associated with the splines
 
-		string GetPopulationName(const char *statType, float value) const{
+		string GetPopulationName(const string& statType, float value) const{
 			std::stringstream ss;
-			ss<<name<<"-"<<statType<<setiosflags(std::ios::fixed|std::ios::showpoint)<<std::setprecision(2)<<value;
+			ss<<name<<"-"<<statType<<std::setiosflags(std::ios::fixed|std::ios::showpoint)<<std::setprecision(2)<<value;
 			return ss.str();
 		}
 		PopulationSpline(std::string name, std::string desc, std::string filename) : name(name), desc(desc), filename(filename) {}
@@ -82,6 +85,8 @@ private:
 	// Database connection
 	sqlite3* _db;
 	bool _self_open;
+	bool _write_db;
+	string dbFilename;
 
 	// DB processing functions
 	static int parseGenes(void*, int, char**, char**);
