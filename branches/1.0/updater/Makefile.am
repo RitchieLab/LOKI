@@ -1,3 +1,5 @@
+SUBDIRS = loadPops
+
 noinst_LTLIBRARIES=liblokiupdate.la
 
 liblokiupdate_la_SOURCES=dbsettings.py\
