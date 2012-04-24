@@ -323,7 +323,7 @@ void LdSplineImporter::LoadGenes(const string& chrom) {
 	cerr << "Total Regions: " << regions.size() << "\n";
 }
 
-int LdSplineImporter::parseGenes(void* obj, int n_cols, char** col_names, char** col_vals){
+int LdSplineImporter::parseGenes(void* obj, int n_cols, char** col_vals, char** col_names){
 	if(n_cols != 4){
 		return 2;
 	}
@@ -333,7 +333,7 @@ int LdSplineImporter::parseGenes(void* obj, int n_cols, char** col_names, char**
 
 }
 
-int LdSplineImporter::parsePopID(void* pop_id, int n_cols, char** col_names, char** col_vals){
+int LdSplineImporter::parsePopID(void* pop_id, int n_cols, char** col_vals, char** col_names){
 	if(n_cols !=  1){
 		return 2;
 	}
