@@ -163,7 +163,7 @@ def genPops(popList, dprimes, rsquared, opts):
 	
 	# OK, we're done w/ all the populations, time to give it to biofilter!
 	print "Creating populations in biofilter"
-	os.system(opt.poploader + " --DB " + opts.db + " --config " + cfg_f.name)
+	os.system(opts.poploader + " --DB " + opts.db + " --config " + cfg_f.name)
 	
 	#.... and we're done, so clean up after yourself, please!
 	os.chdir("..")
