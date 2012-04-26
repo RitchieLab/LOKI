@@ -11,11 +11,6 @@ class Source_go(loki_source.Source):
 	# source interface
 	
 	
-	def getDependencies(cls):
-		return ('entrez',)
-	#getDependencies()
-	
-	
 	def download(self):
 		# download the latest source files
 		self.downloadFilesFromFTP('ftp.geneontology.org', {
@@ -38,17 +33,17 @@ class Source_go(loki_source.Source):
 			
 			# get or create the required metadata records
 			namespaceID = {
-				'gene':     self.addNamespace('gene'),
-				'uniprot':  self.addNamespace('uniprot'),
 				'go':       self.addNamespace('go'),
 				'ontology': self.addNamespace('ontology'),
+				'gene':     self.addNamespace('gene'),
+				'uniprot':  self.addNamespace('uniprot'),
 			}
 			relationshipID = {
 				'is_a':     self.addRelationship('is_a'),
 			}
 			typeID = {
-				'gene':     self.addType('gene'),
 				'ontology': self.addType('ontology'),
+				'gene':     self.addType('gene'),
 			}
 			
 			# process ontology terms
@@ -160,11 +155,8 @@ class Source_go(loki_source.Source):
 			# process gene associations
 			self.log("processing gene associations ...")
 			assocFile = self.zfile('gene_association.goa_human.gz') #TODO:context manager,iterator
-			setAssoc = set()
-			setFlagAssoc = set()
-			setOrphan = set()
-			setAmbig = set()
-			setUnrec = set()
+			goSize = { goID:0 for goID in goGID }
+			setLiteral = set()
 			for line in assocFile:
 				words = line.split('\t')
 				if len(words) < 13:
@@ -188,55 +180,25 @@ class Source_go(loki_source.Source):
 				#sourceIDsplice = words[16]
 				
 				# TODO: why ignore IEA?
-				if sourceDB == 'UniProtKB' and evidence != 'IEA' and taxon == 'taxon:9606':
-					if goID not in goGID:
-						setOrphan.add( (goID,sourceID,gene) )
-					else:
+				if sourceDB == 'UniProtKB' and goID in goGID and evidence != 'IEA' and taxon == 'taxon:9606':
+					goSize[goID] += 1
+					setLiteral.add( (goGID[goID],goSize[goID],namespaceID['uniprot'],sourceID) )
+					setLiteral.add( (goGID[goID],goSize[goID],namespaceID['gene'],gene) )
+					for alias in aliases:
 						# aliases might be either symbols or uniprot identifiers, so try them both ways
-						# actually, including aliases increases ambiguity more than it reduces unknowns; not worth it
-						nameList = [sourceID, gene]
-						#nameList.extend(aliases)
-						#nameList.extend(aliases)
-						nsList = [namespaceID['uniprot'], namespaceID['gene']]
-						#nsList.extend(namespaceID['gene'] for alias in aliases)
-						#nsList.extend(namespaceID['uniprot'] for alias in aliases)
-						regionIDs = self._loki.getRegionIDsByNames(nameList, nsList, typeID['gene'], self._loki.MATCH_BEST)
-						if len(regionIDs) == 1:
-							setAssoc.add( (goGID[goID],regionIDs[0]) )
-						elif len(regionIDs) > 1:
-							setAmbig.add( (goGID[goID],sourceID,gene) )
-							for regionID in regionIDs:
-								setFlagAssoc.add( (goGID[goID],regionID) )
-						else:
-							setUnrec.add( (goGID[goID],sourceID,gene) )
+						if alias != sourceID:
+							setLiteral.add( (goGID[goID],goSize[goID],namespaceID['uniprot'],alias) )
+						if alias != gene:
+							setLiteral.add( (goGID[goID],goSize[goID],namespaceID['gene'],alias) )
 				#if association is ok
 			#foreach association
-			numAssoc = len(setAssoc)
-			numGene = len(set(assoc[1] for assoc in setAssoc))
-			numGroup = len(set(assoc[0] for assoc in setAssoc))
-			self.log(" OK: %d associations (%d genes in %d groups)\n" % (numAssoc,numGene,numGroup))
-			self.logPush()
-			if setOrphan:
-				numAssoc = len(setOrphan)
-				numName = len(set(assoc[1:] for assoc in setOrphan))
-				numGroup = len(set(assoc[0] for assoc in setOrphan))
-				self.log("WARNING: %d orphaned associations (%d identifiers in %d groups)\n" % (numAssoc,numName,numGroup))
-			if setAmbig:
-				numAssoc = len(setAmbig)
-				numName = len(set(assoc[1:] for assoc in setAmbig))
-				numGroup = len(set(assoc[0] for assoc in setAmbig))
-				self.log("WARNING: %d ambiguous associations (%d identifiers in %d groups)\n" % (numAssoc,numName,numGroup))
-			if setUnrec:
-				numAssoc = len(setUnrec)
-				numName = len(set(assoc[1:] for assoc in setUnrec))
-				numGroup = len(set(assoc[0] for assoc in setUnrec))
-				self.log("WARNING: %d unrecognized associations (%d identifiers in %d groups)\n" % (numAssoc,numName,numGroup))
-			self.logPop()
+			numLiteral = len(setLiteral)
+			numAssoc = sum(goSize[go] for go in goSize)
+			self.log(" OK: %d associations (%d identifiers)\n" % (numAssoc,numLiteral))
 			
 			# store gene associations
 			self.log("writing gene associations to the database ...")
-			self.addGroupRegions(setAssoc)
-			# TODO: setFlagAssoc
+			self.addGroupLiterals(setLiteral)
 			self.log(" OK\n")
 			
 			# commit transaction

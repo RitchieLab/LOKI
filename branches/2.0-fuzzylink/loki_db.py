@@ -37,7 +37,7 @@ class Database(object):
 	
 	
 	_source_loaders = None
-	_source_plugins = {}
+	_source_classes = dict()
 	_schema = {
 		'db': {
 			# ########## db.namespace ##########
@@ -147,6 +147,21 @@ class Database(object):
 					'group_group__related': '(related_group_id,group_id)',
 				}
 			}, #.db.group_group
+			
+			# ########## db.group_literal ##########
+			'group_literal': {
+				'table': """
+(
+  group_id INTEGER NOT NULL,
+  member INTEGER NOT NULL,
+  namespace_id INTEGER NOT NULL,
+  name VARCHAR(256) NOT NULL,
+  source_id TINYINT NOT NULL,
+  PRIMARY KEY (group_id,member,namespace_id,name,source_id)
+)
+""",
+				'index': {}
+			}, #.db.group_literal
 			
 			# ########## db.group_region ##########
 			'group_region': {
@@ -264,7 +279,7 @@ class Database(object):
 	
 	
 	# ##################################################
-	# class methods
+	# interrogation methods
 	
 	
 	@classmethod
@@ -301,10 +316,9 @@ class Database(object):
 		self._logFile = sys.stderr
 		self._logIndent = 0
 		self._logHanging = False
-		self._source_handlers = {}
+		self._source_objects = dict()
 		self._db = apsw.Connection(':memory:')
-		self._dbc = self._db.cursor()
-		self._dbc.execute("PRAGMA synchronous=OFF")
+		self._db.cursor().execute("PRAGMA synchronous=OFF") #TODO: document why this is a good idea
 		self._dbFile = None
 		self._dbNew = None
 		self.attachDatabaseFile(dbFile)
@@ -312,7 +326,7 @@ class Database(object):
 	
 	
 	# ##################################################
-	# context managers
+	# context manager
 	
 	
 	def __enter__(self):
@@ -372,11 +386,13 @@ class Database(object):
 	
 	
 	def attachDatabaseFile(self, dbFile):
+		dbc = self._db.cursor()
+		
 		# detach the current db file, if any
 		if self._dbFile:
 			self.log("unloading knowledge database file '%s' ..." % self._dbFile)
 		try:
-			self._dbc.execute("DETACH DATABASE `db`")
+			dbc.execute("DETACH DATABASE `db`")
 		except apsw.SQLError as e:
 			# no easy way to check beforehand if a db is attached already,
 			# so just ignore that error (but re-raise any other)
@@ -390,15 +406,18 @@ class Database(object):
 		if dbFile:
 			self.logPush("loading knowledge database file '%s' ..." % dbFile)
 			try:
-				self._dbc.execute("ATTACH DATABASE ? AS `db`", (dbFile,))
+				dbc.execute("ATTACH DATABASE ? AS `db`", (dbFile,))
 			except apsw.Error as e:
 				raise Error(str(e))
 			self._dbFile = dbFile
 			
-			# audit database schema
-			for row in self._dbc.execute("SELECT COUNT(1) FROM `db`.`sqlite_master`"):
+			# establish or audit database schema
+			for row in dbc.execute("SELECT COUNT(1) FROM `db`.`sqlite_master`"):
 				self._dbNew = (row[0] == 0)
-			if not self._dbNew:
+			if self._dbNew:
+				with self._db:
+					self.createDatabaseObjects(None, 'db')
+			else:
 				self.auditDatabaseObjects(None, 'db')
 			self.logPop("... OK\n")
 		else:
@@ -418,23 +437,21 @@ class Database(object):
 	
 	
 	def createDatabaseObjects(self, schema, dbName, tblList=None, tables=True, indexes=True):
+		dbc = self._db.cursor()
 		schema = schema or self._schema[dbName]
 		dbType = "TEMP " if (dbName == "temp") else ""
 		if not tblList or tblList == '*':
 			tblList = schema.keys()
 		elif isinstance(tblList, str):
 			tblList = (tblList,)
-		with self._db:
-			for tblName in tblList:
-				if tables:
-					self._dbc.execute("CREATE %sTABLE IF NOT EXISTS `%s`.`%s` %s" % (dbType, dbName, tblName, schema[tblName]['table']))
-				if indexes:
-					for idxName in schema[tblName]['index']:
-						self._dbc.execute("CREATE INDEX IF NOT EXISTS `%s`.`%s` ON `%s` %s" % (dbName, idxName, tblName, schema[tblName]['index'][idxName]))
-					self._dbc.execute("ANALYZE `%s`.`%s`" % (dbName,tblName))
-			#foreach tblName in tblList
-		#with db transaction
-		return True
+		for tblName in tblList:
+			if tables:
+				dbc.execute("CREATE %sTABLE IF NOT EXISTS `%s`.`%s` %s" % (dbType, dbName, tblName, schema[tblName]['table']))
+			if indexes:
+				for idxName in schema[tblName]['index']:
+					dbc.execute("CREATE INDEX IF NOT EXISTS `%s`.`%s` ON `%s` %s" % (dbName, idxName, tblName, schema[tblName]['index'][idxName]))
+				dbc.execute("ANALYZE `%s`.`%s`" % (dbName,tblName))
+		#foreach tblName in tblList
 	#createDatabaseObjects()
 	
 	
@@ -449,21 +466,19 @@ class Database(object):
 	
 	
 	def dropDatabaseObjects(self, schema, dbName, tblList=None, tables=True, indexes=True):
+		dbc = self._db.cursor()
 		schema = schema or self._schema[dbName]
 		if not tblList or tblList == '*':
 			tblList = schema.keys()
 		elif isinstance(tblList, str):
 			tblList = (tblList,)
-		with self._db:
-			for tblName in tblList:
-				if indexes:
-					for idxName in schema[tblName]['index']:
-						self._dbc.execute("DROP INDEX IF EXISTS `%s`.`%s`" % (dbName, idxName))
-				if tables:
-					self._dbc.execute("DROP TABLE IF EXISTS `%s`.`%s`" % (dbName, tblName))
-			#foreach tblName in tblList
-		#with db transaction
-		return True
+		for tblName in tblList:
+			if indexes:
+				for idxName in schema[tblName]['index']:
+					dbc.execute("DROP INDEX IF EXISTS `%s`.`%s`" % (dbName, idxName))
+			if tables:
+				dbc.execute("DROP TABLE IF EXISTS `%s`.`%s`" % (dbName, tblName))
+		#foreach tblName in tblList
 	#dropDatabaseObjects()
 	
 	
@@ -478,6 +493,7 @@ class Database(object):
 	
 	
 	def auditDatabaseObjects(self, schema, dbName, tblList=None, tables=True, indexes=True):
+		dbc = self._db.cursor()
 		schema = schema or self._schema[dbName]
 		master = "`sqlite_temp_master`" if (dbName == "temp") else ("`%s`.`sqlite_master`" % dbName)
 		if not tblList or tblList == '*':
@@ -487,13 +503,13 @@ class Database(object):
 		for tblName in tblList:
 			try:
 				if tables:
-					sql = self._dbc.execute("SELECT sql FROM %s WHERE type=? AND name=?" % master, ('table',tblName)).next()[0]
+					sql = dbc.execute("SELECT sql FROM %s WHERE type=? AND name=?" % master, ('table',tblName)).next()[0]
 					if sql != ("CREATE TABLE `%s` %s" % (tblName, schema[tblName]['table'].rstrip())):
 						self.log("WARNING: table '%s' schema mismatch" % tblName)
 				if indexes:
 					for idxName in schema[tblName]['index']:
 						try:
-							sql = self._dbc.execute("SELECT sql FROM %s WHERE type=? AND name=?" % master, ('index',idxName)).next()[0]
+							sql = dbc.execute("SELECT sql FROM %s WHERE type=? AND name=?" % master, ('index',idxName)).next()[0]
 							if sql != ("CREATE INDEX `%s` ON `%s` %s" % (idxName, tblName, schema[tblName]['index'][idxName].rstrip())):
 								self.log("WARNING: index '%s' on table '%s' schema mismatch" % (tblName, idxName))
 						except StopIteration:
@@ -505,6 +521,8 @@ class Database(object):
 	
 	
 	def defragmentDatabase(self):
+		# unfortunately sqlite's VACUUM doesn't work on attached databases,
+		# so we have to detach, make a new direct connection, then re-attach
 		if self._dbFile:
 			dbFile = self._dbFile
 			self.detachDatabaseFile()
@@ -521,49 +539,33 @@ class Database(object):
 	# database update
 	
 	
-	def _topoSort(self, node, deps, seen):
-		if node not in seen:
-			seen.add(node)
-			for depNode in deps.get(node, []):
-				if depNode in deps:
-					for nextNode in self._topoSort(depNode, deps, seen):
-						yield nextNode
-			yield node
-	#_topoSort()
-	
-	
-	def updateDatabase(self, sourceList):
-		# create any missing tables or indexes
-		self.log("verifying database file ...")
-		self.createDatabaseObjects(None, 'db')
-		self.log(" OK\n")
-		
-		import loki_source
-		
-		# locate all available source modules, if we haven't already
-		if self._source_loaders == None:
-			self._source_loaders = {}
+	@classmethod
+	def findSourceModules(cls):
+		if cls._source_loaders == None:
+			cls._source_loaders = {}
 			for srcImporter,srcModuleName,_ in pkgutil.iter_modules():
 				if srcModuleName.startswith('loki_source_'):
-					self._source_loaders[srcModuleName[12:]] = srcImporter.find_module(srcModuleName)
+					cls._source_loaders[srcModuleName[12:]] = srcImporter.find_module(srcModuleName)
+	#findSourceModules()
+	
+	
+	@classmethod
+	def listSourceModules(cls):
+		cls.findSourceModules()
+		return cls._source_loaders.keys()
+	#listSourceModules()
+	
+	
+	def updateDatabase(self, sources):
+		# find all available source handler modules
+		import loki_source
+		self.findSourceModules()
 		
-		# identify all requested sources
-		srcSet = set(sourceList)
-		if len(srcSet) == 0 or '+' in srcSet:
-			srcSet |= set(self._source_loaders.keys())
-		
-		# list sources, if requested
-		if '?' in srcSet:
-			print "available sources:"
-			for srcName in self._source_loaders:
-				print "  %s" % srcName
-			srcSet.remove('?')
-		
-		# load and instantiate all requested sources and check dependencies
-		srcDep = {}
-		for srcName in srcSet:
-			if srcName not in self._source_handlers:
-				if srcName not in self._source_plugins:
+		# load and instantiate all requested sources
+		srcSet = set()
+		for srcName in set(sources):
+			if srcName not in self._source_objects:
+				if srcName not in self._source_classes:
 					if srcName not in self._source_loaders:
 						self.log("WARNING: unknown source '%s'\n" % srcName)
 						continue
@@ -573,43 +575,33 @@ class Database(object):
 					if not issubclass(srcClass, loki_source.Source):
 						self.log("WARNING: invalid module for source '%s'\n" % srcName)
 						continue
-					self._source_plugins[srcName] = srcClass
+					self._source_classes[srcName] = srcClass
 				#if module not loaded
-				self._source_handlers[srcName] = self._source_plugins[srcName](self)
+				self._source_objects[srcName] = self._source_classes[srcName](self)
 			#if module not instantiated
-			srcDep[srcName] = self._source_handlers[srcName].getDependencies()
-			for depName in srcDep[srcName]:
-				if depName in srcDep and srcName in srcDep[depName]:
-					sys.stderr.write("ERROR: circular source dependency! %s <-> %s\n" % (srcName,depName))
-					sys.exit(1)
+			srcSet.add(srcName)
 		#foreach source
 		
-		# resolve source dependencies
-		srcOrder = list()
-		srcVisited = set()
-		for srcName in srcDep:
-			srcOrder.extend(self._topoSort(srcName, srcDep, srcVisited))
-		
-		# update from all requested sources in order
+		# update from all requested sources
 		iwd = os.getcwd()
-		for srcName in srcOrder:
+		for srcName in srcSet:
 			# download files into a local cache
 			self.logPush("downloading %s data ...\n" % srcName)
 			path = os.path.join('loki_cache', srcName)
 			if not os.path.exists(path):
 				os.makedirs(path)
 			os.chdir(path)
-			self._source_handlers[srcName].download()
+			self._source_objects[srcName].download()
 			self.logPop("... OK\n")
 			# process new files
 			self.logPush("processing %s data ...\n" % srcName)
-			self._source_handlers[srcName].update()
+			self._source_objects[srcName].update()
 			os.chdir(iwd)
 			self.logPop("... OK\n")
 		#foreach source
 		
-		if False: #don't do this automatically, starts taking a long time on a full db..
-			# unfortunately sqlite's VACUUM doesn't work on attached databases :/
+		# don't do this automatically, starts taking a long time on a full db..
+		if 0:
 			self.log("defragmenting database ...")
 			self.defragmentDatabase()
 			self.log(" OK\n")
@@ -621,7 +613,7 @@ class Database(object):
 	
 	
 	def getNamespaceID(self, name):
-		result = self._dbc.execute("SELECT `namespace_id` FROM `db`.`namespace` WHERE `namespace` = LOWER(?)", (name,))
+		result = self._db.cursor().execute("SELECT `namespace_id` FROM `db`.`namespace` WHERE `namespace` = LOWER(?)", (name,))
 		ret = None
 		for row in result:
 			ret = row[0]
@@ -630,7 +622,7 @@ class Database(object):
 	
 	
 	def getPopulationID(self, name):
-		result = self._dbc.execute("SELECT `population_id` FROM `db`.`population` WHERE `population` = LOWER(?)", (name,))
+		result = self._db.cursor().execute("SELECT `population_id` FROM `db`.`population` WHERE `population` = LOWER(?)", (name,))
 		ret = None
 		for row in result:
 			ret = row[0]
@@ -639,7 +631,7 @@ class Database(object):
 	
 	
 	def getRelationshipID(self, name):
-		result = self._dbc.execute("SELECT `relationship_id` FROM `db`.`relationship` WHERE `relationship` = LOWER(?)", (name,))
+		result = self._db.cursor().execute("SELECT `relationship_id` FROM `db`.`relationship` WHERE `relationship` = LOWER(?)", (name,))
 		ret = None
 		for row in result:
 			ret = row[0]
@@ -648,7 +640,7 @@ class Database(object):
 	
 	
 	def getSourceID(self, name):
-		result = self._dbc.execute("SELECT `source_id` FROM `db`.`source` WHERE `source` = LOWER(?)", (name,))
+		result = self._db.cursor().execute("SELECT `source_id` FROM `db`.`source` WHERE `source` = LOWER(?)", (name,))
 		ret = None
 		for row in result:
 			ret = row[0]
@@ -657,7 +649,7 @@ class Database(object):
 	
 	
 	def getTypeID(self, name):
-		result = self._dbc.execute("SELECT `type_id` FROM `db`.`type` WHERE `type` = LOWER(?)", (name,))
+		result = self._db.cursor().execute("SELECT `type_id` FROM `db`.`type` WHERE `type` = LOWER(?)", (name,))
 		ret = None
 		for row in result:
 			ret = row[0]
@@ -669,8 +661,9 @@ class Database(object):
 	# data retrieval
 	
 	def getGroupIDsByName(self, name, namespaceID=None, typeID=None):
+		dbc = self._db.cursor()
 		if typeID and namespaceID:
-			result = self._dbc.execute("""
+			result = dbc.execute("""
 SELECT DISTINCT gn.`group_id`
 FROM `db`.`group_name` AS gn
 JOIN `db`.`group` AS g
@@ -678,7 +671,7 @@ JOIN `db`.`group` AS g
 WHERE gn.`name` = ? AND gn.`namespace_id` = ?
 """, (typeID,name,namespaceID))
 		elif typeID:
-			result = self._dbc.execute("""
+			result = dbc.execute("""
 SELECT DISTINCT gn.`group_id`
 FROM `db`.`group_name` AS gn
 JOIN `db`.`group` AS g
@@ -686,13 +679,13 @@ JOIN `db`.`group` AS g
 WHERE gn.`name` = ?
 """, (typeID,name))
 		elif namespaceID:
-			result = self._dbc.execute("""
+			result = dbc.execute("""
 SELECT DISTINCT gn.`group_id`
 FROM `db`.`group_name` AS gn
 WHERE gn.`name` = ? AND gn.`namespace_id` = ?
 """, (name,namespaceID))
 		else:
-			result = self._dbc.execute("""
+			result = dbc.execute("""
 SELECT DISTINCT gn.`group_id`
 FROM `db`.`group_name` AS gn
 WHERE gn.`name` = ?
@@ -707,6 +700,7 @@ WHERE gn.`name` = ?
 	
 	
 	def getRegionIDsByNames(self, names, namespaceIDs, typeID=None, matchMode=None):
+		dbc = self._db.cursor()
 		sql = """
 SELECT rn.region_id
 FROM db.region_name AS rn"""
@@ -719,11 +713,11 @@ WHERE rn.name = ? AND (rn.namespace_id = ? OR COALESCE(?,0) = 0)"""
 		setArgs = set(args for args in zip(names,namespaceIDs,namespaceIDs) if args[0] != None)
 		
 		if (matchMode == None) or (matchMode == self.MATCH_ALL):
-			return list( set( row[0] for row in self._dbc.executemany(sql, setArgs) ) )
+			return list( set( row[0] for row in dbc.executemany(sql, setArgs) ) )
 		elif matchMode == self.MATCH_FIRST:
 			regionIDs = None
 			for args in setArgs:
-				newIDs = set( row[0] for row in self._dbc.execute(sql, args) )
+				newIDs = set( row[0] for row in dbc.execute(sql, args) )
 				if not regionIDs:
 					regionIDs = newIDs
 				else:
@@ -734,7 +728,7 @@ WHERE rn.name = ? AND (rn.namespace_id = ? OR COALESCE(?,0) = 0)"""
 		elif matchMode == self.MATCH_BEST:
 			regionHits = dict()
 			bestHits = 0
-			for row in self._dbc.executemany(sql, setArgs):
+			for row in dbc.executemany(sql, setArgs):
 				regionID = row[0]
 				hits = (regionHits.get(regionID) or 0) + 1
 				regionHits[regionID] = hits
@@ -746,8 +740,9 @@ WHERE rn.name = ? AND (rn.namespace_id = ? OR COALESCE(?,0) = 0)"""
 	
 	
 	def getRegionNameStats(self, namespaceID=None, typeID=None):
+		dbc = self._db.cursor()
 		if typeID and namespaceID:
-			result = self._dbc.execute("""
+			result = dbc.execute("""
 SELECT
   COUNT(1) AS `total`,
   SUM(CASE WHEN names = 1 THEN 1 ELSE 0 END) AS `unique`,
@@ -763,7 +758,7 @@ FROM (
 )
 """, (typeID,namespaceID))
 		elif typeID:
-			result = self._dbc.execute("""
+			result = dbc.execute("""
 SELECT
   COUNT(1) AS `total`,
   SUM(CASE WHEN names = 1 THEN 1 ELSE 0 END) AS `unique`,
@@ -778,7 +773,7 @@ FROM (
 )
 """, (typeID,))
 		elif namespaceID:
-			result = self._dbc.execute("""
+			result = dbc.execute("""
 SELECT
   COUNT(1) AS `total`,
   SUM(CASE WHEN names = 1 THEN 1 ELSE 0 END) AS `unique`,
@@ -792,7 +787,7 @@ FROM (
 )
 """, (namespaceID,))
 		else:
-			result = self._dbc.execute("""
+			result = dbc.execute("""
 SELECT
   COUNT(1) AS `total`,
   SUM(CASE WHEN names = 1 THEN 1 ELSE 0 END) AS `unique`,

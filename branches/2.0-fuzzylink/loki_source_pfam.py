@@ -10,11 +10,6 @@ class Source_pfam(loki_source.Source):
 	# source interface
 	
 	
-	def getDependencies(cls):
-		return ('entrez',)
-	#getDependencies()
-	
-	
 	def download(self):
 		# download the latest source files
 		self.downloadFilesFromFTP('ftp.sanger.ac.uk', {
@@ -37,16 +32,16 @@ class Source_pfam(loki_source.Source):
 			
 			# get or create the required metadata records
 			namespaceID = {
-				'uniprot':        self.addNamespace('uniprot'),
 				'pfam':           self.addNamespace('pfam'),
 				'protein_family': self.addNamespace('protein_family'),
+				'uniprot':        self.addNamespace('uniprot'),
 			}
 			relationshipID = {
 				'':               self.addRelationship(''),
 			}
 			typeID = {
-				'gene':           self.addType('gene'),
 				'protein_family': self.addType('protein_family'),
+				'gene':           self.addType('gene'),
 			}
 			
 			# process protein families
@@ -97,11 +92,8 @@ class Source_pfam(loki_source.Source):
 			# process associations
 			self.log("processing gene associations ...")
 			assocFile = self.zfile('seq_info.txt.gz') #TODO:context manager,iterator
-			setAssoc = set()
-			setFlagAssoc = set()
-			setOrphan = set()
-			setAmbig = set()
-			setUnrec = set()
+			pfamSize = { pfamID:0 for pfamID in pfamGID }
+			setLiteral = set()
 			for line in assocFile:
 				words = line.split("\t")
 				if len(words) < 6:
@@ -111,52 +103,19 @@ class Source_pfam(loki_source.Source):
 				uniprotID = words[6]
 				species = words[8]
 				
-				if species == 'Homo sapiens (Human)':
-					if pfamID not in pfamGID:
-						setOrphan.add( (pfamID,uniprotAcc,uniprotID) )
-					else:
-						regionIDs = self._loki.getRegionIDsByNames(
-								[uniprotAcc, uniprotID],
-								[namespaceID['uniprot'], namespaceID['uniprot']],
-								typeID['gene'],
-								self._loki.MATCH_BEST
-						)
-						if len(regionIDs) == 1:
-							setAssoc.add( (pfamGID[pfamID],regionIDs[0]) )
-						elif len(regionIDs) > 1:
-							setAmbig.add( (pfamGID[pfamID],uniprotAcc,uniprotID) )
-							for regionID in regionIDs:
-								setFlagAssoc.add( (pfamGID[pfamID],regionID) )
-						else:
-							setUnrec.add( (pfamGID[pfamID],uniprotAcc,uniprotID) )
+				if pfamID in pfamGID and species == 'Homo sapiens (Human)':
+					pfamSize[pfamID] += 1
+					setLiteral.add( (pfamGID[pfamID],pfamSize[pfamID],namespaceID['uniprot'],uniprotAcc) )
+					setLiteral.add( (pfamGID[pfamID],pfamSize[pfamID],namespaceID['uniprot'],uniprotID) )
 				#if association is ok
 			#foreach association
-			numAssoc = len(setAssoc)
-			numGene = len(set(assoc[1] for assoc in setAssoc))
-			numGroup = len(set(assoc[0] for assoc in setAssoc))
-			self.log(" OK: %d associations (%d genes in %d groups)\n" % (numAssoc,numGene,numGroup))
-			self.logPush()
-			if setOrphan:
-				numAssoc = len(setOrphan)
-				numName = len(set(assoc[1:] for assoc in setOrphan))
-				numGroup = len(set(assoc[0] for assoc in setOrphan))
-				self.log("WARNING: %d orphaned associations (%d identifiers in %d groups)\n" % (numAssoc,numName,numGroup))
-			if setAmbig:
-				numAssoc = len(setAmbig)
-				numName = len(set(assoc[1:] for assoc in setAmbig))
-				numGroup = len(set(assoc[0] for assoc in setAmbig))
-				self.log("WARNING: %d ambiguous associations (%d identifiers in %d groups)\n" % (numAssoc,numName,numGroup))
-			if setUnrec:
-				numAssoc = len(setUnrec)
-				numName = len(set(assoc[1:] for assoc in setUnrec))
-				numGroup = len(set(assoc[0] for assoc in setUnrec))
-				self.log("WARNING: %d unrecognized associations (%d identifiers in %d groups)\n" % (numAssoc,numName,numGroup))
-			self.logPop()
+			numLiteral = len(setLiteral)
+			numAssoc = sum(pfamSize[pfamID] for pfamID in pfamSize)
+			self.log(" OK: %d associations (%d identifiers)\n" % (numAssoc,numLiteral))
 			
 			# store gene associations
 			self.log("writing gene associations to the database ...")
-			self.addGroupRegions(setAssoc)
-			# TODO: setFlagAssoc
+			self.addGroupLiterals(setLiteral)
 			self.log(" OK\n")
 			
 			# commit transaction

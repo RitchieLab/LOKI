@@ -11,11 +11,6 @@ class Source_netpath(loki_source.Source):
 	# source interface
 	
 	
-	def getDependencies(cls):
-		return ('entrez',)
-	#getDependencies()
-	
-	
 	def download(self):
 		# download the latest source files
 		self.downloadFilesFromHTTP('www.netpath.org', {
@@ -38,14 +33,14 @@ class Source_netpath(loki_source.Source):
 			
 			# get or create the required metadata records
 			namespaceID = {
-				'gene':    self.addNamespace('gene'),
-				'entrez':  self.addNamespace('entrez'),
 				'netpath': self.addNamespace('netpath'),
 				'pathway': self.addNamespace('pathway'),
+				'gene':    self.addNamespace('gene'),
+				'entrez':  self.addNamespace('entrez'),
 			}
 			typeID = {
-				'gene':       self.addType('gene'),
 				'pathway':    self.addType('pathway'),
+				'gene':       self.addType('gene'),
 			}
 			
 			# process pathways
@@ -96,11 +91,8 @@ class Source_netpath(loki_source.Source):
 			
 			# process associations
 			self.log("verifying gene association archive ...")
-			setAssoc = set()
-			setFlagAssoc = set()
-			setOrphan = set()
-			setAmbig = set()
-			setUnrec = set()
+			pathSize = { pathID:0 for pathID in pathGID }
+			setLiteral = set()
 			with zipfile.ZipFile('NetPath_GeneReg_TSV.zip','r') as pathZip:
 				err = pathZip.testzip()
 				if err:
@@ -122,54 +114,22 @@ class Source_netpath(loki_source.Source):
 						gene = words[3]
 						entrezID = words[4]
 						
-						if pathID not in pathGID:
-							setOrphan.add( (pathID,entrezID,gene) )
-						else:
-							regionIDs = self._loki.getRegionIDsByNames(
-									[entrezID, gene],
-									[namespaceID['entrez'], namespaceID['gene']],
-									typeID['gene'],
-									self._loki.MATCH_BEST
-							)
-							if len(regionIDs) == 1:
-								setAssoc.add( (pathGID[pathID],regionIDs[0]) )
-							elif len(regionIDs) > 1:
-								setAmbig.add( (pathGID[pathID],entrezID,gene) )
-								for regionID in regionIDs:
-									setFlagAssoc.add( (pathGID[pathID],regionID) )
-							else:
-								setUnrec.add( (pathGID[pathID],entrezID,gene) )
+						if pathID in pathGID:
+							pathSize[pathID] += 1
+							setLiteral.add( (pathGID[pathID],pathSize[pathID],namespaceID['entrez'],entrezID) )
+							setLiteral.add( (pathGID[pathID],pathSize[pathID],namespaceID['gene'],gene) )
 						#if pathway is ok
 					#foreach line in pathFile
 					pathFile.close()
 				#foreach file in pathZip
 			#with pathZip
-			numAssoc = len(setAssoc)
-			numGene = len(set(assoc[1] for assoc in setAssoc))
-			numGroup = len(set(assoc[0] for assoc in setAssoc))
-			self.log(" OK: %d associations (%d genes in %d groups)\n" % (numAssoc,numGene,numGroup))
-			self.logPush()
-			if setOrphan:
-				numAssoc = len(setOrphan)
-				numName = len(set(assoc[1:] for assoc in setOrphan))
-				numGroup = len(set(assoc[0] for assoc in setOrphan))
-				self.log("WARNING: %d orphaned associations (%d identifiers in %d groups)\n" % (numAssoc,numName,numGroup))
-			if setAmbig:
-				numAssoc = len(setAmbig)
-				numName = len(set(assoc[1:] for assoc in setAmbig))
-				numGroup = len(set(assoc[0] for assoc in setAmbig))
-				self.log("WARNING: %d ambiguous associations (%d identifiers in %d groups)\n" % (numAssoc,numName,numGroup))
-			if setUnrec:
-				numAssoc = len(setUnrec)
-				numName = len(set(assoc[1:] for assoc in setUnrec))
-				numGroup = len(set(assoc[0] for assoc in setUnrec))
-				self.log("WARNING: %d unrecognized associations (%d identifiers in %d groups)\n" % (numAssoc,numName,numGroup))
-			self.logPop()
+			numLiteral = len(setLiteral)
+			numAssoc = sum(pathSize[pathID] for pathID in pathSize)
+			self.log(" OK: %d associations (%d identifiers)\n" % (numAssoc,numLiteral))
 			
 			# store gene associations
 			self.log("writing gene associations to the database ...")
-			self.addGroupRegions(setAssoc)
-			# TODO: setFlagAssoc
+			self.addGroupLiterals(setLiteral)
 			self.log(" OK\n")
 			
 			# commit transaction

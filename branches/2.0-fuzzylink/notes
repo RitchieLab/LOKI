@@ -1,0 +1,264 @@
+/* group_literal match details */
+SELECT group_id, member, name, region_id
+FROM group_literal
+LEFT JOIN region_name USING (namespace_id, name)
+where group_id=3921 and member=1
+ORDER BY group_id, member
+
+
+/* basic name resolution stats */
+SELECT
+  COUNT(DISTINCT group_id) AS groups,
+  COUNT() AS members,
+  SUM(CASE WHEN regions = 1 THEN 1 ELSE 0 END) AS `unique`,
+  SUM(CASE WHEN regions > 1 THEN 1 ELSE 0 END) AS ambiguous,
+  SUM(CASE WHEN regions < 1 THEN 1 ELSE 0 END) AS unknown
+FROM (
+  SELECT group_id, member, COUNT(DISTINCT region_id) AS regions
+  FROM group_literal
+  LEFT JOIN region_name USING (namespace_id, name)
+  GROUP BY group_id, member
+)
+
+
+/* most-matches name resolution stats */
+SELECT
+  COUNT(DISTINCT group_id) AS groups,
+  COUNT() AS members,
+  SUM(CASE WHEN regions = 1 THEN 1 ELSE 0 END) AS `unique`,
+  SUM(CASE WHEN regions > 1 THEN 1 ELSE 0 END) AS ambiguous
+FROM (
+  /* number of chosen candidates for each group member */
+  SELECT group_id, member, COUNT(DISTINCT region_id) AS regions
+  FROM (
+    /* best candidate(s) for each group member */
+    SELECT group_id, member, region_id, COUNT(DISTINCT namespace_id||'.'||name) AS score
+    FROM (
+      /* best candidate score for each group member */
+      SELECT group_id, member, MAX(score) AS best
+      FROM (
+        /* score for each group member candidate */
+        SELECT group_id, member, region_id, COUNT(DISTINCT namespace_id||'.'||name) AS score
+        FROM group_literal
+        JOIN region_name USING (namespace_id, name)
+        GROUP BY group_id, member, region_id
+      )
+      GROUP BY group_id, member
+    )
+    JOIN group_literal USING (group_id, member)
+    JOIN region_name USING (namespace_id, name)
+    GROUP BY group_id, member, region_id
+    HAVING score >= best
+  )
+  GROUP BY group_id, member
+)
+
+
+/* best-matches name resolution stats */
+SELECT
+  COUNT(DISTINCT group_id) AS groups,
+  COUNT() AS members,
+  SUM(CASE WHEN regions = 1 THEN 1 ELSE 0 END) AS `unique`,
+  SUM(CASE WHEN regions > 1 THEN 1 ELSE 0 END) AS ambiguous
+FROM (
+  /* number of chosen candidates for each group member */
+  SELECT group_id, member, COUNT(DISTINCT region_id) AS regions
+  FROM (
+    /* best candidate(s) for each group member */
+    SELECT group_id, member, region_id, best, SUM(quality) AS score
+    FROM (
+      /* quality of each group member candidate name */
+      SELECT group_id, member, namespace_id, name, best, 1.0/COUNT(DISTINCT region_id) AS quality
+      FROM (
+        /* best candidate score for each group member */
+        SELECT group_id, member, MAX(score) AS best
+        FROM (
+          /* score for each group member candidate */
+          SELECT group_id, member, region_id, SUM(quality) AS score
+          FROM (
+            /* quality of each group member candidate name */
+            SELECT group_id, member, namespace_id, name, 1.0/COUNT(DISTINCT region_id) AS quality
+            FROM group_literal
+            JOIN region_name USING (namespace_id, name)
+            GROUP BY group_id, member, namespace_id, name
+          )
+          JOIN region_name USING (namespace_id, name)
+          GROUP BY group_id, member, region_id
+        )
+        GROUP BY group_id, member
+      )
+      JOIN group_literal USING (group_id, member)
+      JOIN region_name USING (namespace_id, name)
+      GROUP BY group_id, member, namespace_id, name
+    )
+    JOIN region_name USING (namespace_id, name)
+    GROUP BY group_id, member, region_id
+    HAVING score >= best
+  )
+  GROUP BY group_id, member
+)
+
+
+/* name resolution scores */
+CREATE TEMP TABLE group_member_score (
+  group_id INTERGER, member INTEGER, region_id INTEGER, quality FLOAT, tally INTEGER,
+  PRIMARY KEY (group_id,member,region_id)
+);
+INSERT INTO group_member_score
+SELECT group_id, member, region_id, SUM(quality) AS quality, COUNT(DISTINCT namespace_id||':'||name) AS tally
+FROM (
+  SELECT group_id, member, namespace_id, name, 1.0/COUNT(DISTINCT region_id) AS quality
+  FROM group_literal
+  JOIN region_name USING (namespace_id, name)
+  GROUP BY group_id, member, namespace_id, name
+)
+JOIN region_name USING (namespace_id, name)
+GROUP BY group_id, member, region_id
+
+
+/* most-matches name resolution stats */
+SELECT
+  COUNT(DISTINCT group_id) AS groups,
+  COUNT() AS members,
+  SUM(CASE WHEN regions = 1 THEN 1 ELSE 0 END) AS `unique`,
+  SUM(CASE WHEN regions > 1 THEN 1 ELSE 0 END) AS ambiguous
+FROM (
+  /* number of chosen candidates for each group member */
+  SELECT group_id, member, COUNT(DISTINCT region_id) AS regions
+  FROM (
+    SELECT group_id, member, MAX(quality) AS quality, MAX(tally) AS tally
+    FROM group_member_score
+    GROUP BY group_id, member
+  ) AS best
+  JOIN group_member_score USING (group_id, member, tally)
+  GROUP BY group_id, member
+)
+
+
+/* best-matches name resolution stats */
+SELECT
+  COUNT(DISTINCT group_id) AS groups,
+  COUNT() AS members,
+  SUM(CASE WHEN regions = 1 THEN 1 ELSE 0 END) AS `unique`,
+  SUM(CASE WHEN regions > 1 THEN 1 ELSE 0 END) AS ambiguous
+FROM (
+  /* number of chosen candidates for each group member */
+  SELECT group_id, member, COUNT(DISTINCT region_id) AS regions
+  FROM (
+    SELECT group_id, member, MAX(quality) AS quality, MAX(tally) AS tally
+    FROM group_member_score
+    GROUP BY group_id, member
+  ) AS best
+  JOIN group_member_score USING (group_id, member, quality)
+  GROUP BY group_id, member
+)
+
+
+/* best-and-most-matches name resolution stats */
+SELECT
+  COUNT(DISTINCT group_id) AS groups,
+  COUNT() AS members,
+  SUM(CASE WHEN regions = 1 THEN 1 ELSE 0 END) AS `unique`,
+  SUM(CASE WHEN regions > 1 THEN 1 ELSE 0 END) AS ambiguous
+FROM (
+  /* number of chosen candidates for each group member */
+  SELECT group_id, member, COUNT(DISTINCT region_id) AS regions
+  FROM (
+    SELECT group_id, member, MAX(quality) AS quality, MAX(tally) AS tally
+    FROM group_member_score
+    GROUP BY group_id, member
+  ) AS best
+  JOIN group_member_score USING (group_id, member, quality, tally)
+  GROUP BY group_id, member
+)
+
+
+/* match score strategy comparison */
+SELECT
+  a.group_id, a.member, a.matchScore, a.matchCount,
+  s.region_id, s.matchScore, s.matchCount,
+  c.region_id, c.matchScore, c.matchCount
+FROM (
+  SELECT group_id, member, MAX(matchScore) AS matchScore, MAX(matchCount) AS matchCount
+  FROM scores
+  GROUP BY group_id, member
+  HAVING COUNT() > 1
+) AS a
+JOIN scores AS s ON s.group_id = a.group_id AND s.member = a.member AND s.matchScore = a.matchScore
+JOIN scores AS c ON c.group_id = a.group_id AND c.member = a.member AND c.matchCount = a.matchCount
+WHERE (1 AND s.region_id != c.region_id)
+  OR (1 AND s.matchScore > c.matchScore)
+  OR (1 AND s.matchCount < c.matchCount)
+LIMIT 100,40
+
+
+
+UniProtKB	O60656	UGT1A9		GO:0042803	PMID:20610558	IPI	UniProtKB:O60656	F	UDP-glucuronosyltransferase 1-9	UD19_HUMAN|GNT1|UGT1A9|UGT1	protein	taxon:9606	20100726	BHF-UCL		
+GO:0042803|protein homodimerization activity
+804|37|UD19_HUMAN|
+804|37|GNT1|6433
+804|37|GNT1|22580
+804|37|GNT1|22607
+804|37|UGT1|6427
+804|37|UGT1|6433
+804|37|UGT1|22580
+804|37|UGT1|22607
+804|37|UGT1|23785
+804|37|UGT1A9|22590
+804|37|O60656|22590
+
+
+UniProtKB	P13761	HLA-DRB1		GO:0031295	Reactome:REACT_19344	TAS		P	HLA class II histocompatibility antigen, DRB1-7 beta chain	2B17_HUMAN|HLA-DRB1	protein	taxon:9606	20120301	Reactome	
+GO:0031295|T cell costimulation
+2657|43|HLA-DRB1|2806
+2657|43|2B17_HUMAN|
+2657|43|P13761|35603
+2657|43|P13761|35602
+
+
+
+6012		NetPath_2	CAMK2N2	55451	Downregulation	Microarray	12184806
+NetPath_2|AndrogenReceptor
+10|21|CAMK2N2|33143
+10|21|55451|23185
+
+
+2821		NetPath_4	NP	4860	Upregulation	Microarray	15090615
+NetPath_4|EGFR1
+12|200|NP|40116
+12|200|4860|4223
+
+
+4254		NetPath_7	MEF2B	4207	Downregulation	Microarray	12619158
+3467		NetPath_7	MEF2B	4207	Upregulation	Microarray	12619158
+NetPath_7|TGF_beta_Receptor
+15|558|MEF2B|19155
+15|558|4207|3706
+
+
+
+#BioGRID Interaction ID	Entrez Gene Interactor A	Entrez Gene Interactor B	BioGRID ID Interactor A	BioGRID ID Interactor B	Systematic Name Interactor A	Systematic Name Interactor B	Official Symbol Interactor A	Official Symbol Interactor B	Synonymns Interactor A	Synonyms Interactor B	Experimental System	Experimental System Type	Author	Pubmed ID	Organism Interactor A	Organism Interactor B	Throughput	Score	Modification	Phenotypes	Qualifications	Tags	Source Database
+613226	9768	654483	115114	576388	L5	My016	KIAA0101	BOLA2B	NS5ATP9|OEATC1|PAF|OEATC-1|p15(PAF)|p15PAF	BOLA2	Affinity Capture-MS	physical	Emanuele MJ (2011)	21628590	9606	9606	High Throughput	-	-	-	-	-	BioGRID
+15164|2|BOLA2|19100
+15164|2|BOLA2B|41628
+15164|2|My016|19100
+15164|2|654483|41628
+
+
+#BioGRID Interaction ID	Entrez Gene Interactor A	Entrez Gene Interactor B	BioGRID ID Interactor A	BioGRID ID Interactor B	Systematic Name Interactor A	Systematic Name Interactor B	Official Symbol Interactor A	Official Symbol Interactor B	Synonymns Interactor A	Synonyms Interactor B	Experimental System	Experimental System Type	Author	Pubmed ID	Organism Interactor A	Organism Interactor B	Throughput	Score	Modification	Phenotypes	Qualifications	Tags	Source Database
+601592	5599	90462	111585	124719	-	-	MAPK8	ZNF605	PRKM8|SAPK1|SAPK1c|JNK21B1/2|JNK1|JNK1A2|JNK	-	Two-hybrid	physical	Vinayagam A (2011)	21900206	9606	9606	High Throughput	-	-	-	-	-	BioGRID
+27560|2|ZNF605|12302
+27560|2|90462|32494
+
+
+
+ID interactors A (baits)	ID interactors B (preys)	Alt. ID interactors A (baits)	Alt. ID interactors B (preys)	Alias(es) interactors A (baits)	Alias(es) interactors B (preys)	Interaction detection method(s)	Publication 1st author(s)	Publication Identifier(s)	Taxid interactors A (baits)	Taxid interactors B (preys)	Interaction type(s)Source database(s)	Interaction identifier(s)	Confidence value(s)	expansion	biological roles A (baits)	biological role B	experimental roles A (baits)	experimental roles B (preys)	interactor types A (baits)	interactor types B (preys)	xrefs A (baits)	xrefs B (preys)	xrefs Interaction	Annotations A (baits)	Annotations B (preys)	Interaction Annotations	Host organism taxid	parameters Interaction	dataset	Caution Interaction	binding sites A (baits)	binding sites B (preys)	ptms A (baits)	ptms B (preys)	mutations A (baits)	mutations B (preys)	negative	inference	curation depth	
+uniprotkb:Q9Y4K3	uniprotkb:P0CG48	-	-	TRAF6	RPS27A	MI:0006(anti bait coimmunoprecipitation)	-	pubmed:17703191	taxid:9606(Homo sapiens)	taxid:9606(Homo sapiens)	MI:0915(physical association)	MI:0471(mint)	mint:MINT-5226492|imex:IM-11320-2	|homomint-score:0.698	-	MI:0499(unspecified role)	MI:0499(unspecified role)	MI:0496(bait)	MI:0498(prey)	MI:0326(protein)	MI:0326(protein)	-	-	-	-	-	figure-legend:F7c	taxid:9606(Homo sapiens)	dataset:homomint|dataset:virusmint|dataset:mint|dataset:Mammalia	-	-	-	-	-	-	-	-	-	imex curation
+257|2|RPS27A|5400
+257|2|P0CG48|6393
+
+
+ID interactors A (baits)	ID interactors B (preys)	Alt. ID interactors A (baits)	Alt. ID interactors B (preys)	Alias(es) interactors A (baits)	Alias(es) interactors B (preys)	Interaction detection method(s)	Publication 1st author(s)	Publication Identifier(s)	Taxid interactors A (baits)	Taxid interactors B (preys)	Interaction type(s)Source database(s)	Interaction identifier(s)	Confidence value(s)	expansion	biological roles A (baits)	biological role B	experimental roles A (baits)	experimental roles B (preys)	interactor types A (baits)	interactor types B (preys)	xrefs A (baits)	xrefs B (preys)	xrefs Interaction	Annotations A (baits)	Annotations B (preys)	Interaction Annotations	Host organism taxid	parameters Interaction	dataset	Caution Interaction	binding sites A (baits)	binding sites B (preys)	ptms A (baits)	ptms B (preys)	mutations A (baits)	mutations B (preys)	negative	inference	curation depth	
+uniprotkb:P55884	uniprotkb:O00303;uniprotkb:Q14152;uniprotkb:Q99613	-	-	EIF3B	EIF3F;EIF3A;EIF3CL	MI:0006(anti bait coimmunoprecipitation)	-	pubmed:19245811	taxid:9606(Homo sapiens)	taxid:9606(Homo sapiens);taxid:9606(Homo sapiens);taxid:9606(Homo sapiens)	MI:0914(association)	MI:0471(mint)	mint:MINT-6948891	-MI:0499(unspecified role)	MI:0499(unspecified role)	MI:0496(bait)	MI:0498(prey)	MI:0326(protein)	MI:0326(protein)	-	-	-	-	-	figure-legend:F4C	taxid:9606(Homo sapiens)		dataset:homomint|dataset:virusmint|dataset:mint|dataset:Mammalia	-	-	-	-	-	-	-	-	--
+1701|4|EIF3CL|26862
+1701|4|Q99613|7476

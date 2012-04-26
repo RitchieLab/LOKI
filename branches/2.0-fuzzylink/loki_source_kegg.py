@@ -11,11 +11,6 @@ class Source_kegg(loki_source.Source):
 	# source interface
 	
 	
-	def getDependencies(cls):
-		return ('entrez',)
-	#getDependencies()
-	
-	
 	def download(self):
 		pass
 	#download()
@@ -34,12 +29,12 @@ class Source_kegg(loki_source.Source):
 			
 			# get or create the required metadata records
 			namespaceID = {
-				'entrez':  self.addNamespace('entrez'),
 				'kegg':    self.addNamespace('kegg'),
+				'entrez':  self.addNamespace('entrez'),
 			}
 			typeID = {
-				'gene':    self.addType('gene'),
 				'pathway': self.addType('pathway'),
+				'gene':    self.addType('gene'),
 			}
 			
 			# connect to SOAP/WSDL service
@@ -64,44 +59,22 @@ class Source_kegg(loki_source.Source):
 			
 			# fetch genes for each pathway
 			self.log("fetching gene associations ...")
-			setAssoc = set()
-			setFlagAssoc = set()
-			setAmbig = set()
-			setUnrec = set()
+			setLiteral = set()
+			numAssoc = 0
 			for n in xrange(len(listPathways)):
+				size = 0
 				for hsaGene in service.get_genes_by_pathway(listPathways[n][0]):
-					regionIDs = self._loki.getRegionIDsByName(hsaGene[4:], namespaceID['entrez'], typeID['gene'], self._loki.MATCH_BEST)
-					if len(regionIDs) == 1:
-						setAssoc.add( (listGIDs[n],regionIDs[0]) )
-					elif len(regionIDs) > 1:
-						setAmbig.add( (listGIDs[n],hsaGene[4:]) )
-						for regionID in regionIDs:
-							setFlagAssoc.add( (listGIDs[n],regionID) )
-					else:
-						setUnrec.add( (listGIDs[n],hsaGene[4:]) )
+					size += 1
+					setLiteral.add( (listGIDs[n],size,namespaceID['entrez'],hsaGene[4:]) )
 				#foreach association
+				numAssoc += size
 			#foreach pathway
-			numAssoc = len(setAssoc)
-			numGene = len(set(assoc[1] for assoc in setAssoc))
-			numGroup = len(set(assoc[0] for assoc in setAssoc))
-			self.log(" OK: %d associations (%d genes in %d groups)\n" % (numAssoc,numGene,numGroup))
-			self.logPush()
-			if setAmbig:
-				numAssoc = len(setAmbig)
-				numName = len(set(assoc[1:] for assoc in setAmbig))
-				numGroup = len(set(assoc[0] for assoc in setAmbig))
-				self.log("WARNING: %d ambiguous associations (%d identifiers in %d groups)\n" % (numAssoc,numName,numGroup))
-			if setUnrec:
-				numAssoc = len(setUnrec)
-				numName = len(set(assoc[1:] for assoc in setUnrec))
-				numGroup = len(set(assoc[0] for assoc in setUnrec))
-				self.log("WARNING: %d unrecognized associations (%d identifiers in %d groups)\n" % (numAssoc,numName,numGroup))
-			self.logPop()
+			numLiteral = len(setLiteral)
+			self.log(" OK: %d associations (%d identifiers)\n" % (numAssoc,numLiteral))
 			
 			# store gene associations
 			self.log("writing gene associations to the database ...")
-			self.addGroupRegions(setAssoc)
-			# TODO: setFlagAssoc
+			self.addGroupLiterals(setLiteral)
 			self.log(" OK\n")
 			
 			# commit transaction
