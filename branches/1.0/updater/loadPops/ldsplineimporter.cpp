@@ -170,8 +170,12 @@ void LdSplineImporter::LoadConfiguration(const char *filename) {
 					ss >> pop >> popFilename;
 
 					std::stringstream desc;
+					int k=-1;
 					while (!ss.eof()) {
 						ss >> word;
+						if(++k){
+							desc << " ";
+						}
 						desc << word;
 					}
 
