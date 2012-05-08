@@ -53,7 +53,7 @@ test.bio: liblokiupdate.la .creation
 .creation:
 	date +"%Y.%m.%d" > .creation
 
-DATE_PREFIX:=$(shell cat .creation).
+DATE_PREFIX="`cat .creation`."
 
 install-data-hook:
 	for f in $(VAR_FILES); do \
