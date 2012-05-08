@@ -1,6 +1,6 @@
-/* group_literal match details */
+/* group_region_name match details */
 SELECT group_id, member, name, region_id
-FROM group_literal
+FROM group_region_name
 LEFT JOIN region_name USING (namespace_id, name)
 where group_id=3921 and member=1
 ORDER BY group_id, member
@@ -15,7 +15,7 @@ SELECT
   SUM(CASE WHEN regions < 1 THEN 1 ELSE 0 END) AS unknown
 FROM (
   SELECT group_id, member, COUNT(DISTINCT region_id) AS regions
-  FROM group_literal
+  FROM group_region_name
   LEFT JOIN region_name USING (namespace_id, name)
   GROUP BY group_id, member
 )
@@ -32,20 +32,20 @@ FROM (
   SELECT group_id, member, COUNT(DISTINCT region_id) AS regions
   FROM (
     /* best candidate(s) for each group member */
-    SELECT group_id, member, region_id, COUNT(DISTINCT namespace_id||'.'||name) AS score
+    SELECT group_id, member, region_id, COUNT(DISTINCT namespace_id||'\t'||name) AS score
     FROM (
       /* best candidate score for each group member */
       SELECT group_id, member, MAX(score) AS best
       FROM (
         /* score for each group member candidate */
-        SELECT group_id, member, region_id, COUNT(DISTINCT namespace_id||'.'||name) AS score
-        FROM group_literal
+        SELECT group_id, member, region_id, COUNT(DISTINCT namespace_id||'\t'||name) AS score
+        FROM group_region_name
         JOIN region_name USING (namespace_id, name)
         GROUP BY group_id, member, region_id
       )
       GROUP BY group_id, member
     )
-    JOIN group_literal USING (group_id, member)
+    JOIN group_region_name USING (group_id, member)
     JOIN region_name USING (namespace_id, name)
     GROUP BY group_id, member, region_id
     HAVING score >= best
@@ -78,7 +78,7 @@ FROM (
           FROM (
             /* quality of each group member candidate name */
             SELECT group_id, member, namespace_id, name, 1.0/COUNT(DISTINCT region_id) AS quality
-            FROM group_literal
+            FROM group_region_name
             JOIN region_name USING (namespace_id, name)
             GROUP BY group_id, member, namespace_id, name
           )
@@ -87,7 +87,7 @@ FROM (
         )
         GROUP BY group_id, member
       )
-      JOIN group_literal USING (group_id, member)
+      JOIN group_region_name USING (group_id, member)
       JOIN region_name USING (namespace_id, name)
       GROUP BY group_id, member, namespace_id, name
     )
@@ -100,42 +100,149 @@ FROM (
 
 
 /* name resolution scores */
-CREATE TEMP TABLE group_member_score (
-  group_id INTERGER, member INTEGER, region_id INTEGER, quality FLOAT, tally INTEGER,
-  PRIMARY KEY (group_id,member,region_id)
+CREATE TEMP TABLE group_region_name_score (
+  group_id INTERGER NOT NULL,
+  member INTEGER NOT NULL,
+  region_id INTEGER NOT NULL,
+  multigene TINYINT NOT NULL,
+  implication INTEGER NOT NULL,
+  quality INTEGER NOT NULL,
+  PRIMARY KEY (group_id, member, region_id)
 );
-INSERT INTO group_member_score
-SELECT group_id, member, region_id, SUM(quality) AS quality, COUNT(DISTINCT namespace_id||':'||name) AS tally
+INSERT INTO group_region_name_score
+SELECT
+  group_id,
+  member,
+  region_id,
+  MAX(multigene) AS multigene,
+  COUNT(DISTINCT rn.namespace_id||'.'||rn.name) AS implication,
+  SUM(1000 / region_count) AS quality
 FROM (
-  SELECT group_id, member, namespace_id, name, 1.0/COUNT(DISTINCT region_id) AS quality
-  FROM group_literal
+  SELECT
+    group_id,
+    member,
+    namespace_id,
+    name,
+    COUNT(DISTINCT region_id) AS region_count
+  FROM group_region_name
   JOIN region_name USING (namespace_id, name)
   GROUP BY group_id, member, namespace_id, name
 )
-JOIN region_name USING (namespace_id, name)
+JOIN region_name AS rn USING (namespace_id, name)
+JOIN namespace AS n USING (namespace_id)
 GROUP BY group_id, member, region_id
 
 
-/* most-matches name resolution stats */
+/* pre-assignment stats */
 SELECT
-  COUNT(DISTINCT group_id) AS groups,
-  COUNT() AS members,
-  SUM(CASE WHEN regions = 1 THEN 1 ELSE 0 END) AS `unique`,
-  SUM(CASE WHEN regions > 1 THEN 1 ELSE 0 END) AS ambiguous
+  COUNT() AS total,
+  SUM(CASE WHEN member_multigene = 1 OR count_basic = 1 THEN 1 ELSE 0 END) AS basic_resolved,
+  SUM(CASE WHEN member_multigene = 0 AND count_basic > 1 THEN 1 ELSE 0 END) AS basic_ambiguous,
+  SUM(CASE WHEN member_multigene = 1 OR count_implication = 1 THEN 1 ELSE 0 END) AS implication_resolved,
+  SUM(CASE WHEN member_multigene = 0 AND count_implication > 1 THEN 1 ELSE 0 END) AS implication_ambiguous,
+  SUM(CASE WHEN member_multigene = 1 OR count_quality = 1 THEN 1 ELSE 0 END) AS quality_resolved,
+  SUM(CASE WHEN member_multigene = 0 AND count_quality > 1 THEN 1 ELSE 0 END) AS quality_ambiguous
 FROM (
-  /* number of chosen candidates for each group member */
-  SELECT group_id, member, COUNT(DISTINCT region_id) AS regions
+  /* identify number of matches with the best score for each member */
+  SELECT
+    group_id,
+    member,
+    member_multigene,
+    COUNT(DISTINCT region_id) AS count_basic,
+    member_implication,
+    SUM(CASE WHEN implication = member_implication THEN 1 ELSE 0 END) AS count_implication,
+    member_quality,
+    SUM(CASE WHEN quality = member_quality THEN 1 ELSE 0 END) AS count_quality
   FROM (
-    SELECT group_id, member, MAX(quality) AS quality, MAX(tally) AS tally
-    FROM group_member_score
+    /* identify best scores for each member */
+    SELECT
+      group_id,
+      member,
+      MAX(multigene) AS member_multigene,
+      MAX(implication) AS member_implication,
+      MAX(quality) AS member_quality
+    FROM group_region_name_score
     GROUP BY group_id, member
-  ) AS best
-  JOIN group_member_score USING (group_id, member, tally)
+  )
+  JOIN group_region_name_score USING (group_id, member)
   GROUP BY group_id, member
 )
 
 
-/* best-matches name resolution stats */
+/* group-region assignments with confidence scores */
+SELECT
+  group_id,
+  region_id,
+  MAX(specificity) AS specificity,
+  MAX(implication) AS implication,
+  MAX(quality) AS quality
+FROM (
+  /* identify specific matches with the best score for each member */
+  SELECT
+    group_id,
+    member,
+    region_id,
+    (CASE
+      WHEN multigene = 1 THEN 100
+      WHEN member_multigene = 1 THEN 1
+      ELSE 100 / count_basic
+    END) AS specificity,
+    (CASE
+      WHEN multigene = 1 THEN 100
+      WHEN member_multigene = 1 THEN 1
+      WHEN implication = member_implication THEN 100 / count_implication
+      ELSE 0
+    END) AS implication,
+    (CASE
+      WHEN multigene = 1 THEN 100
+      WHEN member_multigene = 1 THEN 1
+      WHEN quality = member_quality THEN 100 / count_quality
+      ELSE 0
+    END) AS quality
+  FROM (
+    /* identify number of matches with the best score for each member */
+    SELECT
+      group_id,
+      member,
+      member_multigene,
+      COUNT(DISTINCT region_id) AS count_basic,
+      member_implication,
+      SUM(CASE WHEN implication = member_implication THEN 1 ELSE 0 END) AS count_implication,
+      member_quality,
+      SUM(CASE WHEN quality = member_quality THEN 1 ELSE 0 END) AS count_quality
+    FROM (
+      /* identify best scores for each member */
+      SELECT
+        group_id,
+        member,
+        MAX(multigene) AS member_multigene,
+        MAX(implication) AS member_implication,
+        MAX(quality) AS member_quality
+      FROM group_region_name_score
+      GROUP BY group_id, member
+    )
+    JOIN group_region_name_score USING (group_id, member)
+    GROUP BY group_id, member
+  )
+  JOIN group_region_name_score USING (group_id, member)
+  GROUP BY group_id, member, region_id
+)
+GROUP BY group_id, region_id
+
+
+/* post-assignment stats */
+SELECT
+  SUM(CASE WHEN region_id > 0 AND specificity >= 100 THEN 1 ELSE 0 END) AS basic_strict,
+  SUM(CASE WHEN region_id > 0 AND specificity > 0 THEN 1 ELSE 0 END) AS basic_permissive,
+  SUM(CASE WHEN region_id > 0 AND implication >= 100 THEN 1 ELSE 0 END) AS implication_strict,
+  SUM(CASE WHEN region_id > 0 AND implication > 0 THEN 1 ELSE 0 END) AS implication_permissive,
+  SUM(CASE WHEN region_id > 0 AND quality >= 100 THEN 1 ELSE 0 END) AS quality_strict,
+  SUM(CASE WHEN region_id > 0 AND quality > 0 THEN 1 ELSE 0 END) AS quality_permissive,
+  SUM(CASE WHEN region_id = 0 THEN specificity/100 ELSE 0 END) AS unrecognized
+FROM group_region
+
+
+/* most-matches name score stats */
 SELECT
   COUNT(DISTINCT group_id) AS groups,
   COUNT() AS members,
@@ -146,15 +253,15 @@ FROM (
   SELECT group_id, member, COUNT(DISTINCT region_id) AS regions
   FROM (
     SELECT group_id, member, MAX(quality) AS quality, MAX(tally) AS tally
-    FROM group_member_score
+    FROM group_region_name_score
     GROUP BY group_id, member
   ) AS best
-  JOIN group_member_score USING (group_id, member, quality)
+  JOIN group_region_name_score USING (group_id, member, tally)
   GROUP BY group_id, member
 )
 
 
-/* best-and-most-matches name resolution stats */
+/* best-matches name score stats */
 SELECT
   COUNT(DISTINCT group_id) AS groups,
   COUNT() AS members,
@@ -165,31 +272,50 @@ FROM (
   SELECT group_id, member, COUNT(DISTINCT region_id) AS regions
   FROM (
     SELECT group_id, member, MAX(quality) AS quality, MAX(tally) AS tally
-    FROM group_member_score
+    FROM group_region_name_score
     GROUP BY group_id, member
   ) AS best
-  JOIN group_member_score USING (group_id, member, quality, tally)
+  JOIN group_region_name_score USING (group_id, member, quality)
+  GROUP BY group_id, member
+)
+
+
+/* best-and-most-matches name score stats */
+SELECT
+  COUNT(DISTINCT group_id) AS groups,
+  COUNT() AS members,
+  SUM(CASE WHEN regions = 1 THEN 1 ELSE 0 END) AS `unique`,
+  SUM(CASE WHEN regions > 1 THEN 1 ELSE 0 END) AS ambiguous
+FROM (
+  /* number of chosen candidates for each group member */
+  SELECT group_id, member, COUNT(DISTINCT region_id) AS regions
+  FROM (
+    SELECT group_id, member, MAX(quality) AS quality, MAX(tally) AS tally
+    FROM group_region_name_score
+    GROUP BY group_id, member
+  ) AS best
+  JOIN group_region_name_score USING (group_id, member, quality, tally)
   GROUP BY group_id, member
 )
 
 
 /* match score strategy comparison */
 SELECT
-  a.group_id, a.member, a.matchScore, a.matchCount,
-  s.region_id, s.matchScore, s.matchCount,
-  c.region_id, c.matchScore, c.matchCount
+  s.group_id, s.member, s.quality, s.tally,
+  q.region_id, q.quality, q.tally,
+  t.region_id, t.quality, t.tally
 FROM (
-  SELECT group_id, member, MAX(matchScore) AS matchScore, MAX(matchCount) AS matchCount
-  FROM scores
+  SELECT group_id, member, MAX(quality) AS quality, MAX(tally) AS tally
+  FROM group_region_name_score
   GROUP BY group_id, member
   HAVING COUNT() > 1
-) AS a
-JOIN scores AS s ON s.group_id = a.group_id AND s.member = a.member AND s.matchScore = a.matchScore
-JOIN scores AS c ON c.group_id = a.group_id AND c.member = a.member AND c.matchCount = a.matchCount
-WHERE (1 AND s.region_id != c.region_id)
-  OR (1 AND s.matchScore > c.matchScore)
-  OR (1 AND s.matchCount < c.matchCount)
-LIMIT 100,40
+) AS s
+JOIN group_region_name_score AS q ON q.group_id = s.group_id AND q.member = s.member AND q.quality = s.quality
+JOIN group_region_name_score AS t ON t.group_id = s.group_id AND t.member = s.member AND t.tally = s.tally
+WHERE (0 AND q.region_id != t.region_id)
+  OR (1 AND q.quality > t.quality)
+  OR (1 AND q.tally < t.tally)
+LIMIT 00,40
 
 
 

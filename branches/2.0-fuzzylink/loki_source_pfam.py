@@ -31,18 +31,18 @@ class Source_pfam(loki_source.Source):
 			self.log(" OK\n")
 			
 			# get or create the required metadata records
-			namespaceID = {
-				'pfam':           self.addNamespace('pfam'),
-				'protein_family': self.addNamespace('protein_family'),
-				'uniprot':        self.addNamespace('uniprot'),
-			}
-			relationshipID = {
-				'':               self.addRelationship(''),
-			}
-			typeID = {
-				'protein_family': self.addType('protein_family'),
-				'gene':           self.addType('gene'),
-			}
+			namespaceID = self.addNamespaces([
+				('pfam_id',0),
+				('proteinfamily',0),
+				('uniprot_id',1)
+			])
+			relationshipID = self.addRelationships([
+				''
+			])
+			typeID = self.addTypes([
+				'proteinfamily',
+				'gene'
+			])
 			
 			# process protein families
 			self.log("processing protein families ...")
@@ -70,17 +70,17 @@ class Source_pfam(loki_source.Source):
 			self.log("writing protein families to the database ...")
 			listPFam = pfamName.keys()
 			listGroup = groupPFam.keys()
-			listGID = self.addTypedGroups(typeID['protein_family'], ((pfamName[pfamID],pfamDesc[pfamID]) for pfamID in listPFam))
+			listGID = self.addTypedGroups(typeID['proteinfamily'], ((pfamName[pfamID],pfamDesc[pfamID]) for pfamID in listPFam))
 			pfamGID = dict(zip(listPFam,listGID))
-			listGID = self.addTypedGroups(typeID['protein_family'], ((group,"") for group in listGroup))
+			listGID = self.addTypedGroups(typeID['proteinfamily'], ((group,"") for group in listGroup))
 			groupGID = dict(zip(listGroup,listGID))
 			self.log(" OK\n")
 			
 			# store protein family names
 			self.log("writing protein family names to the database ...")
-			self.addNamespacedGroupNames(namespaceID['pfam'], ((pfamGID[pfamID],pfamID) for pfamID in listPFam))
-			self.addNamespacedGroupNames(namespaceID['protein_family'], ((pfamGID[pfamID],pfamName[pfamID]) for pfamID in listPFam))
-			self.addNamespacedGroupNames(namespaceID['pfam'], ((groupGID[group],group) for group in listGroup))
+			self.addNamespacedGroupNames(namespaceID['pfam_id'], ((pfamGID[pfamID],pfamID) for pfamID in listPFam))
+			self.addNamespacedGroupNames(namespaceID['proteinfamily'], ((pfamGID[pfamID],pfamName[pfamID]) for pfamID in listPFam))
+			self.addNamespacedGroupNames(namespaceID['pfam_id'], ((groupGID[group],group) for group in listGroup))
 			self.log(" OK\n")
 			
 			# store protein family meta-group links
@@ -92,8 +92,8 @@ class Source_pfam(loki_source.Source):
 			# process associations
 			self.log("processing gene associations ...")
 			assocFile = self.zfile('seq_info.txt.gz') #TODO:context manager,iterator
-			pfamSize = { pfamID:0 for pfamID in pfamGID }
-			setLiteral = set()
+			setAssoc = set()
+			numAssoc = numID = 0
 			for line in assocFile:
 				words = line.split("\t")
 				if len(words) < 6:
@@ -104,18 +104,17 @@ class Source_pfam(loki_source.Source):
 				species = words[8]
 				
 				if pfamID in pfamGID and species == 'Homo sapiens (Human)':
-					pfamSize[pfamID] += 1
-					setLiteral.add( (pfamGID[pfamID],pfamSize[pfamID],namespaceID['uniprot'],uniprotAcc) )
-					setLiteral.add( (pfamGID[pfamID],pfamSize[pfamID],namespaceID['uniprot'],uniprotID) )
+					numAssoc += 1
+					numID += 2
+					setAssoc.add( (pfamGID[pfamID],numAssoc,uniprotAcc) )
+					setAssoc.add( (pfamGID[pfamID],numAssoc,uniprotID) )
 				#if association is ok
 			#foreach association
-			numLiteral = len(setLiteral)
-			numAssoc = sum(pfamSize[pfamID] for pfamID in pfamSize)
-			self.log(" OK: %d associations (%d identifiers)\n" % (numAssoc,numLiteral))
+			self.log(" OK: %d associations (%d identifiers)\n" % (numAssoc,numID))
 			
 			# store gene associations
 			self.log("writing gene associations to the database ...")
-			self.addGroupLiterals(setLiteral)
+			self.addNamespacedGroupRegionNames(namespaceID['uniprot_id'], setAssoc)
 			self.log(" OK\n")
 			
 			# commit transaction

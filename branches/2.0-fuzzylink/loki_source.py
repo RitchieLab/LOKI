@@ -63,7 +63,7 @@ class Source():
 	def bulkUpdateContext(self,
 			group=False, group_name=False, group_group=False, group_region=False,
 			region=False, region_name=False, region_bound=False,
-			snp=False, snp_merge=False
+			snp=False, snp_merge=False, snp_role=False
 	):
 		tableList = []
 		if group:
@@ -73,7 +73,7 @@ class Source():
 		if group_group:
 			tableList.append('group_group')
 		if group_region:
-			tableList.append('group_region')
+			tableList.append('group_region_name')
 		if region:
 			tableList.append('region')
 		if region_name:
@@ -84,6 +84,8 @@ class Source():
 			tableList.append('snp')
 		if snp_merge:
 			tableList.append('snp_merge')
+		if snp_role:
+			tableList.append('snp_role_entrez')
 		with self._loki:
 			if len(tableList) > 0:
 				self._loki.dropDatabaseIndexes(None, 'db', tableList)
@@ -91,9 +93,11 @@ class Source():
 			if len(tableList) > 0:
 				self._loki.createDatabaseIndexes(None, 'db', tableList)
 			if region_bound:
-				self._loki.dropDatabaseIndexes(None, 'db', 'region_zone')
 				self.updateRegionZones()
-				self._loki.createDatabaseIndexes(None, 'db', 'region_zone')
+			if region_name or snp_role:
+				self.resolveSNPRoles()
+			if region_name or group_region:
+				self.resolveGroupRegions()
 		#with db transaction
 	#bulkUpdateContext()
 	
@@ -132,54 +136,119 @@ class Source():
 	# metadata management
 	
 	
-	def addNamespace(self, name):
-		# ABORT instead of IGNORE to avoid burning up an autoincrement when it fails
-		try:
-			self._db.cursor().execute("INSERT OR ABORT INTO `db`.`namespace` (`namespace`) VALUES (LOWER(?))", (name,))
-			return self._db.last_insert_rowid()
-		except apsw.ConstraintError:
-			return self._loki.getNamespaceID(name)
+	def addNamespace(self, name, multigene=0):
+		result = self._loki.getNamespaceID(name)
+		if not result:
+			self._db.cursor().execute("INSERT INTO `db`.`namespace` (`namespace`,`multigene`) VALUES (LOWER(?),?)", (name,multigene))
+			result = self._db.last_insert_rowid()
+		return result
 	#addNamespace()
 	
 	
+	def addNamespaces(self, namespaces):
+		# namespaces=[ (namespace,multigene), ... ]
+		result = self._loki.getNamespaceIDs(n[0] for n in namespaces)
+		for n in namespaces:
+			if not result[n[0]]:
+				self._db.cursor().execute("INSERT INTO `db`.`namespace` (`namespace`,`multigene`) VALUES (LOWER(?),?)", n)
+				result[n[0]] = self._db.last_insert_rowid()
+		return result
+	#addNamespaces()
+	
+	
 	def addPopulation(self, name, comment=None, desc=None):
-		# ABORT instead of IGNORE to avoid burning up an autoincrement when it fails
-		try:
-			self._db.cursor().execute("INSERT OR ABORT INTO `db`.`population` (`population`,`ldcomment`,`description`) VALUES (LOWER(?),?,?)", (name,comment,desc))
-			return self._db.last_insert_rowid()
-		except apsw.ConstraintError:
-			return self._loki.getPopulationID(name)
+		result = self._loki.getPopulationID(name)
+		if not result:
+			self._db.cursor().execute("INSERT INTO `db`.`population` (`population`,`ldcomment`,`description`) VALUES (LOWER(?),?,?)", (name,comment,desc))
+			result = self._db.last_insert_rowid()
+		return result
 	#addPopulation()
 	
 	
+	def addPopulations(self, populations):
+		result = self._loki.getPopulationIDs(p[0] for p in populations)
+		for p in populations:
+			if not result[p[0]]:
+				self._db.cursor().execute("INSERT INTO `db`.`population` (`population`,`ldcomment`,`description`) VALUES (LOWER(?),?,?)", p)
+				result[p[0]] = self._db.last_insert_rowid()
+		return result
+	#addPopulations()
+	
+	
 	def addRelationship(self, name):
-		# ABORT instead of IGNORE to avoid burning up an autoincrement when it fails
-		try:
-			self._db.cursor().execute("INSERT OR ABORT INTO `db`.`relationship` (`relationship`) VALUES (LOWER(?))", (name,))
-			return self._db.last_insert_rowid()
-		except apsw.ConstraintError:
-			return self._loki.getRelationshipID(name)
+		result = self._loki.getRelationshipID(name)
+		if not result:
+			self._db.cursor().execute("INSERT INTO `db`.`relationship` (`relationship`) VALUES (LOWER(?))", (name,))
+			result = self._db.last_insert_rowid()
+		return result
 	#addRelationship()
 	
 	
+	def addRelationships(self, names):
+		result = self._loki.getRelationshipIDs(names)
+		for name in names:
+			if not result[name]:
+				self._db.cursor().execute("INSERT INTO `db`.`relationship` (`relationship`) VALUES (LOWER(?))", (name,))
+				result[name] = self._db.last_insert_rowid()
+		return result
+	#addRelationships()
+	
+	
+	def addRole(self, name, desc=None, coding=None, exon=None):
+		result = self._loki.getRoleID(name)
+		if not result:
+			self._db.cursor().execute("INSERT INTO `db`.`role` (`role`,`description`,`coding`,`exon`) VALUES (LOWER(?),?,?,?)", (name,desc,coding,exon))
+			result = self._db.last_insert_rowid()
+		return result
+	#addRole()
+	
+	
+	def addRoles(self, roles):
+		result = self._loki.getRoleIDs(r[0] for r in roles)
+		for r in roles:
+			if not result[r[0]]:
+				self._db.cursor().execute("INSERT INTO `db`.`role` (`role`,`description`,`coding`,`exon`) VALUES (LOWER(?),?,?,?)", r)
+				result[r[0]] = self._db.last_insert_rowid()
+		return result
+	#addRoles()
+	
+	
 	def addSource(self, name):
-		# ABORT instead of IGNORE to avoid burning up an autoincrement when it fails
-		try:
-			self._db.cursor().execute("INSERT OR ABORT INTO `db`.`source` (`source`) VALUES (LOWER(?))", (name,))
-			return self._db.last_insert_rowid()
-		except apsw.ConstraintError:
-			return self._loki.getSourceID(name)
+		result = self._loki.getSourceID(name)
+		if not result:
+			self._db.cursor().execute("INSERT INTO `db`.`source` (`source`) VALUES (LOWER(?))", (name,))
+			result = self._db.last_insert_rowid()
+		return result
 	#addSource()
 	
 	
+	def addSources(self, names):
+		result = self._loki.getSourceIDs(names)
+		for name in names:
+			if not result[name]:
+				self._db.cursor().execute("INSERT INTO `db`.`source` (`source`) VALUES (LOWER(?))", (name,))
+				result[name] = self._db.last_insert_rowid()
+		return result
+	#addSources()
+	
+	
 	def addType(self, name):
-		# ABORT instead of IGNORE to avoid burning up an autoincrement when it fails
-		try:
-			self._db.cursor().execute("INSERT OR ABORT INTO `db`.`type` (`type`) VALUES (LOWER(?))", (name,))
-			return self._db.last_insert_rowid()
-		except apsw.ConstraintError:
-			return self._loki.getTypeID(name)
+		result = self._loki.getTypeID(name)
+		if not result:
+			self._db.cursor().execute("INSERT INTO `db`.`type` (`type`) VALUES (LOWER(?))", (name,))
+			result = self._db.last_insert_rowid()
+		return result
 	#addType()
+	
+	
+	def addTypes(self, names):
+		result = self._loki.getTypeIDs(names)
+		for name in names:
+			if not result[name]:
+				self._db.cursor().execute("INSERT INTO `db`.`type` (`type`) VALUES (LOWER(?))", (name,))
+				result[name] = self._db.last_insert_rowid()
+		return result
+	#addTypes()
 	
 	
 	# ##################################################
@@ -191,33 +260,34 @@ class Source():
 		dbc.execute("DELETE FROM `db`.`group` WHERE `source_id` = ?", (self._sourceID,))
 		dbc.execute("DELETE FROM `db`.`group_name` WHERE `source_id` = ?", (self._sourceID,))
 		dbc.execute("DELETE FROM `db`.`group_group` WHERE `source_id` = ?", (self._sourceID,))
-		dbc.execute("DELETE FROM `db`.`group_region` WHERE `source_id` = ?", (self._sourceID,))
+		dbc.execute("DELETE FROM `db`.`group_region_name` WHERE `source_id` = ?", (self._sourceID,))
 		dbc.execute("DELETE FROM `db`.`region` WHERE `source_id` = ?", (self._sourceID,))
 		dbc.execute("DELETE FROM `db`.`region_name` WHERE `source_id` = ?", (self._sourceID,))
 		dbc.execute("DELETE FROM `db`.`region_bound` WHERE `source_id` = ?", (self._sourceID,))
 		dbc.execute("DELETE FROM `db`.`snp` WHERE `source_id` = ?", (self._sourceID,))
 		dbc.execute("DELETE FROM `db`.`snp_merge` WHERE `source_id` = ?", (self._sourceID,))
+		dbc.execute("DELETE FROM `db`.`snp_role_entrez` WHERE `source_id` = ?", (self._sourceID,))
 	#deleteSourceData()
 	
 	
-	def addGroups(self, grpList):
-		# grpList=[ (type_id,label,description), ... ]
+	def addGroups(self, groupList):
+		# groupList=[ (type_id,label,description), ... ]
 		retList = []
 		for row in self._db.cursor().executemany(
 				"INSERT INTO `db`.`group` (`type_id`,`label`,`description`,`source_id`) VALUES (?,?,?,?); SELECT last_insert_rowid()",
-				((grp[0],grp[1],grp[2],self._sourceID) for grp in grpList)
+				((g[0],g[1],g[2],self._sourceID) for g in groupList)
 		):
 			retList.append(row[0])
 		return retList
 	#addGroups()
 	
 	
-	def addTypedGroups(self, typeID, grpList):
-		# grpList=[ (label,description), ... ]
+	def addTypedGroups(self, typeID, groupList):
+		# groupList=[ (label,description), ... ]
 		retList = []
 		for row in self._db.cursor().executemany(
 				"INSERT INTO `db`.`group` (`type_id`,`label`,`description`,`source_id`) VALUES (?,?,?,?); SELECT last_insert_rowid()",
-				((typeID,grp[0],grp[1],self._sourceID) for grp in grpList)
+				((typeID,g[0],g[1],self._sourceID) for g in groupList)
 		):
 			retList.append(row[0])
 		return retList
@@ -228,7 +298,7 @@ class Source():
 		# nameList=[ (group_id,namespace_id,name), ... ]
 		self._db.cursor().executemany(
 				"INSERT OR IGNORE INTO `db`.`group_name` (`group_id`,`namespace_id`,`name`,`source_id`) VALUES (?,?,?,?)",
-				((name[0],name[1],name[2],self._sourceID) for name in nameList)
+				((n[0],n[1],n[2],self._sourceID) for n in nameList)
 		)
 	#addGroupNames()
 	
@@ -237,7 +307,7 @@ class Source():
 		# nameList=[ (group_id,name), ... ]
 		self._db.cursor().executemany(
 				"INSERT OR IGNORE INTO `db`.`group_name` (`group_id`,`namespace_id`,`name`,`source_id`) VALUES (?,?,?,?)",
-				((name[0],namespaceID,name[1],self._sourceID) for name in nameList)
+				((n[0],namespaceID,n[1],self._sourceID) for n in nameList)
 		)
 	#addNamespacedGroupNames()
 	
@@ -246,51 +316,185 @@ class Source():
 		# linkList=[ (group_id,related_group_id,relationship_id), ... ]
 		self._db.cursor().executemany(
 				"INSERT OR IGNORE INTO `db`.`group_group` (`group_id`,`related_group_id`,`relationship_id`,`direction`,`source_id`) VALUES (?,?,?,?,?)",
-				((link[0],link[1],link[2],1,self._sourceID) for link in linkList)
+				((l[0],l[1],l[2],1,self._sourceID) for l in linkList)
 		)
 		self._db.cursor().executemany(
 				"INSERT OR IGNORE INTO `db`.`group_group` (`group_id`,`related_group_id`,`relationship_id`,`direction`,`source_id`) VALUES (?,?,?,?,?)",
-				((link[1],link[0],link[2],-1,self._sourceID) for link in linkList)
+				((l[1],l[0],l[2],-1,self._sourceID) for l in linkList)
 		)
 	#addGroupGroups()
 	
 	
-	def addGroupRegions(self, linkList):
-		# linkList=[ (group_id,region_id), ... ]
-		self._db.cursor().executemany(
-				"INSERT OR IGNORE INTO `db`.`group_region` (`group_id`,`region_id`,`source_id`) VALUES (?,?,?)",
-				((link[0],link[1],self._sourceID) for link in linkList)
-		)
+	#def addGroupRegions(self, linkList):
+	#	# linkList=[ (group_id,region_id), ... ]
+	#	self._db.cursor().executemany(
+	#			"INSERT OR IGNORE INTO `db`.`group_region` (`group_id`,`region_id`,`source_id`) VALUES (?,?,?)",
+	#			((link[0],link[1],self._sourceID) for link in linkList)
+	#	)
 	#addGroupRegions()
 	
 	
-	def addGroupLiterals(self, idList):
-		# idList=[ (group_id,member,namespace_id,name), ... ]
+	def addGroupRegionNames(self, regionList):
+		# regionList=[ (group_id,member,namespace_id,name), ... ]
 		self._db.cursor().executemany(
-				"INSERT OR IGNORE INTO `db`.`group_literal` (`group_id`,`member`,`namespace_id`,`name`,`source_id`) VALUES (?,?,?,?,?)",
-				((literal[0],literal[1],literal[2],literal[3],self._sourceID) for literal in idList)
+				"INSERT OR IGNORE INTO `db`.`group_region_name` (`group_id`,`member`,`namespace_id`,`name`,`source_id`) VALUES (?,?,?,?,?)",
+				((r[0],r[1],r[2],r[3],self._sourceID) for r in regionList)
 		)
-	#addGroupLiterals()
+	#addGroupRegionNames()
 	
 	
-	def addRegions(self, regList):
-		# regList=[ (type_id,label,description), ... ]
+	def addNamespacedGroupRegionNames(self, namespaceID, regionList):
+		# regionList=[ (group_id,member,name), ... ]
+		self._db.cursor().executemany(
+				"INSERT OR IGNORE INTO `db`.`group_region_name` (`group_id`,`member`,`namespace_id`,`name`,`source_id`) VALUES (?,?,?,?,?)",
+				((r[0],r[1],namespaceID,r[2],self._sourceID) for r in regionList)
+		)
+	#addNamespacedGroupRegionNames()
+	
+	
+	def resolveGroupRegions(self):
+		dbc = self._db.cursor()
+		# calculate scores for each possible name match
+		dbc.execute("""
+CREATE TEMP TABLE `temp`.`group_region_name_score` (
+  group_id INTERGER NOT NULL,
+  member INTEGER NOT NULL,
+  region_id INTEGER NOT NULL,
+  multigene TINYINT NOT NULL,
+  implication INTEGER NOT NULL,
+  quality INTEGER NOT NULL,
+  PRIMARY KEY (group_id, member, region_id)
+)
+""")
+		dbc.execute("""
+INSERT INTO `temp`.`group_region_name_score`
+SELECT
+  group_id,
+  member,
+  region_id,
+  MAX(multigene) AS multigene,
+  COUNT(DISTINCT rn.namespace_id||'.'||rn.name) AS implication,
+  SUM(1000 / region_count) AS quality
+FROM (
+  SELECT
+    group_id,
+    member,
+    namespace_id,
+    name,
+    COUNT(DISTINCT region_id) AS region_count
+  FROM `db`.`group_region_name`
+  JOIN `db`.`region_name` USING (namespace_id, name)
+  GROUP BY group_id, member, namespace_id, name
+)
+JOIN `db`.`region_name` AS `rn` USING (namespace_id, name)
+JOIN `db`.`namespace` AS `n` USING (namespace_id)
+GROUP BY group_id, member, region_id
+""")
+		# generate group_region assignments with confidence scores
+		self._loki.dropDatabaseIndexes(None, 'db', 'group_region')
+		dbc.execute("DELETE FROM `db`.`group_region`")
+		dbc.execute("""
+INSERT INTO `db`.`group_region`
+SELECT
+  group_id,
+  region_id,
+  MAX(specificity) AS specificity,
+  MAX(implication) AS implication,
+  MAX(quality) AS quality
+FROM (
+  /* identify specific matches with the best score for each member */
+  SELECT
+    group_id,
+    member,
+    region_id,
+    (CASE
+      WHEN multigene = 1 THEN 100
+      WHEN member_multigene = 1 THEN 1
+      ELSE 100 / count_basic
+    END) AS specificity,
+    (CASE
+      WHEN multigene = 1 THEN 100
+      WHEN member_multigene = 1 THEN 1
+      WHEN implication = member_implication THEN 100 / count_implication
+      ELSE 0
+    END) AS implication,
+    (CASE
+      WHEN multigene = 1 THEN 100
+      WHEN member_multigene = 1 THEN 1
+      WHEN quality = member_quality THEN 100 / count_quality
+      ELSE 0
+    END) AS quality
+  FROM (
+    /* identify number of matches with the best score for each member */
+    SELECT
+      group_id,
+      member,
+      member_multigene,
+      COUNT(DISTINCT region_id) AS count_basic,
+      member_implication,
+      SUM(CASE WHEN implication = member_implication THEN 1 ELSE 0 END) AS count_implication,
+      member_quality,
+      SUM(CASE WHEN quality = member_quality THEN 1 ELSE 0 END) AS count_quality
+    FROM (
+      /* identify best scores for each member */
+      SELECT
+        group_id,
+        member,
+        MAX(multigene) AS member_multigene,
+        MAX(implication) AS member_implication,
+        MAX(quality) AS member_quality
+      FROM `temp`.`group_region_name_score`
+      GROUP BY group_id, member
+    )
+    JOIN `temp`.`group_region_name_score` USING (group_id, member)
+    GROUP BY group_id, member
+  )
+  JOIN `temp`.`group_region_name_score` USING (group_id, member)
+  GROUP BY group_id, member, region_id
+)
+GROUP BY group_id, region_id
+""")
+		# generate group_region placeholders for unrecognized members
+		dbc.execute("""
+INSERT OR IGNORE INTO `db`.`group_region`
+SELECT
+  group_id,
+  0 AS region_id,
+  100*COUNT() AS specificity,
+  100*COUNT() AS implication,
+  100*COUNT() AS quality
+FROM (
+  SELECT group_id
+  FROM `db`.`group_region_name`
+  LEFT JOIN `db`.`region_name` USING (namespace_id, name)
+  GROUP BY group_id, member
+  HAVING MAX(region_id) IS NULL
+)
+GROUP BY group_id
+""")
+		dbc.execute("DROP TABLE `temp`.`group_region_name_score`")
+		self._loki.createDatabaseIndexes(None, 'db', 'group_region')
+	#resolveGroupRegions()
+	
+	
+	def addRegions(self, regionList):
+		# regionList=[ (type_id,label,description), ... ]
 		retList = []
 		for row in self._db.cursor().executemany(
 				"INSERT INTO `db`.`region` (`type_id`,`label`,`description`,`source_id`) VALUES (?,?,?,?); SELECT last_insert_rowid()",
-				((reg[0],reg[1],reg[2],self._sourceID) for reg in regList)
+				((r[0],r[1],r[2],self._sourceID) for r in regionList)
 		):
 			retList.append(row[0])
 		return retList
 	#addRegions()
 	
 	
-	def addTypedRegions(self, typeID, regList):
-		# regList=[ (label,description), ... ]
+	def addTypedRegions(self, typeID, regionList):
+		# regionList=[ (label,description), ... ]
 		retList = []
 		for row in self._db.cursor().executemany(
 				"INSERT INTO `db`.`region` (`type_id`,`label`,`description`,`source_id`) VALUES (?,?,?,?); SELECT last_insert_rowid()",
-				((typeID,reg[0],reg[1],self._sourceID) for reg in regList)
+				((typeID,r[0],r[1],self._sourceID) for r in regionList)
 		):
 			retList.append(row[0])
 		return retList
@@ -301,7 +505,7 @@ class Source():
 		# nameList=[ (region_id,namespace_id,name), ... ]
 		self._db.cursor().executemany(
 				"INSERT OR IGNORE INTO `db`.`region_name` (`region_id`,`namespace_id`,`name`,`source_id`) VALUES (?,?,?,?)",
-				((name[0],name[1],name[2],self._sourceID) for name in nameList)
+				((n[0],n[1],n[2],self._sourceID) for n in nameList)
 		)
 	#addRegionNames()
 	
@@ -310,25 +514,25 @@ class Source():
 		# nameList=[ (region_id,name), ... ]
 		self._db.cursor().executemany(
 				"INSERT OR IGNORE INTO `db`.`region_name` (`region_id`,`namespace_id`,`name`,`source_id`) VALUES (?,?,?,?)",
-				((name[0],namespaceID,name[1],self._sourceID) for name in nameList)
+				((n[0],namespaceID,n[1],self._sourceID) for n in nameList)
 		)
 	#addNamespacedRegionNames()
 	
 	
-	def addRegionBounds(self, bndList):
-		# bndList=[ (region_id,population_id,chr,posMin,posMax), ... ]
+	def addRegionBounds(self, boundList):
+		# boundList=[ (region_id,population_id,chr,posMin,posMax), ... ]
 		self._db.cursor().executemany(
 				"INSERT OR IGNORE INTO `db`.`region_bound` (`region_id`,`population_id`,`chr`,`posMin`,`posMax`,`source_id`) VALUES (?,?,?,?,?,?)",
-				((bnd[0],bnd[1],bnd[2],min(bnd[3],bnd[4]),max(bnd[3],bnd[4]),self._sourceID) for bnd in bndList)
+				((b[0],b[1],b[2],min(b[3],b[4]),max(b[3],b[4]),self._sourceID) for b in boundList)
 		)
 	#addRegionBounds()
 	
 	
-	def addPopulationRegionBounds(self, populationID, bndList):
-		# bndList=[ (region_id,chr,posMin,posMax), ... ]
+	def addPopulationRegionBounds(self, populationID, boundList):
+		# boundList=[ (region_id,chr,posMin,posMax), ... ]
 		self._db.cursor().executemany(
 				"INSERT OR IGNORE INTO `db`.`region_bound` (`region_id`,`population_id`,`chr`,`posMin`,`posMax`,`source_id`) VALUES (?,?,?,?,?,?)",
-				((bnd[0],populationID,bnd[1],min(bnd[2],bnd[3]),max(bnd[2],bnd[3]),self._sourceID) for bnd in bndList)
+				((b[0],populationID,b[1],min(b[2],b[3]),max(b[2],b[3]),self._sourceID) for b in boundList)
 		)
 	#addPopulationRegionBounds()
 	
@@ -339,6 +543,7 @@ class Source():
 			maxZone = int(row[0]) / 100000
 		dbc.execute("CREATE TEMP TABLE `temp`.`zones` (`zone` INTEGER PRIMARY KEY NOT NULL)")
 		dbc.executemany("INSERT INTO `temp`.`zones` (`zone`) VALUES (?)", ((zone,) for zone in xrange(maxZone+1)))
+		self._loki.dropDatabaseIndexes(None, 'db', 'region_zone')
 		dbc.execute("DELETE FROM `db`.`region_zone`")
 		dbc.execute("""
 INSERT OR IGNORE INTO `db`.`region_zone` (`region_id`,`population_id`,`chr`,`zone`)
@@ -349,6 +554,7 @@ JOIN `temp`.`zones` AS tz
   AND tz.`zone` <= rb.`posMax` / ?
 """, (100000,100000))
 		dbc.execute("DROP TABLE `temp`.`zones`")
+		self._loki.createDatabaseIndexes(None, 'db', 'region_zone')
 	#updateRegionZones()
 	
 	
@@ -356,7 +562,7 @@ JOIN `temp`.`zones` AS tz
 		# snpList=[ (rs,chr,pos), ... ]
 		self._db.cursor().executemany(
 				"INSERT INTO `db`.`snp` (`rs`,`chr`,`pos`,`source_id`) VALUES (?,?,?,?)",
-				((snp[0],snp[1],snp[2],self._sourceID) for snp in snpList)
+				((s[0],s[1],s[2],self._sourceID) for s in snpList)
 		)
 	#addChromosomeSNPs()
 	
@@ -365,7 +571,7 @@ JOIN `temp`.`zones` AS tz
 		# snpList=[ (rs,pos), ... ]
 		self._db.cursor().executemany(
 				"INSERT INTO `db`.`snp` (`rs`,`chr`,`pos`,`source_id`) VALUES (?,?,?,?)",
-				((snp[0],chromosome,snp[1],self._sourceID) for snp in snpList)
+				((s[0],chromosome,s[1],self._sourceID) for s in snpList)
 		)
 	#addChromosomeSNPs()
 	
@@ -374,9 +580,33 @@ JOIN `temp`.`zones` AS tz
 		# mergeList=[ (rsOld,rsNew,rsCur), ... ]
 		self._db.cursor().executemany(
 				"INSERT INTO `db`.`snp_merge` (`rsOld`,`rsNew`,`rsCur`,`source_id`) VALUES (?,?,?,?)",
-				((merge[0],merge[1],merge[2],self._sourceID) for merge in mergeList)
+				((m[0],m[1],m[2],self._sourceID) for m in mergeList)
 		)
 	#addSNPMerges()
+	
+	
+	def addEntrezSNPRoles(self, roleList):
+		# roleList=[ (rs,entrez,role_id), ... ]
+		self._db.cursor().executemany(
+				"INSERT OR IGNORE INTO `db`.`snp_role_entrez` (`rs`,`region_entrez`,`role_id`,`source_id`) VALUES (?,?,?,?)",
+				((r[0],r[1],r[2],self._sourceID) for r in roleList)
+		)
+	#addEntrezSNPRoles()
+	
+	
+	def resolveSNPRoles(self):
+		dbc = self._db.cursor()
+		self._loki.dropDatabaseIndexes(None, 'db', 'snp_role')
+		dbc.execute("DELETE FROM `db`.`snp_role`")
+		dbc.execute("""
+INSERT OR IGNORE INTO `db`.`snp_role`
+SELECT rsr.rs, rn.region_id, rsr.role_id
+FROM `db`.`snp_role_entrez` AS rsr
+JOIN `db`.`region_name` AS rn
+  ON rn.namespace_id = ? AND rn.name = rsr.region_entrez
+""", (self.addNamespace('entrez_id'),))
+		self._loki.createDatabaseIndexes(None, 'db', 'snp_role')
+	#resolveSNPRoles()
 	
 	
 	# ##################################################

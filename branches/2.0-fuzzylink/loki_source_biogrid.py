@@ -32,15 +32,15 @@ class Source_biogrid(loki_source.Source):
 			self.log(" OK\n")
 			
 			# get or create the required metadata records
-			namespaceID = {
-				'biogrid':     self.addNamespace('biogrid'),
-				'gene':        self.addNamespace('gene'),
-				'entrez':      self.addNamespace('entrez'),
-			}
-			typeID = {
-				'interaction': self.addType('interaction'),
-				'gene':        self.addType('gene'),
-			}
+			namespaceID = self.addNamespaces([
+				('biogrid_id',0),
+				('gene',0),
+				('entrez_id',0)
+			])
+			typeID = self.addTypes([
+				'interaction',
+				'gene'
+			])
 			
 			# process associations
 			self.log("verifying archive file ...")
@@ -107,39 +107,46 @@ class Source_biogrid(loki_source.Source):
 			for pair in listPair:
 				listLabels.extend( (pairGID[pair],label) for label in pairLabels[pair] )
 			self.log("writing interaction names to the database ...")
-			self.addNamespacedGroupNames(namespaceID['biogrid'], listLabels)
+			self.addNamespacedGroupNames(namespaceID['biogrid_id'], listLabels)
 			self.log(" OK\n")
 			
 			# store gene interactions
 			self.log("writing gene interactions to the database ...")
-			setLiteral = set()
+			nsAssoc = {
+				'entrez_id': set(),
+				'gene':      set()
+			}
+			numAssoc = 0
 			for pair in pairLabels:
-				setLiteral.add( (pairGID[pair],1,namespaceID['entrez'],pair[0][0]) )
+				numAssoc += 1
+				nsAssoc['entrez_id'].add( (pairGID[pair],numAssoc,pair[0][0]) )
 				for n in xrange(1,len(pair[0])):
-					setLiteral.add( (pairGID[pair],1,namespaceID['gene'],pair[0][n]) )
+					nsAssoc['gene'].add( (pairGID[pair],numAssoc,pair[0][n]) )
 				
-				setLiteral.add( (pairGID[pair],2,namespaceID['entrez'],pair[1][0]) )
+				numAssoc += 1
+				nsAssoc['entrez_id'].add( (pairGID[pair],numAssoc,pair[1][0]) )
 				for n in xrange(1,len(pair[1])):
-					setLiteral.add( (pairGID[pair],2,namespaceID['gene'],pair[1][n]) )
-			self.addGroupLiterals(setLiteral)
+					nsAssoc['gene'].add( (pairGID[pair],numAssoc,pair[1][n]) )
+			for ns in nsAssoc:
+				self.addNamespacedGroupRegionNames(namespaceID[ns], nsAssoc[ns])
 			self.log(" OK\n")
 			
 			# identify pseudo-pathways
-			#TODO
-			self.log("identifying implied networks ...")
-			geneAssoc = dict()
-			for pair in listPair:
-				if pair[0] not in geneAssoc:
-					geneAssoc[pair[0]] = set()
-				geneAssoc[pair[0]].add(pair[1])
-				if pair[1] not in geneAssoc:
-					geneAssoc[pair[1]] = set()
-				geneAssoc[pair[1]].add(pair[0])
-			listPath = self.findMaximalCliques(geneAssoc)
-			numAssoc = sum(len(path) for path in listPath)
-			numGene = len(geneAssoc)
-			numGroup = len(listPath)
-			self.log(" OK: %d associations (%d genes in %d groups)\n" % (numAssoc,numGene,numGroup))
+			if 0: #TODO
+				self.log("identifying implied networks ...")
+				geneAssoc = dict()
+				for pair in listPair:
+					if pair[0] not in geneAssoc:
+						geneAssoc[pair[0]] = set()
+					geneAssoc[pair[0]].add(pair[1])
+					if pair[1] not in geneAssoc:
+						geneAssoc[pair[1]] = set()
+					geneAssoc[pair[1]].add(pair[0])
+				listPath = self.findMaximalCliques(geneAssoc)
+				numAssoc = sum(len(path) for path in listPath)
+				numGene = len(geneAssoc)
+				numGroup = len(listPath)
+				self.log(" OK: %d associations (%d genes in %d groups)\n" % (numAssoc,numGene,numGroup))
 			
 			# commit transaction
 			self.log("finalizing update process ...")

@@ -20,6 +20,9 @@ class Source_entrez(loki_source.Source):
 			'gene2unigene':                    '/gene/DATA/gene2unigene',
 			'gene_refseq_uniprotkb_collab.gz': '/gene/DATA/gene_refseq_uniprotkb_collab.gz',
 		})
+		self.downloadFilesFromFTP('ftp.uniprot.org', {
+			'HUMAN_9606_idmapping_selected.tab.gz': '/pub/databases/uniprot/current_release/knowledgebase/idmapping/by_organism/HUMAN_9606_idmapping_selected.tab.gz',
+		})
 	#download()
 	
 	
@@ -35,26 +38,26 @@ class Source_entrez(loki_source.Source):
 			self.log(" OK\n")
 			
 			# get or create the required metadata records
-			namespaceID = {
-				'gene':    self.addNamespace('gene'),
-				'entrez':  self.addNamespace('entrez'),
-				'refseq':  self.addNamespace('refseq'),
-				'ensembl': self.addNamespace('ensembl'),
-				'hgnc':    self.addNamespace('hgnc'),
-				'mim':     self.addNamespace('mim'),
-				'hprd':    self.addNamespace('hprd'),
-				'vega':    self.addNamespace('vega'),
-				'rgd':     self.addNamespace('rgd'),
-				'mirbase': self.addNamespace('mirbase'),
-				'uniprot': self.addNamespace('uniprot'),
-				'unigene': self.addNamespace('unigene'),
-			}
-			populationID = {
-				'N/A': self.addPopulation('N/A','no LD adjustment'),
-			}
-			typeID = {
-				'gene': self.addType('gene'),
-			}
+			namespaceID = self.addNamespaces([
+				('gene',0),
+				('entrez_id',0),
+				('refseq_id',0),
+				('ensembl_id',0),
+				('hgnc_id',0),
+				('mim_id',0),
+				('hprd_id',0),
+				('vega_id',0),
+				('rgd_id',0),
+				('mirbase_id',0),
+				('unigene_id',0),
+				('uniprot_id',1)
+			])
+			populationID = self.addPopulations([
+				('n/a','no LD adjustment',None)
+			])
+			typeID = self.addTypes([
+				'gene'
+			])
 			
 			# process genes (no header!)
 			self.log("processing genes ...")
@@ -65,13 +68,13 @@ class Source_entrez(loki_source.Source):
 			primaryEntrez = dict()
 			nsAliases = { ns:set() for ns in namespaceID }
 			xrefNS = {
-				'Ensembl': 'ensembl',
-				'HGNC':    'hgnc',
-				'MIM':     'mim',
-				'HPRD':    'hprd',
-				'Vega':    'vega',
-				'RGD':     'rgd',
-				'miRBase': 'mirbase',
+				'Ensembl': 'ensembl_id',
+				'HGNC':    'hgnc_id',
+				'MIM':     'mim_id',
+				'HPRD':    'hprd_id',
+				'Vega':    'vega_id',
+				'RGD':     'rgd_id',
+				'miRBase': 'mirbase_id',
 			}
 			empty = tuple()
 			for line in geneFile:
@@ -105,7 +108,7 @@ class Source_entrez(loki_source.Source):
 						primaryEntrez[name] = False
 					# entrezID->entrezID does look like a tautology, but we'll be
 					# adding more historical entrezIDs before storing them all at once
-					nsAliases['entrez'].add( (entrezID,entrezID) )
+					nsAliases['entrez_id'].add( (entrezID,entrezID) )
 					nsAliases['gene'].add( (entrezID,name) )
 					for alias in aliases:
 						nsAliases['gene'].add( (entrezID,alias) )
@@ -198,9 +201,9 @@ class Source_entrez(loki_source.Source):
 					# if posMin and posMax
 					
 					if rnaAcc:
-						nsAliases['refseq'].add( (entrezID,rnaAcc) )
+						nsAliases['refseq_id'].add( (entrezID,rnaAcc) )
 					if proAcc:
-						nsAliases['refseq'].add( (entrezID,proAcc) )
+						nsAliases['refseq_id'].add( (entrezID,proAcc) )
 						if proAcc not in proteinEntrez:
 							proteinEntrez[proAcc] = entrezID
 						elif proteinEntrez[proAcc] != entrezID:
@@ -245,7 +248,7 @@ class Source_entrez(loki_source.Source):
 					if entrezID and entrezID in entrezName:
 						if oldEntrez and oldEntrez != entrezID:
 							entrezUpdate[oldEntrez] = entrezID
-							nsAliases['entrez'].add( (entrezID,oldEntrez) )
+							nsAliases['entrez_id'].add( (entrezID,oldEntrez) )
 						if oldName and oldName not in primaryEntrez:
 							if oldName not in historyEntrez:
 								historyEntrez[oldName] = entrezID
@@ -296,11 +299,11 @@ class Source_entrez(loki_source.Source):
 							entrezDesc[entrezID] = None
 						
 						if ensemblG:
-							nsAliases['ensembl'].add( (entrezID,ensemblG) )
+							nsAliases['ensembl_id'].add( (entrezID,ensemblG) )
 						if ensemblT:
-							nsAliases['ensembl'].add( (entrezID,ensemblT) )
+							nsAliases['ensembl_id'].add( (entrezID,ensemblT) )
 						if ensemblP:
-							nsAliases['ensembl'].add( (entrezID,ensemblP) )
+							nsAliases['ensembl_id'].add( (entrezID,ensemblP) )
 				#if taxonomy is 9606 (human)
 			#foreach line in ensFile
 			numIDs0 = numIDs
@@ -325,14 +328,14 @@ class Source_entrez(loki_source.Source):
 					
 					# there will be lots of extraneous mappings for genes of other species
 					if entrezID and (entrezID in entrezName) and unigeneID:
-						nsAliases['unigene'].add( (entrezID,unigeneID) )
+						nsAliases['unigene_id'].add( (entrezID,unigeneID) )
 				#foreach line in ugFile
 			#with ugFile
 			numIDs0 = numIDs
 			numIDs = sum(len(nsAliases[ns]) for ns in nsAliases)
 			self.log(" OK: %d identifiers\n" % (numIDs-numIDs0))
 			
-			# process uniprot gene names
+			# process uniprot gene names from entrez
 			self.log("processing uniprot gene names ...")
 			upFile = self.zfile('gene_refseq_uniprotkb_collab.gz') #TODO:context manager,iterator
 			header = upFile.next().rstrip()
@@ -353,12 +356,35 @@ class Source_entrez(loki_source.Source):
 					elif proteinEntrez[proteinAcc] == False:
 						numAmbig += 1
 					else:
-						nsAliases['uniprot'].add( (proteinEntrez[proteinAcc],uniprotAcc) )
+						nsAliases['uniprot_id'].add( (proteinEntrez[proteinAcc],uniprotAcc) )
 			#foreach line in upFile
 			numIDs0 = numIDs
 			numIDs = sum(len(nsAliases[ns]) for ns in nsAliases)
 			self.log(" OK: %d identifiers (%d ambiguous)\n" % (numIDs-numIDs0,numAmbig))
-			proteinEntrez = entrezUpdate = None
+			proteinEntrez = None
+			
+			# process uniprot gene names from uniprot
+			self.log("processing uniprot gene names ...")
+			upFile = self.zfile('HUMAN_9606_idmapping_selected.tab.gz') #TODO:context manager,iterator
+			for line in upFile:
+				words = line.split("\t")
+				uniprotAcc = words[0]
+				uniprotID = words[1]
+				for word2 in words[2].split(';'):
+					entrezID = int(word2.strip()) if word2 else None
+					
+					while entrezID and (entrezID in entrezUpdate):
+						entrezID = entrezUpdate[entrezID]
+					
+					if entrezID and (entrezID in entrezName):
+						nsAliases['uniprot_id'].add( (entrezID,uniprotAcc) )
+						nsAliases['uniprot_id'].add( (entrezID,uniprotID) )
+				#foreach entrezID mapping
+			#foreach line in upFile
+			numIDs0 = numIDs
+			numIDs = sum(len(nsAliases[ns]) for ns in nsAliases)
+			self.log(" OK: %d identifiers\n" % (numIDs-numIDs0,))
+			entrezUpdate = None
 			
 			# store genes
 			self.log("writing genes to the database ...")
@@ -372,7 +398,7 @@ class Source_entrez(loki_source.Source):
 			# store gene boundaries
 			self.log("writing gene boundaries to the database ...")
 			numBounds = len(setBounds)
-			self.addPopulationRegionBounds(populationID['N/A'], ((entrezRID[bound[0]],bound[1],bound[2],bound[3]) for bound in setBounds))
+			self.addPopulationRegionBounds(populationID['n/a'], ((entrezRID[bound[0]],bound[1],bound[2],bound[3]) for bound in setBounds))
 			self.log(" OK: %d boundaries\n" % (numBounds))
 			setBounds = None
 			
@@ -392,7 +418,7 @@ class Source_entrez(loki_source.Source):
 		self.log(" OK\n")
 		
 		# print stats
-		if self._loki.getVerbose():
+		if 0 and self._loki.getVerbose():
 			self.log("generating statistics ...")
 			stats = self._loki.getRegionNameStats(typeID=typeID['gene'])
 			self.log(" OK: %(total)d gene names (%(unique)d unique, %(redundant)d redundant, %(ambiguous)d ambiguous)\n" % stats)

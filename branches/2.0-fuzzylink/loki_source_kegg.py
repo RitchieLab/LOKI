@@ -28,14 +28,14 @@ class Source_kegg(loki_source.Source):
 			self.log(" OK\n")
 			
 			# get or create the required metadata records
-			namespaceID = {
-				'kegg':    self.addNamespace('kegg'),
-				'entrez':  self.addNamespace('entrez'),
-			}
-			typeID = {
-				'pathway': self.addType('pathway'),
-				'gene':    self.addType('gene'),
-			}
+			namespaceID = self.addNamespaces([
+				('kegg_id',0),
+				('entrez_id',0)
+			])
+			typeID = self.addTypes([
+				'pathway',
+				'gene'
+			])
 			
 			# connect to SOAP/WSDL service
 			self.log("connecting to KEGG data service ...")
@@ -54,27 +54,24 @@ class Source_kegg(loki_source.Source):
 			
 			# store pathway names
 			self.log("writing pathway names to the database ...")
-			self.addNamespacedGroupNames(namespaceID['kegg'], ((listGIDs[n],listPathways[n][0]) for n in xrange(len(listGIDs))))
+			self.addNamespacedGroupNames(namespaceID['kegg_id'], ((listGIDs[n],listPathways[n][0]) for n in xrange(len(listGIDs))))
 			self.log(" OK\n")
 			
 			# fetch genes for each pathway
 			self.log("fetching gene associations ...")
-			setLiteral = set()
+			setAssoc = set()
 			numAssoc = 0
 			for n in xrange(len(listPathways)):
-				size = 0
 				for hsaGene in service.get_genes_by_pathway(listPathways[n][0]):
-					size += 1
-					setLiteral.add( (listGIDs[n],size,namespaceID['entrez'],hsaGene[4:]) )
+					numAssoc += 1
+					setAssoc.add( (listGIDs[n],numAssoc,hsaGene[4:]) )
 				#foreach association
-				numAssoc += size
 			#foreach pathway
-			numLiteral = len(setLiteral)
-			self.log(" OK: %d associations (%d identifiers)\n" % (numAssoc,numLiteral))
+			self.log(" OK: %d associations\n" % (numAssoc,))
 			
 			# store gene associations
 			self.log("writing gene associations to the database ...")
-			self.addGroupLiterals(setLiteral)
+			self.addNamespacedGroupRegionNames(namespaceID['entrez_id'], setAssoc)
 			self.log(" OK\n")
 			
 			# commit transaction

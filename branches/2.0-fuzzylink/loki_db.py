@@ -45,7 +45,8 @@ class Database(object):
 				'table': """
 (
   namespace_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-  namespace VARCHAR(32) UNIQUE NOT NULL
+  namespace VARCHAR(32) UNIQUE NOT NULL,
+  multigene TINYINT NOT NULL DEFAULT 0
 )
 """,
 				'index': {}
@@ -75,6 +76,20 @@ class Database(object):
 				'index': {}
 			}, #.db.relationship
 			
+			# ########## db.role ##########
+			'role': {
+				'table': """
+(
+  role_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+  role VARCHAR(32) UNIQUE NOT NULL,
+  description VARCHAR(128),
+  coding TINYINT,
+  exon TINYINT
+)
+""",
+				'index': {}
+			}, #.db.role
+			
 			# ########## db.source ##########
 			'source': {
 				'table': """
@@ -97,6 +112,9 @@ class Database(object):
 """,
 				'index': {}
 			}, #.db.type
+			
+			
+			# ##############################
 			
 			
 			# ########## db.group ##########
@@ -148,8 +166,8 @@ class Database(object):
 				}
 			}, #.db.group_group
 			
-			# ########## db.group_literal ##########
-			'group_literal': {
+			# ########## db.group_region_name ##########
+			'group_region_name': {
 				'table': """
 (
   group_id INTEGER NOT NULL,
@@ -161,7 +179,7 @@ class Database(object):
 )
 """,
 				'index': {}
-			}, #.db.group_literal
+			}, #.db.group_region_name
 			
 			# ########## db.group_region ##########
 			'group_region': {
@@ -169,8 +187,10 @@ class Database(object):
 (
   group_id INTEGER NOT NULL,
   region_id INTEGER NOT NULL,
-  source_id TINYINT NOT NULL,
-  PRIMARY KEY (group_id,region_id,source_id)
+  specificity TINYINT NOT NULL,
+  implication TINYINT NOT NULL,
+  quality TINYINT NOT NULL,
+  PRIMARY KEY (group_id,region_id)
 )
 """,
 				'index': {
@@ -274,6 +294,36 @@ class Database(object):
 """,
 				'index': {}
 			}, #.db.snp_merge
+			
+			# ########## db.snp_role_entrez ##########
+			'snp_role_entrez': {
+				'table': """
+(
+  rs INTEGER NOT NULL,
+  region_entrez INTEGER NOT NULL,
+  role_id INTEGER NOT NULL,
+  source_id TINYINT NOT NULL,
+  PRIMARY KEY (rs,region_entrez,role_id,source_id)
+)
+""",
+				'index': {}
+			}, #.db.snp_role_entrez
+			
+			# ########## db.snp_role ##########
+			'snp_role': {
+				'table': """
+(
+  rs INTEGER NOT NULL,
+  region_id INTEGER NOT NULL,
+  role_id INTEGER NOT NULL,
+  PRIMARY KEY (rs,region_id,role_id)
+)
+""",
+				'index': {
+					'snp_role__region': '(region_id)',
+				}
+			}, #.db.snp_role
+			
 		}, #.db
 	} #_schema{}
 	
@@ -556,7 +606,7 @@ class Database(object):
 	#listSourceModules()
 	
 	
-	def updateDatabase(self, sources):
+	def updateDatabase(self, sources, cacheOnly=False):
 		# find all available source handler modules
 		import loki_source
 		self.findSourceModules()
@@ -585,14 +635,16 @@ class Database(object):
 		# update from all requested sources
 		iwd = os.getcwd()
 		for srcName in srcSet:
-			# download files into a local cache
-			self.logPush("downloading %s data ...\n" % srcName)
+			# switch to cache directory
 			path = os.path.join('loki_cache', srcName)
 			if not os.path.exists(path):
 				os.makedirs(path)
 			os.chdir(path)
-			self._source_objects[srcName].download()
-			self.logPop("... OK\n")
+			# download files into a local cache
+			if not cacheOnly:
+				self.logPush("downloading %s data ...\n" % srcName)
+				self._source_objects[srcName].download()
+				self.logPop("... OK\n")
 			# process new files
 			self.logPush("processing %s data ...\n" % srcName)
 			self._source_objects[srcName].update()
@@ -613,48 +665,99 @@ class Database(object):
 	
 	
 	def getNamespaceID(self, name):
-		result = self._db.cursor().execute("SELECT `namespace_id` FROM `db`.`namespace` WHERE `namespace` = LOWER(?)", (name,))
-		ret = None
-		for row in result:
-			ret = row[0]
-		return ret
+		result = None
+		for row in self._db.cursor().execute("SELECT `namespace_id` FROM `db`.`namespace` WHERE `namespace` = LOWER(?)", (name,)):
+			result = row[0]
+		return result
 	#getNamespaceID()
 	
 	
+	def getNamespaceIDs(self, names):
+		result = { name:None for name in names }
+		for row in self._db.cursor().executemany("SELECT `namespace`,`namespace_id` FROM `db`.`namespace` WHERE `namespace` = LOWER(?)", ((name,) for name in result)):
+			result[row[0]] = row[1]
+		return result
+	#getNamespaceIDs()
+	
+	
 	def getPopulationID(self, name):
-		result = self._db.cursor().execute("SELECT `population_id` FROM `db`.`population` WHERE `population` = LOWER(?)", (name,))
-		ret = None
-		for row in result:
-			ret = row[0]
-		return ret
+		result = NOne
+		for row in self._db.cursor().execute("SELECT `population_id` FROM `db`.`population` WHERE `population` = LOWER(?)", (name,)):
+			result = row[0]
+		return result
 	#getPopulationID()
 	
 	
+	def getPopulationIDs(self, names):
+		result = { name:None for name in names }
+		for row in self._db.cursor().executemany("SELECT `population`,`population_id` FROM `db`.`population` WHERE `population` = LOWER(?)", ((name,) for name in result)):
+			result[row[0]] = row[1]
+		return result
+	#getPopulationIDs()
+	
+	
 	def getRelationshipID(self, name):
-		result = self._db.cursor().execute("SELECT `relationship_id` FROM `db`.`relationship` WHERE `relationship` = LOWER(?)", (name,))
-		ret = None
-		for row in result:
-			ret = row[0]
-		return ret
+		result = None
+		for row in self._db.cursor().execute("SELECT `relationship_id` FROM `db`.`relationship` WHERE `relationship` = LOWER(?)", (name,)):
+			result = row[0]
+		return result
 	#getRelationshipID()
 	
 	
+	def getRelationshipIDs(self, names):
+		result = { name:None for name in names }
+		for row in self._db.cursor().executemany("SELECT `relationship`,`relationship_id` FROM `db`.`relationship` WHERE `relationship` = LOWER(?)", ((name,) for name in result)):
+			result[row[0]] = row[1]
+		return result
+	#getRelationshipIDs()
+	
+	
+	def getRoleID(self, name):
+		result = None
+		for row in self._db.cursor().execute("SELECT `role_id` FROM `db`.`role` WHERE `role` = LOWER(?)", (name,)):
+			result = row[0]
+		return result
+	#getRoleID()
+	
+	
+	def getRoleIDs(self, names):
+		result = { name:None for name in names }
+		for row in self._db.cursor().executemany("SELECT `role`,`role_id` FROM `db`.`role` WHERE `role` = LOWER(?)", ((name,) for name in result)):
+			result[row[0]] = row[1]
+		return result
+	#getRoleIDs()
+	
+	
 	def getSourceID(self, name):
-		result = self._db.cursor().execute("SELECT `source_id` FROM `db`.`source` WHERE `source` = LOWER(?)", (name,))
-		ret = None
-		for row in result:
-			ret = row[0]
-		return ret
+		result = None
+		for row in self._db.cursor().execute("SELECT `source_id` FROM `db`.`source` WHERE `source` = LOWER(?)", (name,)):
+			result = row[0]
+		return result
 	#getSourceID()
 	
 	
+	def getSourceIDs(self, names):
+		result = { name:None for name in names }
+		for row in self._db.cursor().executemany("SELECT `source`,`source_id` FROM `db`.`source` WHERE `source` = LOWER(?)", ((name,) for name in result)):
+			result[row[0]] = row[1]
+		return result
+	#getSourceIDs()
+	
+	
 	def getTypeID(self, name):
-		result = self._db.cursor().execute("SELECT `type_id` FROM `db`.`type` WHERE `type` = LOWER(?)", (name,))
-		ret = None
-		for row in result:
-			ret = row[0]
-		return ret
+		result = None
+		for row in self._db.cursor().execute("SELECT `type_id` FROM `db`.`type` WHERE `type` = LOWER(?)", (name,)):
+			result = row[0]
+		return result
 	#getTypeID()
+	
+	
+	def getTypeIDs(self, names):
+		result = { name:None for name in names }
+		for row in self._db.cursor().executemany("SELECT `type`,`type_id` FROM `db`.`type` WHERE `type` = LOWER(?)", ((name,) for name in result)):
+			result[row[0]] = row[1]
+		return result
+	#getTypeIDs()
 	
 	
 	# ##################################################

@@ -32,19 +32,19 @@ class Source_go(loki_source.Source):
 			self.log(" OK\n")
 			
 			# get or create the required metadata records
-			namespaceID = {
-				'go':       self.addNamespace('go'),
-				'ontology': self.addNamespace('ontology'),
-				'gene':     self.addNamespace('gene'),
-				'uniprot':  self.addNamespace('uniprot'),
-			}
-			relationshipID = {
-				'is_a':     self.addRelationship('is_a'),
-			}
-			typeID = {
-				'ontology': self.addType('ontology'),
-				'gene':     self.addType('gene'),
-			}
+			namespaceID = self.addNamespaces([
+				('go_id',0),
+				('ontology',0),
+				('gene',0),
+				('uniprot_id',1)
+			])
+			relationshipID = self.addRelationships([
+				'is_a'
+			])
+			typeID = self.addTypes([
+				'ontology',
+				'gene'
+			])
 			
 			# process ontology terms
 			self.log("processing ontology terms ...")
@@ -138,7 +138,7 @@ class Source_go(loki_source.Source):
 			
 			# store ontology term names
 			self.log("writing ontology term names to the database ...")
-			self.addNamespacedGroupNames(namespaceID['go'], ((goGID[goID],goID) for goID in listGoID))
+			self.addNamespacedGroupNames(namespaceID['go_id'], ((goGID[goID],goID) for goID in listGoID))
 			self.addNamespacedGroupNames(namespaceID['ontology'], ((goGID[goID],goName[goID]) for goID in listGoID))
 			self.log(" OK\n")
 			
@@ -155,14 +155,17 @@ class Source_go(loki_source.Source):
 			# process gene associations
 			self.log("processing gene associations ...")
 			assocFile = self.zfile('gene_association.goa_human.gz') #TODO:context manager,iterator
-			goSize = { goID:0 for goID in goGID }
-			setLiteral = set()
+			nsAssoc = {
+				'uniprot_id': set(),
+				'gene':       set()
+			}
+			numAssoc = numID = 0
 			for line in assocFile:
 				words = line.split('\t')
 				if len(words) < 13:
 					continue
-				sourceDB = words[0]
-				sourceID = words[1]
+				xrefDB = words[0]
+				xrefID = words[1]
 				gene = words[2]
 				#assocType = words[3]
 				goID = words[4]
@@ -172,33 +175,34 @@ class Source_go(loki_source.Source):
 				#goType = words[8]
 				#desc = words[9]
 				aliases = words[10].split('|')
-				#sourceType = words[11]
+				#xrefType = words[11]
 				taxon = words[12]
 				#updated = words[13]
 				#assigner = words[14]
 				#extensions = words[15].split('|')
-				#sourceIDsplice = words[16]
+				#xrefIDsplice = words[16]
 				
 				# TODO: why ignore IEA?
-				if sourceDB == 'UniProtKB' and goID in goGID and evidence != 'IEA' and taxon == 'taxon:9606':
-					goSize[goID] += 1
-					setLiteral.add( (goGID[goID],goSize[goID],namespaceID['uniprot'],sourceID) )
-					setLiteral.add( (goGID[goID],goSize[goID],namespaceID['gene'],gene) )
+				if xrefDB == 'UniProtKB' and goID in goGID and evidence != 'IEA' and taxon == 'taxon:9606':
+					numAssoc += 1
+					numID += 2
+					nsAssoc['uniprot_id'].add( (goGID[goID],numAssoc,xrefID) )
+					nsAssoc['gene'].add( (goGID[goID],numAssoc,gene) )
 					for alias in aliases:
+						numID += 1
 						# aliases might be either symbols or uniprot identifiers, so try them both ways
-						if alias != sourceID:
-							setLiteral.add( (goGID[goID],goSize[goID],namespaceID['uniprot'],alias) )
+						if alias != xrefID:
+							nsAssoc['uniprot_id'].add( (goGID[goID],numAssoc,alias) )
 						if alias != gene:
-							setLiteral.add( (goGID[goID],goSize[goID],namespaceID['gene'],alias) )
+							nsAssoc['gene'].add( (goGID[goID],numAssoc,alias) )
 				#if association is ok
 			#foreach association
-			numLiteral = len(setLiteral)
-			numAssoc = sum(goSize[go] for go in goSize)
-			self.log(" OK: %d associations (%d identifiers)\n" % (numAssoc,numLiteral))
+			self.log(" OK: %d associations (%d identifiers)\n" % (numAssoc,numID))
 			
 			# store gene associations
 			self.log("writing gene associations to the database ...")
-			self.addGroupLiterals(setLiteral)
+			for ns in nsAssoc:
+				self.addNamespacedGroupRegionNames(namespaceID[ns], nsAssoc[ns])
 			self.log(" OK\n")
 			
 			# commit transaction

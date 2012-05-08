@@ -29,8 +29,11 @@ if __name__ == "__main__":
 			help="update the knowledge database file by downloading and processing new data from the specified sources; "
 			+"specify '+' (or nothing) to update from all known sources, or '?' to list available sources"
 	)
+	parser.add_argument('-c', '--cache-only', action='store_true',
+			help="only use data files available from the local cache, without checking for or downloading any new files"
+	)
 	parser.add_argument('-v', '--verbose', action='store_true',
-		help="print warnings and log messages"
+			help="print warnings and log messages"
 	)
 	
 	# if no arguments, print usage and exit
@@ -55,5 +58,5 @@ if __name__ == "__main__":
 		update = list()
 		for updateList in (args.update or tuple()):
 			update += updateList
-		db.updateDatabase(update)
+		db.updateDatabase(update, args.cache_only)
 #__main__
