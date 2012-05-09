@@ -122,13 +122,16 @@ def genPops(popList, dprimes, rsquared, opts):
 	
 	# Now, write the configuration
 	cfg_f = file("ldspline.cfg", "w")
-	print >> cfg_f, "rs", " ".join((str(v) for v in rsquared))
-	print >> cfg_f, "dp", " ".join((str(v) for v in dprimes))
+	if rsquared:
+		print >> cfg_f, "rs", " ".join((str(v) for v in rsquared))
+	if dprime:
+		print >> cfg_f, "dp", " ".join((str(v) for v in dprimes))
 	
 	for pop in popList:
+		
 		# Find the population extension
 		pop_ext = valid_pops[pop]	
-		
+				
 		fn_list = downloadFiles(pop_ext)
 		
 		idx_file = file(pop_ext, 'w')
@@ -155,7 +158,7 @@ def genPops(popList, dprimes, rsquared, opts):
 	
 		# Re-import the splines
 		os.system(opts.ldspline + " import-lomap " + pop_ext + " 37")
-		
+				
 		# print this population's LDspline location 
 		print >> cfg_f, pop_ext, os.path.join(os.getcwd(), pop_ext+"-b37.ldspline"), pop_ext + " population from HapMap"
 
@@ -222,18 +225,20 @@ if __name__ == "__main__":
 	
 	# Try to find all of the child programs needed now
 	exe_error = False
+	out_file = file("output.txt", "w")
+	
 	try:
-		subprocess.call(opts.ldspline)
+		subprocess.call(opts.ldspline, stdout=out_file, stderr=subprocess.STDOUT)
 	except OSError, e:
 		print "Error: could not find ldspline executable"
 		exe_error = True
 	try:
-		subprocess.call(opts.poploader)
+		subprocess.call(opts.poploader, stdout=out_file, stderr=subprocess.STDOUT)
 	except OSError, e:
 		print "Error: could not find pop_loader executable"
 		exe_error = True
 	try:
-		subprocess.call(opts.liftover)
+		subprocess.call(opts.liftover, stdout=out_file, stderr=subprocess.STDOUT)
 	except OSError, e:
 		print "Error: could not find liftOver executable"
 		exe_error = True
