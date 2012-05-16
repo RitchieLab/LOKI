@@ -20,12 +20,18 @@ class Source_chainfiles(loki_source.Source):
 		"""
 		Parse all of the chain files and insert them into the database
 		"""	
-		self.log("Creating Build->Assembly\n")
+		
+		
 		# First, let's create the "build->assembly" table
 		build_translation = [('36.1',18),('36',18),('35',17),('34',16),
-			('b36',18),('b35',17),('b34',16)]
-		
+			('b36',18),('b35',17),('b34',16)]		
 		self.addBuildTrans(build_translation)
+		
+		# Drop tables and recreate them
+		self.log("Dropping old chain data ...")
+		self._loki.dropDatabaseTables(None,'db',('chain','chain_data'))
+		self._loki.createDatabaseTables(None,'db',('chain','chain_data'))
+		self.log("OK\n")
 		
 		assy_file = {16 : "hg16.chain.gz",
 					 17 : "hg17.chain.gz",
@@ -33,7 +39,7 @@ class Source_chainfiles(loki_source.Source):
 		
 		with self.bulkUpdateContext(set(['chain','chain_data'])):
 			for (assy, fn) in assy_file.iteritems():
-				self.log("Parsing Chains for build " + str(assy) + "\n")
+				self.log("Parsing Chains for build " + str(assy) + " ...")
 				f = self.zfile(fn)
 				
 				is_hdr = True
@@ -59,18 +65,17 @@ class Source_chainfiles(loki_source.Source):
 						curr_data = []
 						is_hdr = True
 				
-				self.log("Adding chains\n")
 				hdr_ids = self.addChains(assy, chain_hdrs)
 				
-				self.log("Associating data with chains\n")
 				# Now, I want to take my list of IDs and my list of list of 
 				# tuples and convert them into a list of tuples suitable for
 				# entering in the chain_data table
 				chain_id_data = zip(hdr_ids, chain_data)
 				chain_data_itr = (tuple(itertools.chain((chn[0],),seg)) for chn in chain_id_data for seg in chn[1])
 				
-				self.log("Adding chain data\n")
 				self.addChainData(chain_data_itr)
+				
+				self.log("OK\n")
 			# for (assy, fn) in assy_file.iteritems()
 		# with self.BulkUpdateContext
 		
