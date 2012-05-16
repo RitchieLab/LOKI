@@ -8,6 +8,7 @@ import os
 import sys
 import time
 import zlib
+import itertools
 
 from contextlib import contextmanager
 
@@ -66,37 +67,14 @@ class Source():
 	
 	
 	@contextmanager
-	def bulkUpdateContext(self,
-			group=False, group_name=False, group_group=False, group_region=False,
-			region=False, region_name=False, region_bound=False,
-			snp=False, snp_merge=False
-	):
-		tableList = []
-		if group:
-			tableList.append('group')
-		if group_name:
-			tableList.append('group_name')
-		if group_group:
-			tableList.append('group_group')
-		if group_region:
-			tableList.append('group_region')
-		if region:
-			tableList.append('region')
-		if region_name:
-			tableList.append('region_name')
-		if region_bound:
-			tableList.append('region_bound')
-		if snp:
-			tableList.append('snp')
-		if snp_merge:
-			tableList.append('snp_merge')
+	def bulkUpdateContext(self, tableList):
 		with self._loki:
 			if len(tableList) > 0:
 				self._loki.dropDatabaseIndexes(None, 'db', tableList)
 			yield
 			if len(tableList) > 0:
 				self._loki.createDatabaseIndexes(None, 'db', tableList)
-			if region_bound:
+			if "region_bound" in tableList:
 				self._loki.dropDatabaseIndexes(None, 'db', 'region_zone')
 				self.updateRegionZones()
 				self._loki.createDatabaseIndexes(None, 'db', 'region_zone')
@@ -367,6 +345,44 @@ JOIN `temp`.`zones` AS tz
 				((merge[0],merge[1],merge[2],self._sourceID) for merge in mergeList)
 		)
 	#addSNPMerges()
+	
+	def addBuildTrans(self, build_pairs):
+		"""
+		Adds the build->assembly pairs into the build_assembly table
+		"""
+		self._dbc.executemany(
+			"INSERT OR IGNORE INTO 'db'.'build_assembly' ('build','assembly') VALUES (?,?)",
+			(tuple(ba_pair) for ba_pair in build_pairs)
+		)
+	#addBuildTrans()
+	
+	def addChains(self, assembly, chain_list):
+		"""
+		Adds all of the chains described in chain_list and returns the
+		ids of the added chains.  The chain_list must be an iterable
+		container of objects that can be inserted into the chain table
+		"""
+		
+		retList = []
+		for row in self._dbc.executemany(
+			"INSERT INTO 'db'.'chain' ('old_assembly','score','old_chr','old_start','old_end','new_chr','new_start','new_end','is_fwd') VALUES (?,?,?,?,?,?,?,?,?); SELECT last_insert_rowid()",
+			(tuple(c for c in itertools.chain((assembly,),chain)) for chain in chain_list)
+		):
+			retList.append(row[0])
+		
+		return retList;
+	#addChains()
+	
+	def addChainData(self, chain_data_list):
+		"""
+		Adds all of the chain data into the chain data table
+		"""
+		self._dbc.executemany(
+			"INSERT INTO 'db'.'chain_data' ('chain_id','old_start','new_start','size') VALUES (?,?,?,?)",
+			(tuple(cd) for cd in chain_data_list)
+		)
+	#addChainData()
+			
 	
 	
 	# ##################################################

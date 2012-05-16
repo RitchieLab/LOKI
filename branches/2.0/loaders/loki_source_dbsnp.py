@@ -32,7 +32,7 @@ class Source_dbsnp(loki_source.Source):
 	def update(self):
 		# begin transaction to update database
 		self.log("initializing update process ...")
-		with self.bulkUpdateContext(snp=True, snp_merge=True):
+		with self.bulkUpdateContext(set(['snp','snp_merge'])):
 			self.log(" OK\n")
 			
 			# clear out all old SNP data

@@ -27,7 +27,7 @@ class Source_pfam(loki_source.Source):
 	def update(self):
 		# begin transaction to update database
 		self.log("initializing update process ...")
-		with self.bulkUpdateContext(group=True, group_name=True, group_group=True, group_region=True):
+		with self.bulkUpdateContext(set(['group','group_name','group_group','group_region'])):
 			self.log(" OK\n")
 			
 			# clear out all old data from this source

@@ -26,7 +26,7 @@ class Source_entrez(loki_source.Source):
 	def update(self):
 		# begin transaction to update database
 		self.log("initializing update process ...")
-		with self.bulkUpdateContext(region=True, region_name=True, region_bound=True):
+		with self.bulkUpdateContext(set(['region','region_name','region_bound'])):
 			self.log(" OK\n")
 			
 			# clear out all old gene data
