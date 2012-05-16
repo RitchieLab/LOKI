@@ -538,12 +538,12 @@ class Database(object):
 		self.createDatabaseObjects(None, 'db')
 		self.log(" OK\n")
 		
-		import loki_source
+		import loaders
 		
 		# locate all available source modules, if we haven't already
 		if self._source_loaders == None:
 			self._source_loaders = {}
-			for srcImporter,srcModuleName,_ in pkgutil.iter_modules():
+			for srcImporter,srcModuleName,_ in pkgutil.iter_modules(loaders.__path__):
 				if srcModuleName.startswith('loki_source_'):
 					self._source_loaders[srcModuleName[12:]] = srcImporter.find_module(srcModuleName)
 		
