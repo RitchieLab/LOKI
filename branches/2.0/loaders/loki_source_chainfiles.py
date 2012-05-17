@@ -97,14 +97,24 @@ class Source_chainfiles(loki_source.Source):
 		
 		if wds[2][3:] not in self._loki.chr_num:
 			raise Exception("Could not find chromosome: " + wds[2][3:] + "->" + wds[7][3:])
+			
+		is_fwd = (wds[9] == "+")
+		if is_fwd:
+			new_start = int(wds[10])
+			new_end = int(wds[11])
+		else:
+			# NOTE: If we're going backward, this will mean that 
+			# end < start
+			new_start = int(wds[8]) - int(wds[10])
+			new_end = int(wds[8]) - int(wds[11])
 		
 		
 		# I want a tuple of (score, old_chr, old_start, old_end,
 		# new_chr, new_start, new_end, is_forward)
 		return (int(wds[1]), 
 			self._loki.chr_num[wds[2][3:]], int(wds[5]), int(wds[6]),
-			self._loki.chr_num.get(wds[7][3:],-1), int(wds[10]), int(wds[11]),
-			int(wds[9] == "+"))
+			self._loki.chr_num.get(wds[7][3:],-1), new_start, new_end,
+			int(is_fwd))
 		
 	def _parseData(self, chain_tuple, chain_data):
 		"""
@@ -115,13 +125,17 @@ class Source_chainfiles(loki_source.Source):
 		
 		curr_pos = chain_tuple[2]
 		new_pos = chain_tuple[5]
+			
 		_data_txform = []
 		for l in _data:
-			_data_txform.append((curr_pos, new_pos, l[0]))
+			_data_txform.append((curr_pos, curr_pos + l[0], new_pos))
 			curr_pos = curr_pos + l[0] + l[1]
-			new_pos = new_pos + l[0] + l[2]
+			if chain_tuple[7]:
+				new_pos = new_pos + l[0] + l[2]
+			else:
+				new_pos = new_pos - l[0] - l[2]
 			
-		_data_txform.append((curr_pos, new_pos, int(chain_data.split()[-1])))
+		_data_txform.append((curr_pos, curr_pos + int(chain_data.split()[-1]), new_pos))
 		
 		return _data_txform
 	

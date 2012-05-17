@@ -295,13 +295,14 @@ class Database(object):
 (
   chain_id INTEGER NOT NULL,
   old_start INTEGER NOT NULL,
+  old_end INTEGER NOT NULL,
   new_start INTEGER NOT NULL,
-  size INTEGER NOT NULL,
   PRIMARY KEY (chain_id,old_start)
 )
 """,
 				'index': {
 					'chain_data__start': '(chain_id, old_start)',
+					'chain_data__end': '(chain_id, old_end)',
 				}
 			}, #.db.region_bound			
 		}, #.db
@@ -535,17 +536,17 @@ class Database(object):
 				if tables:
 					sql = self._dbc.execute("SELECT sql FROM %s WHERE type=? AND name=?" % master, ('table',tblName)).next()[0]
 					if sql != ("CREATE TABLE `%s` %s" % (tblName, schema[tblName]['table'].rstrip())):
-						self.log("WARNING: table '%s' schema mismatch" % tblName)
+						self.log("WARNING: table '%s' schema mismatch\n" % tblName)
 				if indexes:
 					for idxName in schema[tblName]['index']:
 						try:
 							sql = self._dbc.execute("SELECT sql FROM %s WHERE type=? AND name=?" % master, ('index',idxName)).next()[0]
 							if sql != ("CREATE INDEX `%s` ON `%s` %s" % (idxName, tblName, schema[tblName]['index'][idxName].rstrip())):
-								self.log("WARNING: index '%s' on table '%s' schema mismatch" % (tblName, idxName))
+								self.log("WARNING: index '%s' on table '%s' schema mismatch\n" % (tblName, idxName))
 						except StopIteration:
-							self.log("WARNING: index '%s' on table '%s' missing" % (idxName, tblName))
+							self.log("WARNING: index '%s' on table '%s' missing\n" % (idxName, tblName))
 			except StopIteration:
-				self.log("WARNING: table '%s' missing" % tblName)
+				self.log("WARNING: table '%s' missing\n" % tblName)
 		#foreach tblName in tblList
 	#auditDatabaseTables()
 	

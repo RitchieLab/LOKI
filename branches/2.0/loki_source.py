@@ -378,7 +378,7 @@ JOIN `temp`.`zones` AS tz
 		Adds all of the chain data into the chain data table
 		"""
 		self._dbc.executemany(
-			"INSERT INTO 'db'.'chain_data' ('chain_id','old_start','new_start','size') VALUES (?,?,?,?)",
+			"INSERT INTO 'db'.'chain_data' ('chain_id','old_start','old_end','new_start') VALUES (?,?,?,?)",
 			(tuple(cd) for cd in chain_data_list)
 		)
 	#addChainData()
