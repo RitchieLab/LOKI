@@ -127,6 +127,7 @@ class Database(object):
 """,
 				'index': {
 					'group_name__name': '(name,namespace_id)',
+					'group_name__src_name': '(source_id, name)',
 				}
 			}, #.db.group_name
 			
@@ -159,6 +160,7 @@ class Database(object):
 """,
 				'index': {
 					'group_region__region': '(region_id,group_id)',
+					'group_region__src_region': '(source_id,region_id,group_id)',
 				}
 			}, #.db.group_region
 			

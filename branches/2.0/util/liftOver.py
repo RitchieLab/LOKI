@@ -1,4 +1,5 @@
 import loki_db
+import sys
 
 class liftOver(object):
 	"""
@@ -41,6 +42,8 @@ class liftOver(object):
 		curr_chain = None
 		
 		total_mapped_sz = 0
+		first_seg = None
+		end_seg = None
 		for seg in ch_list:
 					
 			if curr_chain is None:
@@ -60,7 +63,7 @@ class liftOver(object):
 				end_seg = seg
 				total_mapped_sz = total_mapped_sz + seg[2] - seg[1]
 				
-		if not mapped_reg:
+		if not mapped_reg and first_seg is not None:
 			mapped_reg = self._mapRegion((start, end), first_seg, end_seg, total_mapped_sz)
 		
 		if mapped_reg and not is_region:
@@ -104,3 +107,18 @@ class liftOver(object):
 			mapped_reg = (first_seg[5], new_start, new_end)
 			
 		return mapped_reg
+
+if __name__ == "__main__":
+	lo = liftOver(sys.argv[2])
+	f = file(sys.argv[1])
+	m = file(sys.argv[3],'w')
+	u = file(sys.argv[4],'w')
+	
+	for l in f:
+		wds = l.split()
+		chrm = lo._db.chr_num.get(wds[0][3:],-1)
+		n = lo.liftRegion(chrm, int(wds[1]), int(wds[2]))
+		if n:
+			print >> m, "chr" + lo._db.chr_list[n[0]], n[1], n[2]
+		else:
+			print >> u, l
