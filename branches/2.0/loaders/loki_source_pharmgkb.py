@@ -18,7 +18,6 @@ class Source_pharmgkb(loki_source.Source):
 	
 	def download(self):
 		# download the latest source files
-		return
 		self.downloadFilesFromHTTP('www.pharmgkb.org', {
 			'genes.zip':        '/commonFileDownload.action?filename=genes.zip',
 			'pathways-tsv.zip': '/commonFileDownload.action?filename=pathways-tsv.zip',
