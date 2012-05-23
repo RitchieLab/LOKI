@@ -8,6 +8,7 @@
 #include "ldspline/ldspline.h"
 #include <fstream>
 
+#include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
 #include <sys/stat.h>
 #include <sstream>
@@ -15,7 +16,15 @@
 #include <utility>
 
 using std::pair;
+using std::make_pair;
 using std::stringstream;
+
+string __chr_init[] = {"1","2","3","4","5","6","7","8","9","10",
+		"11","12","13","14","15","16","17","18","19","20","21","22","X",
+		"Y","XY","MT"};
+
+// Make sure the # below matches the # of elements in the array above!!
+const vector<string> LdSplineImporter::_chrom_list(__chr_init, __chr_init + (sizeof(__chr_init) / sizeof(__chr_init[0])));
 
 LdSplineImporter::LdSplineImporter(const string& fn, const string& db_fn) :
 		_self_open(true), _write_db(false) {
@@ -69,6 +78,8 @@ LdSplineImporter::LdSplineImporter(const string& fn, const string& db_fn) :
 
 	// Create the sqlite3 db object
 	sqlite3_open(dbFilename.c_str(), &_db);
+
+	LoadGenes();
 }
 
 LdSplineImporter::LdSplineImporter(const string& fn, sqlite3 *db_conn) :
@@ -97,19 +108,17 @@ void LdSplineImporter::loadPops() {
 
 	while (spItr != spEnd) {
 		map<string, int> popIDs;
-		InitPopulationIDs(popIDs, *spItr, "DP", dp);
-		InitPopulationIDs(popIDs, *spItr, "RS", rs);
+		InitPopulationIDs(popIDs, *spItr);
 
 		LdSpline ldspline;
 		ldspline.OpenBinary(spItr->filename.c_str());
 
-		map<string, LocusLookup> chromosomes =
+		map<string, LocusLookup>& chromosomes =
 				ldspline.GetChromosomes();
 		map<string, LocusLookup>::iterator chr = chromosomes.begin();
 		map<string, LocusLookup>::iterator end = chromosomes.end();
 
 		while (chr != end) {
-			LoadGenes(chr->second.Chromosome());
 			ProcessLD(chr->second, *spItr, popIDs);
 			chr->second.Release();
 			chr++;
@@ -148,21 +157,14 @@ void LdSplineImporter::LoadConfiguration(const char *filename) {
 				std::vector<std::string>::iterator values = tokens.begin();
 				std::vector<std::string>::iterator tokenEnd = tokens.end();
 				while (++values != tokenEnd) {
-					rs.push_back(atof(values->c_str()));
-					cerr << "RS: " << *values << "\t" << rs[rs.size() - 1]
-							<< "\n";
-
+					cutoffs.push_back(make_pair(R_SQUARED, atof(values->c_str())));
 				}
-				cerr << rs.size() << "Total RS values to be used.";
 			} else if (tokens[0] == "dp" || tokens[0] == "DP") {
 				std::vector<std::string>::iterator values = tokens.begin();
 				std::vector<std::string>::iterator tokenEnd = tokens.end();
 				while (++values != tokenEnd) {
-					dp.push_back(atof(values->c_str()));
-					cerr << "DP: " << *values << "\t" << dp[dp.size() - 1]
-							<< "\n";
+					cutoffs.push_back(make_pair(D_PRIME, atof(values->c_str())));
 				}
-				cerr << dp.size() << "Total DP values to be used.";
 			} else {
 				if (tokens[0][0] != '#') {
 					std::stringstream ss(line);
@@ -190,8 +192,10 @@ void LdSplineImporter::LoadConfiguration(const char *filename) {
 void LdSplineImporter::ProcessLD(LocusLookup& chr,
 		const PopulationSpline& sp, const map<std::string, int>& popIDs) {
 
-	vector<RegionBoundary>::const_iterator regItr = regions.begin();
-	vector<RegionBoundary>::const_iterator regEnd = regions.end();
+	short chrom = getChrom(chr.Chromosome());
+
+	vector<RegionBoundary>::const_iterator regItr = _region_map[chrom].begin();
+	vector<RegionBoundary>::const_iterator regEnd = _region_map[chrom].end();
 
 	cerr << chr.Chromosome() << "(";
 	cerr.flush();
@@ -203,79 +207,74 @@ void LdSplineImporter::ProcessLD(LocusLookup& chr,
 		cerr.flush();
 		pi++;
 	}
+	string pos_cmd = "UPDATE region_bound SET posMin=:new_min, posMax=:new_max "
+			"WHERE region_id=:r_id AND population_id=:p_id AND chr=:o_chr "
+			"AND posMin:=o_min AND posMax=:o_max";
 
-	int incCount = 0;
+	sqlite3_stmt* pos_stmt;
+	sqlite3_prepare_v2(_db, pos_cmd.c_str(), -1, &pos_stmt, NULL);
 
-	while (regItr != regEnd) {
-		int lower = regItr->lower, upper = regItr->upper;
-		//cerr<<"\t--"<<regItr->geneID<<"\n";
-		vector<float>::const_iterator vItr = dp.begin();
-		vector<float>::const_iterator vEnd = dp.end();
+	int n_min_idx = sqlite3_bind_parameter_index(pos_stmt, "new_min");
+	int n_max_idx = sqlite3_bind_parameter_index(pos_stmt, "new_max");
+	int r_id_idx = sqlite3_bind_parameter_index(pos_stmt, "r_id");
+	int p_id_idx = sqlite3_bind_parameter_index(pos_stmt, "p_id");
+	int chr_id_idx = sqlite3_bind_parameter_index(pos_stmt, "o_chr");
+	int o_min_idx = sqlite3_bind_parameter_index(pos_stmt, "o_min");
+	int o_max_idx = sqlite3_bind_parameter_index(pos_stmt, "o_max");
 
-		while (vItr != vEnd) {
-			map<string, int>::const_iterator pop_itr = popIDs.find(
-					sp.GetPopulationName("DP", *vItr));
-			if (pop_itr != popIDs.end()) {
-				int popID = (*pop_itr).second;
+	sqlite3_bind_int(pos_stmt, chr_id_idx, chrom);
 
-				pair<int, int> bounds = chr.GetRangeBoundariesDP(lower, upper,
-						*vItr);
-				if (bounds.first != lower || bounds.second != upper) {
-					incCount++;
-					stringstream query_ss;
-					query_ss << "UPDATE region_bounds SET start="
-							<< bounds.first << ", end=" << bounds.second
-							<< "WHERE gene_id=" << regItr->geneID
-							<< " AND population_id=" << popID << ";";
+	vector<pair<CutoffType, float> >::const_iterator v_itr = cutoffs.begin();
+	while(v_itr != cutoffs.end()){
+		regItr = _region_map[chrom].begin();
+		map<string, int>::const_iterator pop_itr = popIDs.find(
+				sp.GetPopulationName((*v_itr).first, (*v_itr).second));
+		if (pop_itr != popIDs.end()) {
+			sqlite3_bind_int(pos_stmt, p_id_idx, (*pop_itr).second);
 
-					sqlite3_exec(_db, query_ss.str().c_str(), NULL, NULL, NULL);
+			while (regItr != regEnd) {
+
+				sqlite3_bind_int(pos_stmt, r_id_idx, (*regItr).geneID);
+				sqlite3_bind_int(pos_stmt, o_min_idx, (*regItr).lower);
+				sqlite3_bind_int(pos_stmt, o_max_idx, (*regItr).upper);
+
+				pair<int, int> bounds;
+				bool valid_region = false;
+				if((*v_itr).first == D_PRIME){
+					bounds = chr.GetRangeBoundariesDP((*regItr).lower, (*regItr).upper,	(*v_itr).second);
+					valid_region=true;
+				}else if ((*v_itr).first == R_SQUARED){
+					bounds = chr.GetRangeBoundariesRS((*regItr).lower, (*regItr).upper, (*v_itr).second);
 				}
-			}
-			vItr++;
-		}
 
-		vItr = rs.begin();
-		vEnd = rs.end();
-		while (vItr != vEnd) {
-			map<string, int>::const_iterator pop_itr = popIDs.find(
-					sp.GetPopulationName("RS", *vItr));
-			if (pop_itr != popIDs.end()) {
-				int popID = (*pop_itr).second;
-				pair<int, int> bounds = chr.GetRangeBoundariesRS(lower, upper,
-						*vItr);
-				if (bounds.first != lower || bounds.second != upper) {
-					incCount++;
-					stringstream query_ss;
-					query_ss << "UPDATE region_bounds SET start="
-							<< bounds.first << ", end=" << bounds.second
-							<< "WHERE gene_id=" << regItr->geneID
-							<< " AND population_id=" << popID << ";";
+				if (valid_region){
+					sqlite3_bind_int(pos_stmt, n_min_idx, bounds.first);
+					sqlite3_bind_int(pos_stmt, n_max_idx, bounds.second);
 
-					sqlite3_exec(_db, query_ss.str().c_str(), NULL, NULL, NULL);
+					// Do nothing for the query; it modifies the db
+					while(sqlite3_step(pos_stmt) == SQLITE_ROW) {}
 				}
+				sqlite3_reset(pos_stmt);
+				++regItr;
 			}
-			vItr++;
 		}
-
-		regItr++;
-
+		++v_itr;
 	}
-	cerr << ")\t" << incCount << "\n";
+
+	sqlite3_finalize(pos_stmt);
+
+	cerr << ")\n";
 }
 
 void LdSplineImporter::InitPopulationIDs(map<string, int>& popIDs,
-		const PopulationSpline& sp, const string& type, const vector<float>& stats) {
+		const PopulationSpline& sp) {
 
-	vector<float>::const_iterator sItr = stats.begin();
-	vector<float>::const_iterator sEnd = stats.end();
+	vector<pair<CutoffType, float> >::const_iterator sItr = cutoffs.begin();
 
-	sItr = stats.begin();
-	while (sItr != sEnd) {
-		cerr << "Initializing Population: " << type << ", " << *sItr << "\t"
-				<< stats.size() << "\n";
-		string popName = sp.GetPopulationName(type, *sItr);
+	while (sItr != cutoffs.end()) {
+		string popName = sp.GetPopulationName((*sItr).first, (*sItr).second);
 
-		string pop_query = "SELECT population_id FROM populations where population_label='"+popName+"';";
+		string pop_query = "SELECT population_id FROM population where population='"+popName+"';";
 		int popID = -1;
 
 		sqlite3_exec(_db, pop_query.c_str(), parsePopID, &popID, NULL);
@@ -285,27 +284,27 @@ void LdSplineImporter::InitPopulationIDs(map<string, int>& popIDs,
 					<< popID << " (" << popName << ")\n";
 
 			stringstream del_ss;
-			del_ss << "DELETE FROM populations WHERE population_id=" << popID <<"; ";
-			del_ss << "DELETE FROM region_bounds WHERE population_id=" << popID <<";";
+			del_ss << "DELETE FROM region_bound WHERE population_id=" << popID <<"; ";
+			del_ss << "DELETE FROM population WHERE population_id=" << popID <<"; ";
+
 
 			sqlite3_exec(_db, del_ss.str().c_str(), NULL, NULL, NULL);
 
-		} else {
-			pop_query = "SELECT MAX(population_id) FROM populations;";
-			sqlite3_exec(_db, pop_query.c_str(), parsePopID, &popID, NULL);
-			popID++;
 		}
 
 		stringstream pop_ins_ss;
-		pop_ins_ss << "INSERT INTO populations VALUES (" << popID << ",'"
-				<< popName << "','" << sp.desc << "','"
-				<< sp.desc << " with " << type << " cutoff " << *sItr << "');";
+		string type = ((*sItr).first == R_SQUARED ? "RS" : ((*sItr).first == D_PRIME ? "DP" : "UNK"));
+		pop_ins_ss << "INSERT INTO population (population, ldcomment, description) "
+				<< "VALUES ('" << popName << "','" << type << " " << (*sItr).second << "','"
+				<< sp.desc << " with " << type << " cutoff " << (*sItr).second << "');";
 
 		sqlite3_exec(_db, pop_ins_ss.str().c_str(), NULL, NULL, NULL);
+		sqlite3_exec(_db, pop_query.c_str(), parsePopID, &popID, NULL);
 
 		stringstream bds_ins_ss;
-		bds_ins_ss << "INSERT INTO region_bounds SELECT gene_id, " << popID
-				<< ", start, end FROM region_bounds WHERE population_id=0";
+
+		bds_ins_ss << "INSERT INTO region_bound SELECT region_id, " << popID
+				<< ", chr, posMin, posMax, source_id FROM region_bound WHERE population_id=1";
 
 		sqlite3_exec(_db, bds_ins_ss.str().c_str(), NULL, NULL, NULL);
 
@@ -314,25 +313,28 @@ void LdSplineImporter::InitPopulationIDs(map<string, int>& popIDs,
 	}
 }
 
-void LdSplineImporter::LoadGenes(const string& chrom) {
+void LdSplineImporter::LoadGenes() {
 
 	stringstream query_ss;
-	query_ss << "SELECT gene_id, chrom, start, end FROM regions NATURAL JOIN "
-			<< "region_bounds WHERE population_id=0 AND chrom='" << chrom
-			<< "' ORDER BY start;";
+	query_ss << "SELECT region_id, chr, posMin, posMax FROM region_bound "
+			<< "INNER JOIN region USING (region_id) "
+			<< "INNER JOIN type ON region.type_id=type.type_id "
+			<< "WHERE population_id=1 AND type='gene' "
+			<< "ORDER BY posMin;";
 
-	regions.clear();
-	sqlite3_exec(_db, query_ss.str().c_str(), parseGenes, &regions, NULL);
+	sqlite3_exec(_db, query_ss.str().c_str(), parseGenes, &_region_map, NULL);
 
-	cerr << "Total Regions: " << regions.size() << "\n";
+	cerr << "All Region Loaded \n";
 }
 
 int LdSplineImporter::parseGenes(void* obj, int n_cols, char** col_vals, char** col_names){
 	if(n_cols != 4){
 		return 2;
 	}
-	vector<RegionBoundary>* result = (vector<RegionBoundary>*) obj;
-	result->push_back(RegionBoundary(atoi(col_vals[0]), col_vals[1], atoi(col_vals[2]), atoi(col_vals[3])));
+	map<short, vector<RegionBoundary> >* result =
+			(map<short, vector<RegionBoundary> >*) obj;
+	(*result)[atoi(col_vals[1])].push_back(
+			RegionBoundary(atoi(col_vals[0]), atoi(col_vals[2]), atoi(col_vals[3])));
 	return 0;
 
 }
@@ -345,4 +347,32 @@ int LdSplineImporter::parsePopID(void* pop_id, int n_cols, char** col_vals, char
 	int* result = (int*) pop_id;
 	(*result) = atoi(col_vals[0]);
 	return 0;
+}
+
+short LdSplineImporter::getChrom(const string& chrom_str){
+	string eval_str = boost::to_upper_copy(chrom_str);
+
+	// remove the 'CHR' at the beginning, should it exist
+	if (eval_str.substr(0,3) == "CHR"){
+		eval_str.erase(0,3);
+	}
+
+	// Catch a couple of special cases here...
+	if (eval_str == "X|Y"){
+		eval_str = "XY";
+	}else if (eval_str == "M"){
+		eval_str = "MT";
+	}
+
+	//Now, try to find in our vector, and give the position
+	vector<string>::const_iterator chr_pos = find(_chrom_list.begin(),
+			_chrom_list.end(), eval_str);
+
+	// If this is true, we did not find an exact match, return -1
+	if (chr_pos == _chrom_list.end()){
+		return -1;
+	}else{
+		return chr_pos - _chrom_list.begin() + 1;
+	}
+
 }

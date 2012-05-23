@@ -26,10 +26,18 @@ using std::cerr;
 class LdSplineImporter {
 private:
 
+	enum CutoffType { D_PRIME, R_SQUARED};
+
 	struct PopulationSpline {
 		string name;					///< CEU/JPT/etc
 		string desc;					///< comment to help inform users who might not be familiar with the 3 letter names
 		string filename;			///< The filename associated with the splines
+
+		string GetPopulationName(CutoffType statType, float value) const {
+			std::stringstream ss;
+			ss<<name<<"-"<<(statType == R_SQUARED ? "RS" : (statType == D_PRIME ? "DP" : "UNK"))<<std::setiosflags(std::ios::fixed|std::ios::showpoint)<<std::setprecision(2)<<value;
+			return ss.str();
+		}
 
 		string GetPopulationName(const string& statType, float value) const{
 			std::stringstream ss;
@@ -43,9 +51,9 @@ private:
 		int geneID;
 		int lower;
 		int upper;
-		string chrom;
-		RegionBoundary(int geneID, std::string chrom, int lower, int upper) : geneID(geneID), lower(lower), upper(upper), chrom(chrom) {}
+		RegionBoundary(int geneID, int lower, int upper) : geneID(geneID), lower(lower), upper(upper){}
 	};
+
 
 public:
 
@@ -73,13 +81,16 @@ private:
     */
 	void LoadConfiguration(const char *filename);
 	void ProcessLD(LocusLookup& chr, const PopulationSpline& sp, const map<string, int>& popIDs);
-	void LoadGenes(const string& chrom);
-	void InitPopulationIDs(std::map<std::string, int>& popIDs,
-			const PopulationSpline& sp, const string& type, const vector<float>& stats);
+	void LoadGenes();
+	void InitPopulationIDs(std::map<std::string, int>& popIDs, const PopulationSpline& sp);
 
 	std::vector<PopulationSpline> splines;			///<population -> ldspline filename
-	std::vector<float> dp;								///<The various DPrime values we are splining on
-	std::vector<float> rs;								///<The various RSquared values we are splining on
+	std::vector<std::pair<CutoffType, float> > cutoffs;
+	//std::vector<float> dp;								///<The various DPrime values we are splining on
+	//std::vector<float> rs;								///<The various RSquared values we are splining on
+
+	// A mapping of chromosome -> vector or regions (so we only have to load them once!)
+	std::map<short, vector<RegionBoundary> > _region_map;
 	std::vector<RegionBoundary> regions;
 
 	// Database connection
@@ -87,6 +98,12 @@ private:
 	bool _self_open;
 	bool _write_db;
 	string dbFilename;
+
+	// Vector of a list of chromosomes
+	static const vector<string> _chrom_list;
+
+	// convert chromosome strings to DB equivalent
+	static short getChrom(const string& chrom_str);
 
 	// DB processing functions
 	static int parseGenes(void*, int, char**, char**);
