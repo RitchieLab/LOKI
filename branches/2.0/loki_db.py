@@ -212,6 +212,7 @@ class Database(object):
 				'index': {
 					'region_bound__posmin': '(population_id,chr,posMin)',
 					'region_bound__posmax': '(population_id,chr,posMax)',
+					'region_bound__pop_pos' : '(population_id, posMin)',
 				}
 			}, #.db.region_bound
 			
