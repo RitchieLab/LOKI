@@ -225,7 +225,7 @@ void LdSplineImporter::ProcessLD(LocusLookup& chr,
 					stringstream query_ss;
 					query_ss << "UPDATE region_bounds SET start="
 							<< bounds.first << ", end=" << bounds.second
-							<< "WHERE gene_id=" << regItr->geneID
+							<< " WHERE gene_id=" << regItr->geneID
 							<< " AND population_id=" << popID << ";";
 
 					sqlite3_exec(_db, query_ss.str().c_str(), NULL, NULL, NULL);
