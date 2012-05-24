@@ -108,6 +108,7 @@ private:
 	// DB processing functions
 	static int parseGenes(void*, int, char**, char**);
 	static int parsePopID(void*, int, char**, char**);
+	static int parseRegionIndex(void*, int, char**, char**);
 
 };
 

@@ -85,6 +85,8 @@ LdSplineImporter::LdSplineImporter(const string& fn, const string& db_fn) :
 LdSplineImporter::LdSplineImporter(const string& fn, sqlite3 *db_conn) :
 		_db(db_conn), _self_open(false), _write_db(false) {
 	LoadConfiguration(fn.c_str());
+
+	LoadGenes();
 }
 
 LdSplineImporter::~LdSplineImporter() {
@@ -102,6 +104,26 @@ LdSplineImporter::~LdSplineImporter() {
 }
 
 void LdSplineImporter::loadPops() {
+
+	// First, collect all of the indexes
+	map<string, string> index_map;
+	string idx_cmd = "SELECT name, sql FROM sqlite_master "
+			"WHERE type='index' AND tbl_name='region_bound'";
+
+	sqlite3_exec(_db, idx_cmd.c_str(), &parseRegionIndex, &index_map, NULL);
+
+	// Now, drop those indexes!
+	string drop_cmd = "DROP INDEX IF EXISTS ?";
+	sqlite3_stmt* drop_stmt;
+	sqlite3_prepare_v2(_db, drop_cmd.c_str(), -1, &drop_stmt, NULL);
+
+	map<string, string>::const_iterator idx_itr = index_map.begin();
+	while(idx_itr != index_map.end()){
+		sqlite3_bind_text(drop_stmt, 0, (*idx_itr).first.c_str(), -1, SQLITE_STATIC);
+		while(sqlite3_step(drop_stmt)==SQLITE_ROW){}
+		sqlite3_reset(drop_stmt);
+	}
+	sqlite3_finalize(drop_stmt);
 
 	vector<PopulationSpline>::const_iterator spItr = splines.begin();
 	vector<PopulationSpline>::const_iterator spEnd = splines.end();
@@ -124,6 +146,12 @@ void LdSplineImporter::loadPops() {
 			chr++;
 		}
 		spItr++;
+	}
+
+	// Recretate the indexes
+	idx_itr = index_map.begin();
+	while(idx_itr != index_map.end()){
+		sqlite3_exec(_db, (*idx_itr).second.c_str(), NULL, NULL, NULL);
 	}
 
 }
@@ -346,6 +374,16 @@ int LdSplineImporter::parsePopID(void* pop_id, int n_cols, char** col_vals, char
 
 	int* result = (int*) pop_id;
 	(*result) = atoi(col_vals[0]);
+	return 0;
+}
+
+int LdSplineImporter::parseRegionIndex(void* obj, int n_cols, char** col_vals, char** col_names){
+	if (n_cols != 2){
+		return 2;
+	}
+
+	map<string, string>* idx_map_p = static_cast<map<string, string>*>(obj);
+	(*idx_map_p)[col_vals[0]] = col_vals[1];
 	return 0;
 }
 
