@@ -108,22 +108,20 @@ void LdSplineImporter::loadPops() {
 	// First, collect all of the indexes
 	map<string, string> index_map;
 	string idx_cmd = "SELECT name, sql FROM sqlite_master "
-			"WHERE type='index' AND tbl_name='region_bound'";
+			"WHERE type='index' AND tbl_name='region_bound' AND sql NOT NULL";
 
 	sqlite3_exec(_db, idx_cmd.c_str(), &parseRegionIndex, &index_map, NULL);
 
 	// Now, drop those indexes!
-	string drop_cmd = "DROP INDEX IF EXISTS ?";
-	sqlite3_stmt* drop_stmt;
-	sqlite3_prepare_v2(_db, drop_cmd.c_str(), -1, &drop_stmt, NULL);
+	string drop_cmd = "DROP INDEX ";
 
 	map<string, string>::const_iterator idx_itr = index_map.begin();
 	while(idx_itr != index_map.end()){
-		sqlite3_bind_text(drop_stmt, 0, (*idx_itr).first.c_str(), -1, SQLITE_STATIC);
-		while(sqlite3_step(drop_stmt)==SQLITE_ROW){}
-		sqlite3_reset(drop_stmt);
+		string drop_tbl = "'" + (*idx_itr).first + "'";
+		string sql_str = drop_cmd + drop_tbl;
+		sqlite3_exec(_db, (drop_cmd + drop_tbl).c_str(), NULL, NULL, NULL);
+		++idx_itr;
 	}
-	sqlite3_finalize(drop_stmt);
 
 	vector<PopulationSpline>::const_iterator spItr = splines.begin();
 	vector<PopulationSpline>::const_iterator spEnd = splines.end();
@@ -143,15 +141,16 @@ void LdSplineImporter::loadPops() {
 		while (chr != end) {
 			ProcessLD(chr->second, *spItr, popIDs);
 			chr->second.Release();
-			chr++;
+			++chr;
 		}
-		spItr++;
+		++spItr;
 	}
 
 	// Recretate the indexes
 	idx_itr = index_map.begin();
 	while(idx_itr != index_map.end()){
 		sqlite3_exec(_db, (*idx_itr).second.c_str(), NULL, NULL, NULL);
+		++idx_itr;
 	}
 
 }
@@ -235,22 +234,23 @@ void LdSplineImporter::ProcessLD(LocusLookup& chr,
 		cerr.flush();
 		pi++;
 	}
-	string pos_cmd = "UPDATE region_bound SET posMin=:new_min, posMax=:new_max "
-			"WHERE region_id=:r_id AND population_id=:p_id AND chr=:o_chr "
-			"AND posMin:=o_min AND posMax=:o_max";
+	string pos_cmd = "UPDATE region_bound SET posMin=:newmin, posMax=:newmax "
+			"WHERE region_id=:rid AND population_id=:pid AND chr=:ochr "
+			"AND posMin=:omin AND posMax=:omax";
 
 	sqlite3_stmt* pos_stmt;
-	sqlite3_prepare_v2(_db, pos_cmd.c_str(), -1, &pos_stmt, NULL);
+	int errcode = sqlite3_prepare_v2(_db, pos_cmd.c_str(), -1, &pos_stmt, NULL);
+	int nparams = sqlite3_bind_parameter_count(pos_stmt);
 
-	int n_min_idx = sqlite3_bind_parameter_index(pos_stmt, "new_min");
-	int n_max_idx = sqlite3_bind_parameter_index(pos_stmt, "new_max");
-	int r_id_idx = sqlite3_bind_parameter_index(pos_stmt, "r_id");
-	int p_id_idx = sqlite3_bind_parameter_index(pos_stmt, "p_id");
-	int chr_id_idx = sqlite3_bind_parameter_index(pos_stmt, "o_chr");
-	int o_min_idx = sqlite3_bind_parameter_index(pos_stmt, "o_min");
-	int o_max_idx = sqlite3_bind_parameter_index(pos_stmt, "o_max");
+	int n_min_idx = sqlite3_bind_parameter_index(pos_stmt, ":newmin");
+	int n_max_idx = sqlite3_bind_parameter_index(pos_stmt, ":newmax");
+	int r_id_idx = sqlite3_bind_parameter_index(pos_stmt, ":rid");
+	int p_id_idx = sqlite3_bind_parameter_index(pos_stmt, ":pid");
+	int chr_id_idx = sqlite3_bind_parameter_index(pos_stmt, ":ochr");
+	int o_min_idx = sqlite3_bind_parameter_index(pos_stmt, ":omin");
+	int o_max_idx = sqlite3_bind_parameter_index(pos_stmt, ":omax");
 
-	sqlite3_bind_int(pos_stmt, chr_id_idx, chrom);
+	errcode = sqlite3_bind_int(pos_stmt, chr_id_idx, chrom);
 
 	vector<pair<CutoffType, float> >::const_iterator v_itr = cutoffs.begin();
 	while(v_itr != cutoffs.end()){
@@ -273,6 +273,7 @@ void LdSplineImporter::ProcessLD(LocusLookup& chr,
 					valid_region=true;
 				}else if ((*v_itr).first == R_SQUARED){
 					bounds = chr.GetRangeBoundariesRS((*regItr).lower, (*regItr).upper, (*v_itr).second);
+					valid_region=true;
 				}
 
 				if (valid_region){
@@ -307,35 +308,30 @@ void LdSplineImporter::InitPopulationIDs(map<string, int>& popIDs,
 
 		sqlite3_exec(_db, pop_query.c_str(), parsePopID, &popID, NULL);
 
-		if (popID > 0) {
-			cerr << "Clearing out all bounds associated with population"
-					<< popID << " (" << popName << ")\n";
+		if (popID == -1) {
 
+			stringstream pop_ins_ss;
+			string type = ((*sItr).first == R_SQUARED ? "RS" : ((*sItr).first == D_PRIME ? "DP" : "UNK"));
+			pop_ins_ss << "INSERT INTO population (population, ldcomment, description) "
+					<< "VALUES ('" << popName << "','" << type << " " << (*sItr).second << "','"
+					<< sp.desc << " with " << type << " cutoff " << (*sItr).second << "');";
+
+			sqlite3_exec(_db, pop_ins_ss.str().c_str(), NULL, NULL, NULL);
+			sqlite3_exec(_db, pop_query.c_str(), parsePopID, &popID, NULL);
+
+		} else {
 			stringstream del_ss;
 			del_ss << "DELETE FROM region_bound WHERE population_id=" << popID <<"; ";
-			del_ss << "DELETE FROM population WHERE population_id=" << popID <<"; ";
-
-
+			
 			sqlite3_exec(_db, del_ss.str().c_str(), NULL, NULL, NULL);
-
 		}
-
-		stringstream pop_ins_ss;
-		string type = ((*sItr).first == R_SQUARED ? "RS" : ((*sItr).first == D_PRIME ? "DP" : "UNK"));
-		pop_ins_ss << "INSERT INTO population (population, ldcomment, description) "
-				<< "VALUES ('" << popName << "','" << type << " " << (*sItr).second << "','"
-				<< sp.desc << " with " << type << " cutoff " << (*sItr).second << "');";
-
-		sqlite3_exec(_db, pop_ins_ss.str().c_str(), NULL, NULL, NULL);
-		sqlite3_exec(_db, pop_query.c_str(), parsePopID, &popID, NULL);
 
 		stringstream bds_ins_ss;
 
 		bds_ins_ss << "INSERT INTO region_bound SELECT region_id, " << popID
 				<< ", chr, posMin, posMax, source_id FROM region_bound WHERE population_id=1";
-
 		sqlite3_exec(_db, bds_ins_ss.str().c_str(), NULL, NULL, NULL);
-
+	
 		popIDs[popName] = popID;
 		sItr++;
 	}
