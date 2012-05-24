@@ -234,15 +234,14 @@ void LdSplineImporter::ProcessLD(LocusLookup& chr,
 		cerr.flush();
 		pi++;
 	}
-	string pos_cmd = "UPDATE region_bound SET posMin=:newmin, posMax=:newmax "
+	string pos_cmd = "UPDATE region_bound SET posMin=:new_min, posMax=:newmax "
 			"WHERE region_id=:rid AND population_id=:pid AND chr=:ochr "
 			"AND posMin=:omin AND posMax=:omax";
 
 	sqlite3_stmt* pos_stmt;
-	int errcode = sqlite3_prepare_v2(_db, pos_cmd.c_str(), -1, &pos_stmt, NULL);
-	int nparams = sqlite3_bind_parameter_count(pos_stmt);
+	sqlite3_prepare_v2(_db, pos_cmd.c_str(), -1, &pos_stmt, NULL);;
 
-	int n_min_idx = sqlite3_bind_parameter_index(pos_stmt, ":newmin");
+	int n_min_idx = sqlite3_bind_parameter_index(pos_stmt, ":new_min");
 	int n_max_idx = sqlite3_bind_parameter_index(pos_stmt, ":newmax");
 	int r_id_idx = sqlite3_bind_parameter_index(pos_stmt, ":rid");
 	int p_id_idx = sqlite3_bind_parameter_index(pos_stmt, ":pid");
@@ -250,7 +249,7 @@ void LdSplineImporter::ProcessLD(LocusLookup& chr,
 	int o_min_idx = sqlite3_bind_parameter_index(pos_stmt, ":omin");
 	int o_max_idx = sqlite3_bind_parameter_index(pos_stmt, ":omax");
 
-	errcode = sqlite3_bind_int(pos_stmt, chr_id_idx, chrom);
+	sqlite3_bind_int(pos_stmt, chr_id_idx, chrom);
 
 	vector<pair<CutoffType, float> >::const_iterator v_itr = cutoffs.begin();
 	while(v_itr != cutoffs.end()){
