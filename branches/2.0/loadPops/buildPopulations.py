@@ -222,21 +222,25 @@ if __name__ == "__main__":
 	
 	# Try to find all of the child programs needed now
 	exe_error = False
+	null_f = file(os.devnull, 'w')
 	try:
-		subprocess.call(opts.ldspline)
+		subprocess.call(opts.ldspline, stdout=null_f, stderr=subprocess.STDOUT)
 	except OSError, e:
 		print "Error: could not find ldspline executable"
 		exe_error = True
 	try:
-		subprocess.call(opts.poploader)
+		subprocess.call(opts.poploader, stdout=null_f, stderr=subprocess.STDOUT)
 	except OSError, e:
 		print "Error: could not find pop_loader executable"
 		exe_error = True
 	try:
-		subprocess.call(opts.liftover)
+		subprocess.call(opts.liftover, stdout=null_f, stderr=subprocess.STDOUT)
 	except OSError, e:
 		print "Error: could not find liftOver executable"
 		exe_error = True
+	
+	null_f.close()	
+	
 	if exe_error:
 		sys.exit(6)
 		
