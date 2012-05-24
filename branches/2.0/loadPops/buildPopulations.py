@@ -167,7 +167,8 @@ def genPops(popList, dprimes, rsquared, opts):
 	
 	#.... and we're done, so clean up after yourself, please!
 	os.chdir("..")
-	shutil.rmtree(datadir)
+	if not opts.keep:
+		shutil.rmtree(datadir)
 
 if __name__ == "__main__":
 	parser = OptionParser()
@@ -190,6 +191,9 @@ if __name__ == "__main__":
 	parser.add_option("-b", "--db", dest="db", action="store",
 		help="Location of the LOKI databse (default 'knowledge.bio')",
 		default="knowledge.bio")
+	parser.add_option("-k", "--keep-data", dest="keep", action="store_true",
+		help="Do not download data after finished working with it",
+		default=False)
 		
 	(opts, args) = parser.parse_args();
 	rsq = []
