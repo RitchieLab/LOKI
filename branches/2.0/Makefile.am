@@ -22,11 +22,11 @@ util\__init__.py
 
 
 if LOKI_INSTALL
-LOKI_CMDS=$(srcdir)/loki.py -k knowledge.bio
+LOKI_CMDS=$(srcdir)/loki.py -k knowledge.bio -u -v
 VAR_FILES=knowledge.bio
 	
 else
-LOKI_CMDS=$(srcdir)/loki.py -k test.bio -u none
+LOKI_CMDS=$(srcdir)/loki.py -k test.bio
 VAR_FILES=test.bio
 	
 endif
