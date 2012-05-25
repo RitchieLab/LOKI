@@ -726,6 +726,7 @@ class Source(object):
 				with open(locPath, 'wb') as locFile:
 					ftp.cwd(remFiles[locPath][0:remFiles[locPath].rfind('/')])
 					ftp.retrbinary('RETR '+locPath, locFile.write)
+				#TODO: verify file size and retry a few times if necessary
 				self.log(" OK\n")
 			modTime = time.mktime(remTime[locPath].timetuple())
 			os.utime(locPath, (modTime,modTime))
