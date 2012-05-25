@@ -7,6 +7,7 @@ import httplib
 import os
 import time
 import zlib
+import itertools
 
 import loki_db
 
@@ -481,6 +482,46 @@ class Source(object):
 				(sr+extra for sr in snproles)
 		)
 	#addSNPEntrezRoles()
+	
+	
+	def addBuildTrans(self, build_pairs):
+		"""
+		Adds the build->assembly pairs into the build_assembly table
+		"""
+		self._dbc.executemany(
+			"INSERT OR IGNORE INTO 'db'.'build_assembly' ('build','assembly') VALUES (?,?)",
+			(tuple(ba_pair) for ba_pair in build_pairs)
+		)
+	#addBuildTrans()
+	
+	
+	def addChains(self, assembly, chain_list):
+		"""
+		Adds all of the chains described in chain_list and returns the
+		ids of the added chains.  The chain_list must be an iterable
+		container of objects that can be inserted into the chain table
+		"""
+		
+		retList = []
+		for row in self._dbc.executemany(
+			"INSERT INTO 'db'.'chain' ('old_assembly','score','old_chr','old_start','old_end','new_chr','new_start','new_end','is_fwd') VALUES (?,?,?,?,?,?,?,?,?); SELECT last_insert_rowid()",
+			(tuple(c for c in itertools.chain((assembly,),chain)) for chain in chain_list)
+		):
+			retList.append(row[0])
+		
+		return retList;
+	#addChains()
+	
+	
+	def addChainData(self, chain_data_list):
+		"""
+		Adds all of the chain data into the chain data table
+		"""
+		self._dbc.executemany(
+			"INSERT INTO 'db'.'chain_data' ('chain_id','old_start','old_end','new_start') VALUES (?,?,?,?)",
+			(tuple(cd) for cd in chain_data_list)
+		)
+	#addChainData()
 	
 	
 	# ##################################################
