@@ -343,7 +343,7 @@ void LdSplineImporter::LoadGenes() {
 			<< "INNER JOIN region USING (region_id) "
 			<< "INNER JOIN type ON region.type_id=type.type_id "
 			<< "WHERE population_id=1 AND type='gene' "
-			<< "ORDER BY posMin;";
+			<< "ORDER BY chr, posMin;";
 
 	sqlite3_exec(_db, query_ss.str().c_str(), parseGenes, &_region_map, NULL);
 
