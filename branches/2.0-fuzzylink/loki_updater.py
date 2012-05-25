@@ -5,6 +5,7 @@ import pkgutil
 
 import loki_db
 import loki_source
+import loaders
 
 
 class Updater(object):
@@ -77,7 +78,7 @@ class Updater(object):
 	def findSourceModules(self):
 		if self._sourceLoaders == None:
 			self._sourceLoaders = {}
-			for srcImporter,srcModuleName,_ in pkgutil.iter_modules():
+			for srcImporter,srcModuleName,_ in pkgutil.iter_modules(loaders.__path__):
 				if srcModuleName.startswith('loki_source_'):
 					self._sourceLoaders[srcModuleName[12:]] = srcImporter.find_module(srcModuleName)
 	#findSourceModules()

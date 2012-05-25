@@ -22,7 +22,7 @@ if __name__ == "__main__":
 				loki_db.Database.getDatabaseInterfaceName(), loki_db.Database.getDatabaseInterfaceVersion()
 			)
 	)
-	parser.add_argument('-k', '--knowledge', type=str, metavar='file', action='store', required=True,
+	parser.add_argument('-k', '--knowledge', type=str, metavar='file', action='store', default=None,
 			help="the knowledge database file to use"
 	)
 	parser.add_argument('-u', '--update', type=str, metavar='source', nargs='*', action='append', default=None,
@@ -55,8 +55,18 @@ if __name__ == "__main__":
 	
 	# update from requested sources, if any
 	if args.update != None:
-		update = list()
-		for updateList in (args.update or tuple()):
-			update += updateList
-		db.updateDatabase(update, args.cache_only)
+		updateSet = set()
+		for updateList in args.update:
+			updateSet |= set(updateList)
+		if '?' in updateSet:
+			print "available source loaders:"
+			for src in sorted(db.listSourceModules()):
+				print "  %s" % src
+		elif not args.knowledge:
+			print "ERROR: cannot --update without a --knowledge file"
+			sys.exit(1)
+		elif '+' in updateSet:
+			db.updateDatabase(None, args.cache_only)
+		else:
+			db.updateDatabase(updateSet, args.cache_only)
 #__main__

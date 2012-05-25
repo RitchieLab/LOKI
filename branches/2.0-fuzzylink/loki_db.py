@@ -731,11 +731,19 @@ class Database(object):
 	#setDatabaseSetting()
 	
 	
+	def listSourceModules(self):
+		if not self._updater:
+			import loki_updater
+			self._updater = loki_updater.Updater(self)
+		return self._updater.listSourceModules()
+	#listSourceModules()
+	
+	
 	def updateDatabase(self, sources, cacheOnly=False):
 		if not self._updater:
 			import loki_updater
 			self._updater = loki_updater.Updater(self)
-		self._updater.updateDatabase(sources, cacheOnly)
+		return self._updater.updateDatabase(sources, cacheOnly)
 	#updateDatabase()
 	
 	
