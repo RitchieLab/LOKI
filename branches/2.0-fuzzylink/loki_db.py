@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 
 import apsw
-import os
-import pkgutil
 import sys
 
 
@@ -13,7 +11,7 @@ class Database(object):
 	# public class data
 	
 	
-	ver_maj,ver_min,ver_rev,ver_date = 0,0,5,'2012-04-18'
+	ver_maj,ver_min,ver_rev,ver_date = 0,0,524,'2012-05-24'
 	chr_list = ('1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19','20','21','22','X','Y','XY','MT')
 	chr_num = {}
 	chr_name = {}
@@ -27,26 +25,35 @@ class Database(object):
 		chr_name['%s' % cnum] = cname
 		chr_name[cname] = cname
 	
-	MATCH_ALL   = 1
-	MATCH_FIRST = 2
-	MATCH_BEST  = 3
-	
 	
 	# ##################################################
 	# private class data
 	
 	
-	_source_loaders = None
-	_source_classes = dict()
 	_schema = {
 		'db': {
+			# ########## db.setting ##########
+			'setting': {
+				'table': """
+(
+  setting VARCHAR(32) PRIMARY KEY NOT NULL,
+  value VARCHAR(256)
+)
+""",
+				'index': {}
+			}, #.db.setting
+			
+			
+			# ##############################
+			
+			
 			# ########## db.namespace ##########
 			'namespace': {
 				'table': """
 (
   namespace_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
   namespace VARCHAR(32) UNIQUE NOT NULL,
-  multigene TINYINT NOT NULL DEFAULT 0
+  polyregion TINYINT NOT NULL DEFAULT 0
 )
 """,
 				'index': {}
@@ -146,6 +153,7 @@ class Database(object):
 """,
 				'index': {
 					'group_name__name': '(name,namespace_id)',
+					'group_name__source_name': '(source_id, name)', #TODO: needed?
 				}
 			}, #.db.group_name
 			
@@ -166,21 +174,6 @@ class Database(object):
 				}
 			}, #.db.group_group
 			
-			# ########## db.group_region_name ##########
-			'group_region_name': {
-				'table': """
-(
-  group_id INTEGER NOT NULL,
-  member INTEGER NOT NULL,
-  namespace_id INTEGER NOT NULL,
-  name VARCHAR(256) NOT NULL,
-  source_id TINYINT NOT NULL,
-  PRIMARY KEY (group_id,member,namespace_id,name,source_id)
-)
-""",
-				'index': {}
-			}, #.db.group_region_name
-			
 			# ########## db.group_region ##########
 			'group_region': {
 				'table': """
@@ -195,8 +188,25 @@ class Database(object):
 """,
 				'index': {
 					'group_region__region': '(region_id,group_id)',
+					#TODO: do we really need a source_id on this table?
 				}
 			}, #.db.group_region
+			
+			# ########## db.group_region_name ##########
+			'group_region_name': {
+				'table': """
+(
+  group_id INTEGER NOT NULL,
+  member INTEGER NOT NULL,
+  namespace_id INTEGER NOT NULL,
+  name VARCHAR(256) NOT NULL,
+  type_id TINYINT NOT NULL,
+  source_id TINYINT NOT NULL,
+  PRIMARY KEY (group_id,member,namespace_id,name,source_id)
+)
+""",
+				'index': {}
+			}, #.db.group_region_name
 			
 			# ########## db.region ##########
 			'region': {
@@ -221,6 +231,7 @@ class Database(object):
   region_id INTEGER NOT NULL,
   namespace_id INTEGER NOT NULL,
   name VARCHAR(256) NOT NULL,
+  derived TINYINT NOT NULL DEFAULT 0,
   source_id TINYINT NOT NULL,
   PRIMARY KEY (region_id,namespace_id,name,source_id)
 )
@@ -229,6 +240,22 @@ class Database(object):
 					'region_name__name': '(name,namespace_id)',
 				}
 			}, #.db.region_name
+			
+			# ########## db.region_name_name ##########
+			'region_name_name': {
+				'table': """
+(
+  new_namespace_id INTEGER NOT NULL,
+  new_name VARCHAR(256) NOT NULL,
+  namespace_id INTEGER NOT NULL,
+  name VARCHAR(256) NOT NULL,
+  type_id TINYINT NOT NULL,
+  source_id TINYINT NOT NULL,
+  PRIMARY KEY (new_namespace_id,new_name,namespace_id,name,source_id)
+)
+""",
+				'index': {}
+			}, #.db.region_name_name
 			
 			# ########## db.region_bound ##########
 			'region_bound': {
@@ -246,6 +273,7 @@ class Database(object):
 				'index': {
 					'region_bound__posmin': '(population_id,chr,posMin)',
 					'region_bound__posmax': '(population_id,chr,posMax)',
+					'region_bound__pop_pos' : '(population_id, posMin)', #TODO: needed?
 				}
 			}, #.db.region_bound
 			
@@ -324,12 +352,60 @@ class Database(object):
 				}
 			}, #.db.snp_role
 			
+			# ########## db.build_assembly ##########
+			'build_assembly': {
+				'table': """
+(
+  build VARCHAR(8) PRIMARY KEY NOT NULL,
+  assembly INTEGER NOT NULL
+)
+""",
+				'index': {}
+			}, #.db.build_assembly
+			
+			# ########## db.chain ##########		
+			'chain': {
+				'table': """
+(
+  chain_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+  old_assembly INTEGER NOT NULL,
+  score BIGINT NOT NULL,
+  old_chr TINYINT NOT NULL,
+  old_start INTEGER NOT NULL,
+  old_end INTEGER NOT NULL,
+  new_chr TINYINT NOT NULL,
+  new_start INTEGER NOT NULL,
+  new_end INTEGER NOT NULL,
+  is_fwd TINYINT NOT NULL
+)
+""",
+				'index': {
+					'chain__assy_chr': '(old_assembly,old_chr)',
+				}
+			}, #.db.chain
+			
+			# ########## db.chain_data ##########
+			'chain_data': {
+				'table': """
+(
+  chain_id INTEGER NOT NULL,
+  old_start INTEGER NOT NULL,
+  old_end INTEGER NOT NULL,
+  new_start INTEGER NOT NULL,
+  PRIMARY KEY (chain_id,old_start)
+)
+""",
+				'index': {
+					'chain_data__end': '(chain_id, old_end)',
+				}
+			}, #.db.chain_data
+			
 		}, #.db
 	} #_schema{}
 	
 	
 	# ##################################################
-	# interrogation methods
+	# class interrogation
 	
 	
 	@classmethod
@@ -366,11 +442,12 @@ class Database(object):
 		self._logFile = sys.stderr
 		self._logIndent = 0
 		self._logHanging = False
-		self._source_objects = dict()
 		self._db = apsw.Connection(':memory:')
 		self._db.cursor().execute("PRAGMA synchronous=OFF") #TODO: document why this is a good idea
 		self._dbFile = None
 		self._dbNew = None
+		self._updater = None
+		
 		self.attachDatabaseFile(dbFile)
 	#__init__()
 	
@@ -390,7 +467,7 @@ class Database(object):
 	
 	
 	# ##################################################
-	# instance management
+	# logging
 	
 	
 	def getVerbose(self):
@@ -435,6 +512,10 @@ class Database(object):
 	#logPop()
 	
 	
+	# ##################################################
+	# database management
+	
+	
 	def attachDatabaseFile(self, dbFile):
 		dbc = self._db.cursor()
 		
@@ -450,29 +531,31 @@ class Database(object):
 				raise e
 		if self._dbFile:
 			self.log(" OK\n")
-			self._dbFile = None
+		
+		# reset db info
+		self._dbFile = None
+		self._dbNew = None
 		
 		# attach the new db file, if any
 		if dbFile:
 			self.logPush("loading knowledge database file '%s' ..." % dbFile)
-			try:
-				dbc.execute("ATTACH DATABASE ? AS `db`", (dbFile,))
-			except apsw.Error as e:
-				raise Error(str(e))
-			self._dbFile = dbFile
+			dbc.execute("ATTACH DATABASE ? AS `db`", (dbFile,))
 			
 			# establish or audit database schema
-			for row in dbc.execute("SELECT COUNT(1) FROM `db`.`sqlite_master`"):
-				self._dbNew = (row[0] == 0)
-			if self._dbNew:
-				with self._db:
+			with self._db:
+				dbNew = (max(row[0] for row in dbc.execute("SELECT COUNT(1) FROM `db`.`sqlite_master`")) == 0)
+				if dbNew:
 					self.createDatabaseObjects(None, 'db')
+					ok = True
+				else:
+					ok = self.auditDatabaseObjects(None, 'db')
+			if ok:
+				self._dbFile = dbFile
+				self._dbNew = dbNew
+				self.logPop("... OK\n")
 			else:
-				self.auditDatabaseObjects(None, 'db')
-			self.logPop("... OK\n")
-		else:
-			self._dbFile = None
-			self._dbNew = None
+				dbc.execute("DETACH DATABASE `db`")
+				self.logPop("... ERROR\n")
 		#if new dbFile
 	#attachDatabaseFile()
 	
@@ -482,50 +565,56 @@ class Database(object):
 	#detachDatabaseFile()
 	
 	
-	# ##################################################
-	# database structure management
-	
-	
-	def createDatabaseObjects(self, schema, dbName, tblList=None, tables=True, indexes=True):
+	def createDatabaseObjects(self, schema, dbName, tblList=None, tables=True, idxList=None, indexes=True):
 		dbc = self._db.cursor()
 		schema = schema or self._schema[dbName]
 		dbType = "TEMP " if (dbName == "temp") else ""
-		if not tblList or tblList == '*':
-			tblList = schema.keys()
+		if tblList == '*':
+			tblList = None
 		elif isinstance(tblList, str):
 			tblList = (tblList,)
-		for tblName in tblList:
+		if idxList == '*':
+			idxList = None
+		elif isinstance(idxList, str):
+			idxList = (idxList,)
+		for tblName in (tblList or schema.keys()):
 			if tables:
 				dbc.execute("CREATE %sTABLE IF NOT EXISTS `%s`.`%s` %s" % (dbType, dbName, tblName, schema[tblName]['table']))
 			if indexes:
 				for idxName in schema[tblName]['index']:
-					dbc.execute("CREATE INDEX IF NOT EXISTS `%s`.`%s` ON `%s` %s" % (dbName, idxName, tblName, schema[tblName]['index'][idxName]))
+					if (not idxList) or (idxName in idxList):
+						dbc.execute("CREATE INDEX IF NOT EXISTS `%s`.`%s` ON `%s` %s" % (dbName, idxName, tblName, schema[tblName]['index'][idxName]))
 				dbc.execute("ANALYZE `%s`.`%s`" % (dbName,tblName))
 		#foreach tblName in tblList
 	#createDatabaseObjects()
 	
 	
 	def createDatabaseTables(self, schema, dbName, tblList, indexes=False):
-		return self.createDatabaseObjects(schema, dbName, tblList, True, indexes)
+		return self.createDatabaseObjects(schema, dbName, tblList, True, None, indexes)
 	#createDatabaseTables()
 	
 	
-	def createDatabaseIndexes(self, schema, dbName, tblList, tables=False):
-		return self.createDatabaseObjects(schema, dbName, tblList, tables, True)
+	def createDatabaseIndexes(self, schema, dbName, tblList, tables=False, idxList=None):
+		return self.createDatabaseObjects(schema, dbName, tblList, tables, idxList, True)
 	#createDatabaseIndexes()
 	
 	
-	def dropDatabaseObjects(self, schema, dbName, tblList=None, tables=True, indexes=True):
+	def dropDatabaseObjects(self, schema, dbName, tblList=None, tables=True, idxList=None, indexes=True):
 		dbc = self._db.cursor()
 		schema = schema or self._schema[dbName]
-		if not tblList or tblList == '*':
-			tblList = schema.keys()
+		if tblList == '*':
+			tblList = None
 		elif isinstance(tblList, str):
 			tblList = (tblList,)
-		for tblName in tblList:
+		if idxList == '*':
+			idxList = None
+		elif isinstance(idxList, str):
+			idxList = (idxList,)
+		for tblName in (tblList or schema.keys()):
 			if indexes:
 				for idxName in schema[tblName]['index']:
-					dbc.execute("DROP INDEX IF EXISTS `%s`.`%s`" % (dbName, idxName))
+					if (tables) or (not idxList) or (idxName in idxList):
+						dbc.execute("DROP INDEX IF EXISTS `%s`.`%s`" % (dbName, idxName))
 			if tables:
 				dbc.execute("DROP TABLE IF EXISTS `%s`.`%s`" % (dbName, tblName))
 		#foreach tblName in tblList
@@ -533,40 +622,78 @@ class Database(object):
 	
 	
 	def dropDatabaseTables(self, schema, dbName, tblList):
-		return self.dropDatabaseObjects(schema, dbName, tblList, True, True)
+		return self.dropDatabaseObjects(schema, dbName, tblList, True, None, True)
 	#dropDatabaseTables()
 	
 	
-	def dropDatabaseIndexes(self, schema, dbName, tblList):
-		return self.dropDatabaseObjects(schema, dbName, tblList, False, True)
+	def dropDatabaseIndexes(self, schema, dbName, tblList, idxList=None):
+		return self.dropDatabaseObjects(schema, dbName, tblList, False, idxList, True)
 	#dropDatabaseIndexes()
 	
 	
-	def auditDatabaseObjects(self, schema, dbName, tblList=None, tables=True, indexes=True):
+	def auditDatabaseObjects(self, schema, dbName, tblList=None, tables=True, idxList=None, indexes=True, repair=True):
 		dbc = self._db.cursor()
 		schema = schema or self._schema[dbName]
 		master = "`sqlite_temp_master`" if (dbName == "temp") else ("`%s`.`sqlite_master`" % dbName)
-		if not tblList or tblList == '*':
-			tblList = schema.keys()
-		elif isinstance(tblList,str):
+		if tblList == '*':
+			tblList = None
+		elif isinstance(tblList, str):
 			tblList = (tblList,)
-		for tblName in tblList:
+		if idxList == '*':
+			idxList = None
+		elif isinstance(idxList, str):
+			idxList = (idxList,)
+		ok = True
+		for tblName in (tblList or schema.keys()):
 			try:
 				if tables:
 					sql = dbc.execute("SELECT sql FROM %s WHERE type=? AND name=?" % master, ('table',tblName)).next()[0]
 					if sql != ("CREATE TABLE `%s` %s" % (tblName, schema[tblName]['table'].rstrip())):
-						self.log("WARNING: table '%s' schema mismatch" % tblName)
+						if repair:
+							rows = dbc.execute("SELECT COUNT() FROM `%s`.`%s`" % (dbName,tblName)).next()[0]
+							if rows == 0:
+								self.log("WARNING: table '%s' schema mismatch -- repairing ..." % tblName)
+								self.dropDatabaseTables(None, dbName, tblName)
+								self.createDatabaseTables(None, dbName, tblName, True)
+								self.log(" OK\n")
+							else:
+								self.log("ERROR: table '%s' schema mismatch -- cannot repair\n" % tblName)
+								ok = False
+						else:
+							self.log("ERROR: table '%s' schema mismatch\n" % tblName)
+							ok = False
 				if indexes:
 					for idxName in schema[tblName]['index']:
-						try:
-							sql = dbc.execute("SELECT sql FROM %s WHERE type=? AND name=?" % master, ('index',idxName)).next()[0]
-							if sql != ("CREATE INDEX `%s` ON `%s` %s" % (idxName, tblName, schema[tblName]['index'][idxName].rstrip())):
-								self.log("WARNING: index '%s' on table '%s' schema mismatch" % (tblName, idxName))
-						except StopIteration:
-							self.log("WARNING: index '%s' on table '%s' missing" % (idxName, tblName))
+						if (not idxList) or (idxName in idxList):
+							try:
+								sql = dbc.execute("SELECT sql FROM %s WHERE type=? AND name=?" % master, ('index',idxName)).next()[0]
+								if sql != ("CREATE INDEX `%s` ON `%s` %s" % (idxName, tblName, schema[tblName]['index'][idxName].rstrip())):
+									if repair:
+										self.log("WARNING: index '%s' on table '%s' schema mismatch -- repairing ..." % (tblName, idxName))
+										self.dropDatabaseIndexes(None, dbName, tblName, idxName)
+										self.createDatabaseIndexes(None, dbName, tblName, False, idxName)
+										self.log(" OK\n")
+									else:
+										self.log("ERROR: index '%s' on table '%s' schema mismatch\n" % (tblName, idxName))
+										ok = False
+							except StopIteration:
+								if repair:
+									self.log("WARNING: index '%s' on table '%s' missing -- repairing ..." % (idxName, tblName))
+									self.createDatabaseIndexes(None, dbName, tblName, False, idxName)
+									self.log(" OK\n")
+								else:
+									self.log("ERROR: index '%s' on table '%s' missing\n" % (idxName, tblName))
+									ok = False
 			except StopIteration:
-				self.log("WARNING: table '%s' missing" % tblName)
+				if repair:
+					self.log("WARNING: table '%s' missing -- repairing ..." % tblName)
+					self.createDatabaseTables(None, dbName, tblName, True)
+					self.log(" OK\n")
+				else:
+					self.log("ERROR: table '%s' missing\n" % tblName)
+					ok = False
 		#foreach tblName in tblList
+		return ok
 	#auditDatabaseTables()
 	
 	
@@ -585,79 +712,45 @@ class Database(object):
 	#defragmentDatabase()
 	
 	
-	# ##################################################
-	# database update
+	def getDatabaseSetting(self, setting, value=None):
+		dbc = self._db.cursor()
+		found = False
+		for row in dbc.execute("SELECT setting, value FROM `db`.`setting` WHERE setting = ?", (setting,)):
+			value = row[1]
+			found = True
+		if not found:
+			self.setDatabaseSetting(setting, value)
+		return value
+	#getDatabaseSetting()
 	
 	
-	@classmethod
-	def findSourceModules(cls):
-		if cls._source_loaders == None:
-			cls._source_loaders = {}
-			for srcImporter,srcModuleName,_ in pkgutil.iter_modules():
-				if srcModuleName.startswith('loki_source_'):
-					cls._source_loaders[srcModuleName[12:]] = srcImporter.find_module(srcModuleName)
-	#findSourceModules()
-	
-	
-	@classmethod
-	def listSourceModules(cls):
-		cls.findSourceModules()
-		return cls._source_loaders.keys()
-	#listSourceModules()
+	def setDatabaseSetting(self, setting, value):
+		dbc = self._db.cursor()
+		dbc.execute("INSERT OR REPLACE INTO `db`.`setting` (setting, value) VALUES (?, ?)", (setting,value))
+		return True
+	#setDatabaseSetting()
 	
 	
 	def updateDatabase(self, sources, cacheOnly=False):
-		# find all available source handler modules
-		import loki_source
-		self.findSourceModules()
-		
-		# load and instantiate all requested sources
-		srcSet = set()
-		for srcName in set(sources):
-			if srcName not in self._source_objects:
-				if srcName not in self._source_classes:
-					if srcName not in self._source_loaders:
-						self.log("WARNING: unknown source '%s'\n" % srcName)
-						continue
-					#if module not available
-					srcModule = self._source_loaders[srcName].load_module('loki_source_%s' % srcName)
-					srcClass = getattr(srcModule, 'Source_%s' % srcName)
-					if not issubclass(srcClass, loki_source.Source):
-						self.log("WARNING: invalid module for source '%s'\n" % srcName)
-						continue
-					self._source_classes[srcName] = srcClass
-				#if module not loaded
-				self._source_objects[srcName] = self._source_classes[srcName](self)
-			#if module not instantiated
-			srcSet.add(srcName)
-		#foreach source
-		
-		# update from all requested sources
-		iwd = os.getcwd()
-		for srcName in srcSet:
-			# switch to cache directory
-			path = os.path.join('loki_cache', srcName)
-			if not os.path.exists(path):
-				os.makedirs(path)
-			os.chdir(path)
-			# download files into a local cache
-			if not cacheOnly:
-				self.logPush("downloading %s data ...\n" % srcName)
-				self._source_objects[srcName].download()
-				self.logPop("... OK\n")
-			# process new files
-			self.logPush("processing %s data ...\n" % srcName)
-			self._source_objects[srcName].update()
-			os.chdir(iwd)
-			self.logPop("... OK\n")
-		#foreach source
-		
-		# don't do this automatically, starts taking a long time on a full db..
-		if 0:
-			self.log("defragmenting database ...")
-			self.defragmentDatabase()
-			self.log(" OK\n")
+		if not self._updater:
+			import loki_updater
+			self._updater = loki_updater.Updater(self)
+		self._updater.updateDatabase(sources, cacheOnly)
 	#updateDatabase()
+	
+	
+	def prepareTableForUpdate(self, table):
+		if self._updater:
+			return self._updater.prepareTableForUpdate(table)
+		return None
+	#prepareTableUpdate()
+	
+	
+	def prepareTableForQuery(self, table):
+		if self._updater:
+			return self._updater.prepareTableForQuery(table)
+		return None
+	#prepareTableQuery()
 	
 	
 	# ##################################################
@@ -763,7 +856,8 @@ class Database(object):
 	# ##################################################
 	# data retrieval
 	
-	def getGroupIDsByName(self, name, namespaceID=None, typeID=None):
+	
+	def getGroupIDsByName(self, name, namespaceID=None, typeID=None): #TODO
 		dbc = self._db.cursor()
 		if typeID and namespaceID:
 			result = dbc.execute("""
@@ -797,12 +891,12 @@ WHERE gn.`name` = ?
 	#getGroupIDsByName()
 	
 	
-	def getRegionIDsByName(self, name, namespaceID=None, typeID=None, matchMode=None):
+	def getRegionIDsByName(self, name, namespaceID=None, typeID=None, matchMode=None): #TODO
 		return self.getRegionIDsByNames((name,), (namespaceID,), typeID, matchMode)
 	#getRegionIDsByName()
 	
 	
-	def getRegionIDsByNames(self, names, namespaceIDs, typeID=None, matchMode=None):
+	def getRegionIDsByNames(self, names, namespaceIDs, typeID=None, matchMode=None): #TODO
 		dbc = self._db.cursor()
 		sql = """
 SELECT rn.region_id
@@ -842,7 +936,7 @@ WHERE rn.name = ? AND (rn.namespace_id = ? OR COALESCE(?,0) = 0)"""
 	#getRegionIDsByNames()
 	
 	
-	def getRegionNameStats(self, namespaceID=None, typeID=None):
+	def getRegionNameStats(self, namespaceID=None, typeID=None): #TODO
 		dbc = self._db.cursor()
 		if typeID and namespaceID:
 			result = dbc.execute("""
@@ -906,5 +1000,6 @@ FROM (
 			ret = { 'total':row[0], 'unique':row[1], 'redundant':row[2], 'ambiguous':row[3] }
 		return ret
 	#getRegionNameStats()
+	
 	
 #Database
