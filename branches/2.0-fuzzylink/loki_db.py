@@ -352,54 +352,6 @@ class Database(object):
 				}
 			}, #.db.snp_role
 			
-			# ########## db.build_assembly ##########
-			'build_assembly': {
-				'table': """
-(
-  build VARCHAR(8) PRIMARY KEY NOT NULL,
-  assembly INTEGER NOT NULL
-)
-""",
-				'index': {}
-			}, #.db.build_assembly
-			
-			# ########## db.chain ##########		
-			'chain': {
-				'table': """
-(
-  chain_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-  old_assembly INTEGER NOT NULL,
-  score BIGINT NOT NULL,
-  old_chr TINYINT NOT NULL,
-  old_start INTEGER NOT NULL,
-  old_end INTEGER NOT NULL,
-  new_chr TINYINT NOT NULL,
-  new_start INTEGER NOT NULL,
-  new_end INTEGER NOT NULL,
-  is_fwd TINYINT NOT NULL
-)
-""",
-				'index': {
-					'chain__assy_chr': '(old_assembly,old_chr)',
-				}
-			}, #.db.chain
-			
-			# ########## db.chain_data ##########
-			'chain_data': {
-				'table': """
-(
-  chain_id INTEGER NOT NULL,
-  old_start INTEGER NOT NULL,
-  old_end INTEGER NOT NULL,
-  new_start INTEGER NOT NULL,
-  PRIMARY KEY (chain_id,old_start)
-)
-""",
-				'index': {
-					'chain_data__end': '(chain_id, old_end)',
-				}
-			}, #.db.chain_data
-			
 		}, #.db
 	} #_schema{}
 	
