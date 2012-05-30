@@ -51,7 +51,9 @@ private:
 		int geneID;
 		int lower;
 		int upper;
-		RegionBoundary(int geneID, int lower, int upper) : geneID(geneID), lower(lower), upper(upper){}
+		int source_id;
+		RegionBoundary(int geneID, int lower, int upper, int src) :
+			geneID(geneID), lower(lower), upper(upper), source_id(src){}
 	};
 
 
@@ -80,6 +82,8 @@ private:
 	 * ...
     */
 	void LoadConfiguration(const char *filename);
+
+	void UpdateZones();
 	void ProcessLD(LocusLookup& chr, const PopulationSpline& sp, const map<string, int>& popIDs);
 	void LoadGenes();
 	void InitPopulationIDs(std::map<std::string, int>& popIDs, const PopulationSpline& sp);
@@ -98,6 +102,9 @@ private:
 	bool _self_open;
 	bool _write_db;
 	string dbFilename;
+
+	//temp table name
+	static const string _tmp_bnd_tbl;
 
 	// Vector of a list of chromosomes
 	static const vector<string> _chrom_list;

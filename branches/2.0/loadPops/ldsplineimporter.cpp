@@ -26,6 +26,8 @@ string __chr_init[] = {"1","2","3","4","5","6","7","8","9","10",
 // Make sure the # below matches the # of elements in the array above!!
 const vector<string> LdSplineImporter::_chrom_list(__chr_init, __chr_init + (sizeof(__chr_init) / sizeof(__chr_init[0])));
 
+const string LdSplineImporter::_tmp_bnd_tbl("__region_bound_tmp");
+
 LdSplineImporter::LdSplineImporter(const string& fn, const string& db_fn) :
 		_self_open(true), _write_db(false) {
 	LoadConfiguration(fn.c_str());
@@ -85,7 +87,7 @@ LdSplineImporter::LdSplineImporter(const string& fn, const string& db_fn) :
 LdSplineImporter::LdSplineImporter(const string& fn, sqlite3 *db_conn) :
 		_db(db_conn), _self_open(false), _write_db(false) {
 	LoadConfiguration(fn.c_str());
-
+	// all of the DB stuff is done for us!!
 	LoadGenes();
 }
 
@@ -104,6 +106,14 @@ LdSplineImporter::~LdSplineImporter() {
 }
 
 void LdSplineImporter::loadPops() {
+
+	// Create a temporary table to insert into
+	string tmp_cmd = "CREATE TEMPORARY TABLE " + _tmp_bnd_tbl +
+			"(region_id INTEGER NOT NULL, population_id INTEGER NOT NULL, "
+			"chr TINYINT NOT NULL, posMin BIGINT NOT NULL, "
+			"posMax BIGINT NOT NULL, source_id TINYINT NOT NULL)";
+
+	sqlite3_exec(_db, tmp_cmd.c_str(), NULL, NULL, NULL);
 
 	// First, collect all of the indexes
 	map<string, string> index_map;
@@ -146,12 +156,24 @@ void LdSplineImporter::loadPops() {
 		++spItr;
 	}
 
+	// Move everything from the temporary table into the "real" table
+	insert_sql = "INSERT OR IGNORE INTO region_bound "
+			"SELECT * from " + _tmp_bnd_tbl;
+	sqlite3_exec(_db, insert_sql.c_str(), NULL, NULL, NULL);
+
 	// Recretate the indexes
 	idx_itr = index_map.begin();
 	while(idx_itr != index_map.end()){
 		sqlite3_exec(_db, (*idx_itr).second.c_str(), NULL, NULL, NULL);
 		++idx_itr;
 	}
+
+	//Update the zone table
+	UpdateZones();
+
+}
+
+void LdSplineImporter::UpdateZones(){
 
 }
 
@@ -234,20 +256,19 @@ void LdSplineImporter::ProcessLD(LocusLookup& chr,
 		cerr.flush();
 		pi++;
 	}
-	string pos_cmd = "UPDATE region_bound SET posMin=:new_min, posMax=:newmax "
-			"WHERE region_id=:rid AND population_id=:pid AND chr=:ochr "
-			"AND posMin=:omin AND posMax=:omax";
+	string pos_cmd = "INSERT INTO " + _tmp_bnd_tbl +
+			"(region_id, population_id, chr, posMin, posMax, source_id) VALUES "
+			"(:rid, :pid, :ochr, :new_min, :new_max, :sid)";
 
 	sqlite3_stmt* pos_stmt;
 	sqlite3_prepare_v2(_db, pos_cmd.c_str(), -1, &pos_stmt, NULL);;
 
 	int n_min_idx = sqlite3_bind_parameter_index(pos_stmt, ":new_min");
-	int n_max_idx = sqlite3_bind_parameter_index(pos_stmt, ":newmax");
+	int n_max_idx = sqlite3_bind_parameter_index(pos_stmt, ":new_max");
 	int r_id_idx = sqlite3_bind_parameter_index(pos_stmt, ":rid");
 	int p_id_idx = sqlite3_bind_parameter_index(pos_stmt, ":pid");
 	int chr_id_idx = sqlite3_bind_parameter_index(pos_stmt, ":ochr");
-	int o_min_idx = sqlite3_bind_parameter_index(pos_stmt, ":omin");
-	int o_max_idx = sqlite3_bind_parameter_index(pos_stmt, ":omax");
+	int src_id_idx = sqlite3_bind_parameter_index(pos_stmt, ":sid");
 
 	sqlite3_bind_int(pos_stmt, chr_id_idx, chrom);
 
@@ -262,8 +283,7 @@ void LdSplineImporter::ProcessLD(LocusLookup& chr,
 			while (regItr != regEnd) {
 
 				sqlite3_bind_int(pos_stmt, r_id_idx, (*regItr).geneID);
-				sqlite3_bind_int(pos_stmt, o_min_idx, (*regItr).lower);
-				sqlite3_bind_int(pos_stmt, o_max_idx, (*regItr).upper);
+				sqlite3_bind_int(pos_stmt, src_id_idx, (*regItr).source_id);
 
 				pair<int, int> bounds;
 				bool valid_region = false;
@@ -325,11 +345,11 @@ void LdSplineImporter::InitPopulationIDs(map<string, int>& popIDs,
 			sqlite3_exec(_db, del_ss.str().c_str(), NULL, NULL, NULL);
 		}
 
-		stringstream bds_ins_ss;
+		//stringstream bds_ins_ss;
 
-		bds_ins_ss << "INSERT INTO region_bound SELECT region_id, " << popID
-				<< ", chr, posMin, posMax, source_id FROM region_bound WHERE population_id=1";
-		sqlite3_exec(_db, bds_ins_ss.str().c_str(), NULL, NULL, NULL);
+		//bds_ins_ss << "INSERT INTO region_bound SELECT region_id, " << popID
+		//		<< ", chr, posMin, posMax, source_id FROM region_bound WHERE population_id=1";
+		//sqlite3_exec(_db, bds_ins_ss.str().c_str(), NULL, NULL, NULL);
 	
 		popIDs[popName] = popID;
 		sItr++;
@@ -339,7 +359,8 @@ void LdSplineImporter::InitPopulationIDs(map<string, int>& popIDs,
 void LdSplineImporter::LoadGenes() {
 
 	stringstream query_ss;
-	query_ss << "SELECT region_id, chr, posMin, posMax FROM region_bound "
+	query_ss << "SELECT region_id, chr, posMin, posMax, region_bound.source_id "
+			<< "FROM region_bound "
 			<< "INNER JOIN region USING (region_id) "
 			<< "INNER JOIN type ON region.type_id=type.type_id "
 			<< "WHERE population_id=1 AND type='gene' "
@@ -351,13 +372,13 @@ void LdSplineImporter::LoadGenes() {
 }
 
 int LdSplineImporter::parseGenes(void* obj, int n_cols, char** col_vals, char** col_names){
-	if(n_cols != 4){
+	if(n_cols != 5){
 		return 2;
 	}
 	map<short, vector<RegionBoundary> >* result =
 			(map<short, vector<RegionBoundary> >*) obj;
 	(*result)[atoi(col_vals[1])].push_back(
-			RegionBoundary(atoi(col_vals[0]), atoi(col_vals[2]), atoi(col_vals[3])));
+			RegionBoundary(atoi(col_vals[0]), atoi(col_vals[2]), atoi(col_vals[3]), atoi(col_vals[4])));
 	return 0;
 
 }
