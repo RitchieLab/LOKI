@@ -31,6 +31,7 @@ class Database(object):
 	
 	_schema = {
 		'db': {
+			
 			# ########## db.setting ##########
 			'setting': {
 				'table': """
@@ -398,7 +399,6 @@ class Database(object):
 			}, #.db.chain_data
 			
 		}, #.db
-		
 	} #_schema{}
 	
 	
@@ -440,7 +440,10 @@ class Database(object):
 		self._logFile = sys.stderr
 		self._logIndent = 0
 		self._logHanging = False
-		self._db = apsw.Connection(':memory:')
+		# sqlite considers the empty string as a 'temporary' database;
+		# it will usually remain in memory but may be flushed to disk as needed
+		# (unlike ':memory:' which must always be in memory)
+		self._db = apsw.Connection('')
 		self._db.cursor().execute("PRAGMA synchronous=OFF") #TODO: document why this is a good idea
 		self._dbFile = None
 		self._dbNew = None
@@ -765,7 +768,7 @@ class Database(object):
 	
 	def getNamespaceID(self, name):
 		result = None
-		for row in self._db.cursor().execute("SELECT `namespace_id` FROM `db`.`namespace` WHERE `namespace` = LOWER(?)", (name,)):
+		for row in self._db.cursor().execute("SELECT namespace_id FROM `db`.`namespace` WHERE namespace = LOWER(?)", (name,)):
 			result = row[0]
 		return result
 	#getNamespaceID()
@@ -773,7 +776,7 @@ class Database(object):
 	
 	def getNamespaceIDs(self, names):
 		result = { name:None for name in names }
-		for row in self._db.cursor().executemany("SELECT `namespace`,`namespace_id` FROM `db`.`namespace` WHERE `namespace` = LOWER(?)", ((name,) for name in result)):
+		for row in self._db.cursor().executemany("SELECT namespace,namespace_id FROM `db`.`namespace` WHERE namespace = LOWER(?)", ((name,) for name in result)):
 			result[row[0]] = row[1]
 		return result
 	#getNamespaceIDs()
@@ -781,7 +784,7 @@ class Database(object):
 	
 	def getPopulationID(self, name):
 		result = NOne
-		for row in self._db.cursor().execute("SELECT `population_id` FROM `db`.`population` WHERE `population` = LOWER(?)", (name,)):
+		for row in self._db.cursor().execute("SELECT population_id FROM `db`.`population` WHERE population = LOWER(?)", (name,)):
 			result = row[0]
 		return result
 	#getPopulationID()
@@ -789,7 +792,7 @@ class Database(object):
 	
 	def getPopulationIDs(self, names):
 		result = { name:None for name in names }
-		for row in self._db.cursor().executemany("SELECT `population`,`population_id` FROM `db`.`population` WHERE `population` = LOWER(?)", ((name,) for name in result)):
+		for row in self._db.cursor().executemany("SELECT population,population_id FROM `db`.`population` WHERE population = LOWER(?)", ((name,) for name in result)):
 			result[row[0]] = row[1]
 		return result
 	#getPopulationIDs()
@@ -797,7 +800,7 @@ class Database(object):
 	
 	def getRelationshipID(self, name):
 		result = None
-		for row in self._db.cursor().execute("SELECT `relationship_id` FROM `db`.`relationship` WHERE `relationship` = LOWER(?)", (name,)):
+		for row in self._db.cursor().execute("SELECT relationship_id FROM `db`.`relationship` WHERE relationship = LOWER(?)", (name,)):
 			result = row[0]
 		return result
 	#getRelationshipID()
@@ -805,7 +808,7 @@ class Database(object):
 	
 	def getRelationshipIDs(self, names):
 		result = { name:None for name in names }
-		for row in self._db.cursor().executemany("SELECT `relationship`,`relationship_id` FROM `db`.`relationship` WHERE `relationship` = LOWER(?)", ((name,) for name in result)):
+		for row in self._db.cursor().executemany("SELECT relationship,relationship_id FROM `db`.`relationship` WHERE relationship = LOWER(?)", ((name,) for name in result)):
 			result[row[0]] = row[1]
 		return result
 	#getRelationshipIDs()
@@ -813,7 +816,7 @@ class Database(object):
 	
 	def getRoleID(self, name):
 		result = None
-		for row in self._db.cursor().execute("SELECT `role_id` FROM `db`.`role` WHERE `role` = LOWER(?)", (name,)):
+		for row in self._db.cursor().execute("SELECT role_id FROM `db`.`role` WHERE role = LOWER(?)", (name,)):
 			result = row[0]
 		return result
 	#getRoleID()
@@ -821,7 +824,7 @@ class Database(object):
 	
 	def getRoleIDs(self, names):
 		result = { name:None for name in names }
-		for row in self._db.cursor().executemany("SELECT `role`,`role_id` FROM `db`.`role` WHERE `role` = LOWER(?)", ((name,) for name in result)):
+		for row in self._db.cursor().executemany("SELECT role,role_id FROM `db`.`role` WHERE role = LOWER(?)", ((name,) for name in result)):
 			result[row[0]] = row[1]
 		return result
 	#getRoleIDs()
@@ -829,7 +832,7 @@ class Database(object):
 	
 	def getSourceID(self, name):
 		result = None
-		for row in self._db.cursor().execute("SELECT `source_id` FROM `db`.`source` WHERE `source` = LOWER(?)", (name,)):
+		for row in self._db.cursor().execute("SELECT source_id FROM `db`.`source` WHERE source = LOWER(?)", (name,)):
 			result = row[0]
 		return result
 	#getSourceID()
@@ -837,7 +840,7 @@ class Database(object):
 	
 	def getSourceIDs(self, names):
 		result = { name:None for name in names }
-		for row in self._db.cursor().executemany("SELECT `source`,`source_id` FROM `db`.`source` WHERE `source` = LOWER(?)", ((name,) for name in result)):
+		for row in self._db.cursor().executemany("SELECT source,source_id FROM `db`.`source` WHERE source = LOWER(?)", ((name,) for name in result)):
 			result[row[0]] = row[1]
 		return result
 	#getSourceIDs()
@@ -845,7 +848,7 @@ class Database(object):
 	
 	def getTypeID(self, name):
 		result = None
-		for row in self._db.cursor().execute("SELECT `type_id` FROM `db`.`type` WHERE `type` = LOWER(?)", (name,)):
+		for row in self._db.cursor().execute("SELECT type_id FROM `db`.`type` WHERE type = LOWER(?)", (name,)):
 			result = row[0]
 		return result
 	#getTypeID()
@@ -853,7 +856,7 @@ class Database(object):
 	
 	def getTypeIDs(self, names):
 		result = { name:None for name in names }
-		for row in self._db.cursor().executemany("SELECT `type`,`type_id` FROM `db`.`type` WHERE `type` = LOWER(?)", ((name,) for name in result)):
+		for row in self._db.cursor().executemany("SELECT type,type_id FROM `db`.`type` WHERE type = LOWER(?)", ((name,) for name in result)):
 			result[row[0]] = row[1]
 		return result
 	#getTypeIDs()
@@ -862,6 +865,81 @@ class Database(object):
 	# ##################################################
 	# data retrieval
 	
+	
+	def generateRSMergesByRS(self, rses):
+		# rses=[ (rs,), ... ]
+		sql = """
+SELECT i.rsOld, COALESCE(sm.rsNew, i.rs) AS rsNew, COALESCE(sm.rsCur, i.rs) AS rsCur
+FROM (SELECT ? AS rs) AS i
+LEFT JOIN `db`.`snp_merge` AS sm
+  ON sm.rsOld = i.rs
+"""
+		for row in self._db.cursor().executemany(sql, rses):
+			yield row
+	#generateRSMergesByRS()
+	
+	
+	def generateLociiByRS(self, rses):
+		# rses=[ (rs,), ... ]
+		sql = """
+SELECT 'rs'||s.rs, s.rs, s.chr, s.pos
+FROM `db`.`snp` AS s
+WHERE s.rs = ?
+"""
+		for row in self._db.cursor().executemany(sql, rses):
+			yield row
+	#generateLociiByRS()
+	
+	
+	def generateRSesByLocus(self, locii):
+		# locii=[ (label,rs,chr,pos), ... ]
+		sql = """
+SELECT s.rs
+FROM `db`.`snp` AS s
+WHERE (1 OR ? OR ?)
+  AND s.chr = ?
+  AND s.pos = ?
+"""
+		for row in self._db.cursor().executemany(sql, locii):
+			yield row
+	#generateRSesByLocus()
+	
+	
+	def generateRegionsByLocus(self, locii, expansion=0, populationID=None, typeID=None):
+		dbc = self._db.cursor()
+		size = max(int(row[0]) for row in dbc.execute("SELECT value FROM `db`.`setting` WHERE setting='region_zone_size'"))
+		sql = """
+SELECT i.label, i.rs, i.chr, i.pos, rb.region_id, rb.population_id, rb.posMin, rb.posMax
+FROM (SELECT ? AS label, ? AS rs, ? AS chr, ? AS pos) AS i
+JOIN `db`.`population` AS p
+"""
+		if populationID:
+			sql += """
+  ON p.population_id = %d
+""" % (populationID,)
+		#if populationID
+		sql += """
+JOIN `db`.`region_zone` AS rz
+  ON rz.population_id = p.population_id
+  AND rz.chr = i.chr
+  AND rz.zone >= (i.pos - %d) / %d
+  AND rz.zone <= (i.pos + %d) / %d
+JOIN `db`.`region_bound` AS rb
+  ON rb.region_id = rz.region_id
+  AND rb.population_id = rz.populatino_id
+  AND rb.chr = i.chr
+  AND rb.posMin <= (i.pos + %d)
+  AND rb.posMax >= (i.pos - %d)
+""" % (expansion,size,expansion,size,expansion,expansion)
+		if typeID:
+			sql += """
+JOIN `db`.`region` AS r
+  ON r.region_id = rb.region_id
+  AND r.type_id = %d
+""" % (typeID,)
+		#if typeID
+		
+	# #####
 	
 	def getGroupIDsByName(self, name, namespaceID=None, typeID=None): #TODO
 		dbc = self._db.cursor()
