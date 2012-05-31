@@ -91,13 +91,17 @@ class Source_pharmgkb(loki_source.Source):
 						if symbol:
 							setNames.add( (namespaceID['symbol'],symbol,pgkbID) )
 						for alias in aliases:
-							setNames.add( (namespaceID['symbol'],alias.strip('" '),pgkbID) )
+							setNames.add( (namespaceID['symbol'],unicode(alias.strip('" '),errors='ignore'),pgkbID) )
 						for xref in xrefs:
 							try:
 								xrefDB,xrefID = xref.split(':',1)
 								if xrefDB in xrefNS:
 									for ns in xrefNS[xrefDB]:
-										setNames.add( (namespaceID[ns],xrefID,pgkbID) )
+										try:
+											xrefID.encode('ascii')
+											setNames.add( (namespaceID[ns],xrefID.decode('utf8').encode('ascii'),pgkbID) )
+										except:
+											self.log("Cannot encode gene alias")
 							except ValueError:
 								pass
 					#foreach line in geneFile
@@ -169,7 +173,7 @@ class Source_pharmgkb(loki_source.Source):
 		# store pathways
 		self.log("writing pathways to the database ...")
 		listPath = pathDesc.keys()
-		listGID = self.addTypedGroups(typeID['pathway'], ((path,pathDesc[path]) for path in listPath))
+		listGID = self.addTypedGroups(typeID['pathway'], ((path,unicode(pathDesc[path],errors='ignore')) for path in listPath))
 		pathGID = dict(zip(listPath,listGID))
 		self.log(" OK\n")
 		
