@@ -157,7 +157,7 @@ void LdSplineImporter::loadPops() {
 	}
 
 	// Move everything from the temporary table into the "real" table
-	insert_sql = "INSERT OR IGNORE INTO region_bound "
+	string insert_sql = "INSERT OR IGNORE INTO region_bound "
 			"SELECT * from " + _tmp_bnd_tbl;
 	sqlite3_exec(_db, insert_sql.c_str(), NULL, NULL, NULL);
 
