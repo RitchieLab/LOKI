@@ -88,6 +88,10 @@ private:
 	void LoadGenes();
 	void InitPopulationIDs(std::map<std::string, int>& popIDs, const PopulationSpline& sp);
 
+	// Retrieves and returns the indexes on a table.  Also, drops the indexes
+	void getAndDropIndexes(const string& tbl_name, map<string, string>& indexes_out);
+	void restoreIndexes(const map<string, string>& index_map);
+
 	std::vector<PopulationSpline> splines;			///<population -> ldspline filename
 	std::vector<std::pair<CutoffType, float> > cutoffs;
 	//std::vector<float> dp;								///<The various DPrime values we are splining on
@@ -114,7 +118,7 @@ private:
 
 	// DB processing functions
 	static int parseGenes(void*, int, char**, char**);
-	static int parsePopID(void*, int, char**, char**);
+	static int parseSingleInt(void*, int, char**, char**);
 	static int parseRegionIndex(void*, int, char**, char**);
 
 };

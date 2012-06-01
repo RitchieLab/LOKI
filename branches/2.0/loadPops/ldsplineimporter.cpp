@@ -117,21 +117,8 @@ void LdSplineImporter::loadPops() {
 
 	// First, collect all of the indexes
 	map<string, string> index_map;
-	string idx_cmd = "SELECT name, sql FROM sqlite_master "
-			"WHERE type='index' AND tbl_name='region_bound' AND sql NOT NULL";
+	getAndDropIndexes("region_bound", index_map);
 
-	sqlite3_exec(_db, idx_cmd.c_str(), &parseRegionIndex, &index_map, NULL);
-
-	// Now, drop those indexes!
-	string drop_cmd = "DROP INDEX ";
-
-	map<string, string>::const_iterator idx_itr = index_map.begin();
-	while(idx_itr != index_map.end()){
-		string drop_tbl = "'" + (*idx_itr).first + "'";
-		string sql_str = drop_cmd + drop_tbl;
-		sqlite3_exec(_db, (drop_cmd + drop_tbl).c_str(), NULL, NULL, NULL);
-		++idx_itr;
-	}
 
 	vector<PopulationSpline>::const_iterator spItr = splines.begin();
 	vector<PopulationSpline>::const_iterator spEnd = splines.end();
@@ -161,12 +148,7 @@ void LdSplineImporter::loadPops() {
 			"SELECT * from " + _tmp_bnd_tbl;
 	sqlite3_exec(_db, insert_sql.c_str(), NULL, NULL, NULL);
 
-	// Recretate the indexes
-	idx_itr = index_map.begin();
-	while(idx_itr != index_map.end()){
-		sqlite3_exec(_db, (*idx_itr).second.c_str(), NULL, NULL, NULL);
-		++idx_itr;
-	}
+	restoreIndexes(index_map);
 
 	//Update the zone table
 	UpdateZones();
@@ -174,6 +156,70 @@ void LdSplineImporter::loadPops() {
 }
 
 void LdSplineImporter::UpdateZones(){
+	// See loki_updater.py for the algorithm here
+
+	// Get the zone size
+	int zone_size=100000;
+	string zone_sql = "SELECT value FROM setting "
+			"WHERE setting='region_zone_size'";
+	sqlite3_exec(_db, zone_sql.c_str(), &parseSingleInt, &zone_size, NULL);
+
+	// Reverse any regions that are backwards
+	string region_reverse_sql = "UPDATE region_bound "
+			"SET posMin = posMax, posMax = posMin WHERE posMin > posMax";
+	sqlite3_exec(_db, region_reverse_sql.c_str(), NULL, NULL, NULL);
+
+	// Find the minimum and maximum zone sizes
+	int minPos, maxPos = 0;
+	string min_pos_sql = "SELECT MIN(posMin) FROM region_bound";
+	string max_pos_sql = "SELECT MAX(posMax) FROM region_bound";
+
+	sqlite3_exec(_db, min_pos_sql.c_str(), &parseSingleInt, &minPos, NULL);
+	sqlite3_exec(_db, max_pos_sql.c_str(), &parseSingleInt, &maxPos, NULL);
+
+	minPos = minPos / zone_size;
+	maxPos = maxPos / zone_size;
+
+	// Insert all zones needed into a temporary table
+	string tmp_zone_tbl = "__zone_tmp";
+	string zone_tbl_sql = "CREATE TEMPORARY TABLE " + tmp_zone_tbl + " "
+			"(zone INTEGER PRIMARY KEY NOT NULL)";
+	sqlite3_exec(_db, zone_tbl_sql.c_str(), NULL, NULL, NULL);
+
+	string zone_insert_query = "INSERT INTO " + tmp_zone_tbl + " VALUES (?)";
+	sqlite3_stmt* zone_ins_stmt;
+	sqlite3_prepare_v2(_db, zone_insert_query.c_str(), -1, &zone_ins_stmt, NULL);
+
+	for (int i=minPos; i <= maxPos; i++){
+		sqlite3_bind_int(zone_ins_stmt, 1, i);
+		while(sqlite3_step(zone_ins_stmt) == SQLITE_ROW){}
+		sqlite3_reset(zone_ins_stmt);
+	}
+	sqlite3_finalize(zone_ins_stmt);
+
+	// drop the indexes on zone table
+	map<string, string> index_map;
+	getAndDropIndexes("region_zone",index_map);
+
+	// Get rid of the entire region zone table
+	string zone_del_sql = "DELETE FROM region_zone";
+	sqlite3_exec(_db, zone_del_sql.c_str(), NULL, NULL, NULL);
+
+	// OK, now we're ready to do some insertin'!
+	stringstream zone_ins_str;
+	zone_ins_str << "INSERT OR IGNORE INTO region_zone (region_id,population_id,chr,zone) "
+			<< "SELECT rb.region_id, rb.population_id, rb.chr, z.zone "
+			<< "FROM region_bound AS rb JOIN " << tmp_zone_tbl << " AS z "
+			<< "ON z.zone >= rb.posMin / " << zone_size << " "
+			<< "AND z.zone <= rb.posMax / " << zone_size << " ";
+
+	string zone_ins_sql = zone_ins_str.str();
+	sqlite3_exec(_db, zone_ins_sql.c_str(), NULL, NULL, NULL);
+
+	string tmp_tbl_drop = "DROP TABLE " + tmp_zone_tbl;
+	sqlite3_exec(_db, tmp_tbl_drop.c_str(), NULL, NULL, NULL);
+
+	restoreIndexes(index_map);
 
 }
 
@@ -325,7 +371,7 @@ void LdSplineImporter::InitPopulationIDs(map<string, int>& popIDs,
 		string pop_query = "SELECT population_id FROM population where population='"+popName+"';";
 		int popID = -1;
 
-		sqlite3_exec(_db, pop_query.c_str(), parsePopID, &popID, NULL);
+		sqlite3_exec(_db, pop_query.c_str(), parseSingleInt, &popID, NULL);
 
 		if (popID == -1) {
 
@@ -336,7 +382,7 @@ void LdSplineImporter::InitPopulationIDs(map<string, int>& popIDs,
 					<< sp.desc << " with " << type << " cutoff " << (*sItr).second << "');";
 
 			sqlite3_exec(_db, pop_ins_ss.str().c_str(), NULL, NULL, NULL);
-			sqlite3_exec(_db, pop_query.c_str(), parsePopID, &popID, NULL);
+			sqlite3_exec(_db, pop_query.c_str(), parseSingleInt, &popID, NULL);
 
 		} else {
 			stringstream del_ss;
@@ -344,12 +390,6 @@ void LdSplineImporter::InitPopulationIDs(map<string, int>& popIDs,
 			
 			sqlite3_exec(_db, del_ss.str().c_str(), NULL, NULL, NULL);
 		}
-
-		//stringstream bds_ins_ss;
-
-		//bds_ins_ss << "INSERT INTO region_bound SELECT region_id, " << popID
-		//		<< ", chr, posMin, posMax, source_id FROM region_bound WHERE population_id=1";
-		//sqlite3_exec(_db, bds_ins_ss.str().c_str(), NULL, NULL, NULL);
 	
 		popIDs[popName] = popID;
 		sItr++;
@@ -371,6 +411,37 @@ void LdSplineImporter::LoadGenes() {
 	cerr << "All Region Loaded \n";
 }
 
+void LdSplineImporter::getAndDropIndexes(const string& tbl_name,
+		map<string, string>& indexes_out) {
+
+	string idx_cmd = "SELECT name, sql FROM sqlite_master "
+			"WHERE type='index' AND tbl_name='" + tbl_name + "' "
+					"AND sql NOT NULL";
+
+	sqlite3_exec(_db, idx_cmd.c_str(), &parseRegionIndex, &indexes_out, NULL);
+
+	// Now, drop those indexes!const string& tbl_name,
+	string drop_cmd = "DROP INDEX ";
+
+	map<string, string>::const_iterator idx_itr = indexes_out.begin();
+	while (idx_itr != indexes_out.end()) {
+		string drop_tbl = "'" + (*idx_itr).first + "'";
+		string sql_str = drop_cmd + drop_tbl;
+		sqlite3_exec(_db, (drop_cmd + drop_tbl).c_str(), NULL, NULL, NULL);
+		++idx_itr;
+	}
+}
+
+void LdSplineImporter::restoreIndexes(const map<string, string>& index_map){
+	// Recretate the indexes
+	map<string, string>::const_iterator idx_itr = index_map.begin();
+	while(idx_itr != index_map.end()){
+		sqlite3_exec(_db, (*idx_itr).second.c_str(), NULL, NULL, NULL);
+		++idx_itr;
+	}
+
+}
+
 int LdSplineImporter::parseGenes(void* obj, int n_cols, char** col_vals, char** col_names){
 	if(n_cols != 5){
 		return 2;
@@ -383,7 +454,7 @@ int LdSplineImporter::parseGenes(void* obj, int n_cols, char** col_vals, char** 
 
 }
 
-int LdSplineImporter::parsePopID(void* pop_id, int n_cols, char** col_vals, char** col_names){
+int LdSplineImporter::parseSingleInt(void* pop_id, int n_cols, char** col_vals, char** col_names){
 	if(n_cols !=  1){
 		return 2;
 	}
