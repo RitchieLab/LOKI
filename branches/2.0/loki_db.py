@@ -782,7 +782,7 @@ class Database(object):
 	
 	def getNamespaceID(self, name):
 		result = None
-		for row in self._db.cursor().execute("SELECT `namespace_id` FROM `db`.`namespace` WHERE `namespace` = LOWER(?)", (name,)):
+		for row in self._db.cursor().execute("SELECT namespace_id FROM `db`.`namespace` WHERE namespace = LOWER(?)", (name,)):
 			result = row[0]
 		return result
 	#getNamespaceID()
@@ -790,15 +790,15 @@ class Database(object):
 	
 	def getNamespaceIDs(self, names):
 		result = { name:None for name in names }
-		for row in self._db.cursor().executemany("SELECT `namespace`,`namespace_id` FROM `db`.`namespace` WHERE `namespace` = LOWER(?)", ((name,) for name in result)):
+		for row in self._db.cursor().executemany("SELECT namespace,namespace_id FROM `db`.`namespace` WHERE namespace = LOWER(?)", ((name,) for name in result)):
 			result[row[0]] = row[1]
 		return result
 	#getNamespaceIDs()
 	
 	
 	def getPopulationID(self, name):
-		result = NOne
-		for row in self._db.cursor().execute("SELECT `population_id` FROM `db`.`population` WHERE `population` = LOWER(?)", (name,)):
+		result = None
+		for row in self._db.cursor().execute("SELECT population_id FROM `db`.`population` WHERE population = LOWER(?)", (name,)):
 			result = row[0]
 		return result
 	#getPopulationID()
@@ -806,7 +806,7 @@ class Database(object):
 	
 	def getPopulationIDs(self, names):
 		result = { name:None for name in names }
-		for row in self._db.cursor().executemany("SELECT `population`,`population_id` FROM `db`.`population` WHERE `population` = LOWER(?)", ((name,) for name in result)):
+		for row in self._db.cursor().executemany("SELECT population,population_id FROM `db`.`population` WHERE population = LOWER(?)", ((name,) for name in result)):
 			result[row[0]] = row[1]
 		return result
 	#getPopulationIDs()
@@ -814,7 +814,7 @@ class Database(object):
 	
 	def getRelationshipID(self, name):
 		result = None
-		for row in self._db.cursor().execute("SELECT `relationship_id` FROM `db`.`relationship` WHERE `relationship` = LOWER(?)", (name,)):
+		for row in self._db.cursor().execute("SELECT relationship_id FROM `db`.`relationship` WHERE relationship = LOWER(?)", (name,)):
 			result = row[0]
 		return result
 	#getRelationshipID()
@@ -822,7 +822,7 @@ class Database(object):
 	
 	def getRelationshipIDs(self, names):
 		result = { name:None for name in names }
-		for row in self._db.cursor().executemany("SELECT `relationship`,`relationship_id` FROM `db`.`relationship` WHERE `relationship` = LOWER(?)", ((name,) for name in result)):
+		for row in self._db.cursor().executemany("SELECT relationship,relationship_id FROM `db`.`relationship` WHERE relationship = LOWER(?)", ((name,) for name in result)):
 			result[row[0]] = row[1]
 		return result
 	#getRelationshipIDs()
@@ -830,7 +830,7 @@ class Database(object):
 	
 	def getRoleID(self, name):
 		result = None
-		for row in self._db.cursor().execute("SELECT `role_id` FROM `db`.`role` WHERE `role` = LOWER(?)", (name,)):
+		for row in self._db.cursor().execute("SELECT role_id FROM `db`.`role` WHERE role = LOWER(?)", (name,)):
 			result = row[0]
 		return result
 	#getRoleID()
@@ -838,7 +838,7 @@ class Database(object):
 	
 	def getRoleIDs(self, names):
 		result = { name:None for name in names }
-		for row in self._db.cursor().executemany("SELECT `role`,`role_id` FROM `db`.`role` WHERE `role` = LOWER(?)", ((name,) for name in result)):
+		for row in self._db.cursor().executemany("SELECT role,role_id FROM `db`.`role` WHERE role = LOWER(?)", ((name,) for name in result)):
 			result[row[0]] = row[1]
 		return result
 	#getRoleIDs()
@@ -846,7 +846,7 @@ class Database(object):
 	
 	def getSourceID(self, name):
 		result = None
-		for row in self._db.cursor().execute("SELECT `source_id` FROM `db`.`source` WHERE `source` = LOWER(?)", (name,)):
+		for row in self._db.cursor().execute("SELECT source_id FROM `db`.`source` WHERE source = LOWER(?)", (name,)):
 			result = row[0]
 		return result
 	#getSourceID()
@@ -854,7 +854,7 @@ class Database(object):
 	
 	def getSourceIDs(self, names):
 		result = { name:None for name in names }
-		for row in self._db.cursor().executemany("SELECT `source`,`source_id` FROM `db`.`source` WHERE `source` = LOWER(?)", ((name,) for name in result)):
+		for row in self._db.cursor().executemany("SELECT source,source_id FROM `db`.`source` WHERE source = LOWER(?)", ((name,) for name in result)):
 			result[row[0]] = row[1]
 		return result
 	#getSourceIDs()
@@ -862,7 +862,7 @@ class Database(object):
 	
 	def getTypeID(self, name):
 		result = None
-		for row in self._db.cursor().execute("SELECT `type_id` FROM `db`.`type` WHERE `type` = LOWER(?)", (name,)):
+		for row in self._db.cursor().execute("SELECT type_id FROM `db`.`type` WHERE type = LOWER(?)", (name,)):
 			result = row[0]
 		return result
 	#getTypeID()
@@ -870,7 +870,7 @@ class Database(object):
 	
 	def getTypeIDs(self, names):
 		result = { name:None for name in names }
-		for row in self._db.cursor().executemany("SELECT `type`,`type_id` FROM `db`.`type` WHERE `type` = LOWER(?)", ((name,) for name in result)):
+		for row in self._db.cursor().executemany("SELECT type,type_id FROM `db`.`type` WHERE type = LOWER(?)", ((name,) for name in result)):
 			result[row[0]] = row[1]
 		return result
 	#getTypeIDs()
