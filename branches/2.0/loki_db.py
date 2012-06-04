@@ -877,7 +877,32 @@ class Database(object):
 	
 	
 	# ##################################################
-	# data retrieval
+	# SNP data retrieval
+	
+	
+	def generateSNPsByRS(self, rses):
+		# rses=[ (rs,), ... ]
+		for row in self._db.cursor().executemany("SELECT rs, chr, pos FROM `db`.`snp` WHERE rs = ?", rses):
+			yield row
+	#generateSNPsByRS()
+	
+	
+	def generateCurrentSNPsByRS(self, rses):
+		# rses=[ (rs,), ... ]
+		for row in self._db.cursor().executemany("""
+SELECT s.rs, s.chr, s.pos
+FROM (SELECT ? AS rs) AS i
+LEFT JOIN `db`.`snp_merge` AS sm
+  ON sm.rsOld = i.rs
+LEFT JOIN `db`.`snp` AS s
+  ON s.rs = COALESCE(sm.rsCur, i.rs)
+""", rses):
+			yield row
+	#generateCurrentSNPsByRS()
+	
+
+	# ##################################################
+	# group data retrieval
 	
 	
 	def getGroupIDsByName(self, name, namespaceID=None, typeID=None): #TODO
@@ -912,6 +937,10 @@ WHERE gn.`name` = ?
 """, (name,))
 		return [row[0] for row in result]
 	#getGroupIDsByName()
+	
+	
+	# ##################################################
+	# region data retrieval
 	
 	
 	def getRegionIDsByName(self, name, namespaceID=None, typeID=None, matchMode=None): #TODO
