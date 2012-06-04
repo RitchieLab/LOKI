@@ -12,9 +12,11 @@
 #include <boost/filesystem.hpp>
 #include <sys/stat.h>
 #include <sstream>
+#include <set>
 
 #include <utility>
 
+using std::set;
 using std::pair;
 using std::make_pair;
 using std::stringstream;
@@ -122,6 +124,7 @@ void LdSplineImporter::loadPops() {
 
 	vector<PopulationSpline>::const_iterator spItr = splines.begin();
 	vector<PopulationSpline>::const_iterator spEnd = splines.end();
+	set<short> proc_chr;
 
 	while (spItr != spEnd) {
 		map<string, int> popIDs;
@@ -135,13 +138,42 @@ void LdSplineImporter::loadPops() {
 		map<string, LocusLookup>::iterator chr = chromosomes.begin();
 		map<string, LocusLookup>::iterator end = chromosomes.end();
 
+
+
 		while (chr != end) {
 			ProcessLD(chr->second, *spItr, popIDs);
+			proc_chr.insert(getChrom(chr->second.Chromosome()));
 			chr->second.Release();
 			++chr;
 		}
 		++spItr;
 	}
+
+	// Now, for any chromosomes we didn't process, just copy those directly over!
+	string idx_sql = "CREATE INDEX __tmp_idx ON " + _tmp_bnd_tbl + " "
+			"(population_id, region_id, chr, posMin, posMax, source_id)";
+	sqlite3_exec(_db, idx_sql.c_str(), NULL, NULL, NULL);
+
+	stringstream load_others_str;
+	load_others_str << "INSERT INTO " << _tmp_bnd_tbl << " "
+			<< "SELECT region_id, p.population_id, chr, posMin, posMax, source_id "
+			<< "FROM region_bound JOIN "
+			<< "(SELECT DISTINCT population_id FROM " << _tmp_bnd_tbl << ") as p "
+			<< "WHERE chr NOT IN (";
+
+	set<short>::const_iterator chr_itr = proc_chr.begin();
+	int n_chr = -1;
+	while(chr_itr != proc_chr.end()){
+		if(++n_chr){
+			load_others_str << ",";
+		}
+		load_others_str << *chr_itr;
+		++chr_itr;
+	}
+	load_others_str << ")";
+
+	string load_others_sql = load_others_str.str();
+	sqlite3_exec(_db, load_others_sql.c_str(), NULL, NULL, NULL);
 
 	// Move everything from the temporary table into the "real" table
 	string insert_sql = "INSERT OR IGNORE INTO region_bound "
@@ -347,6 +379,9 @@ void LdSplineImporter::ProcessLD(LocusLookup& chr,
 
 					// Do nothing for the query; it modifies the db
 					while(sqlite3_step(pos_stmt) == SQLITE_ROW) {}
+				}
+				else{
+
 				}
 				sqlite3_reset(pos_stmt);
 				++regItr;
