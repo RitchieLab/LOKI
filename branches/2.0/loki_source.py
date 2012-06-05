@@ -488,7 +488,7 @@ class Source(object):
 		"""
 		Adds the build->assembly pairs into the build_assembly table
 		"""
-		self._dbc.executemany(
+		self._db.cursor().executemany(
 			"INSERT OR IGNORE INTO 'db'.'build_assembly' ('build','assembly') VALUES (?,?)",
 			(tuple(ba_pair) for ba_pair in build_pairs)
 		)
@@ -503,7 +503,7 @@ class Source(object):
 		"""
 		
 		retList = []
-		for row in self._dbc.executemany(
+		for row in self._db.cursor().executemany(
 			"INSERT INTO 'db'.'chain' ('old_assembly','score','old_chr','old_start','old_end','new_chr','new_start','new_end','is_fwd') VALUES (?,?,?,?,?,?,?,?,?); SELECT last_insert_rowid()",
 			(tuple(c for c in itertools.chain((assembly,),chain)) for chain in chain_list)
 		):
@@ -517,7 +517,7 @@ class Source(object):
 		"""
 		Adds all of the chain data into the chain data table
 		"""
-		self._dbc.executemany(
+		self._db.cursor().executemany(
 			"INSERT INTO 'db'.'chain_data' ('chain_id','old_start','old_end','new_start') VALUES (?,?,?,?)",
 			(tuple(cd) for cd in chain_data_list)
 		)
