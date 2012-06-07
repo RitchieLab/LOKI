@@ -21,6 +21,7 @@ def GetEnsembl(bioDB, refreshEnsembl, db_set):
 	global ensembl
 	if ensembl == None:
 		ensembl = load_ensembl.EnsemblLoader(bioDB, db_set, 0)
+		ensembl.ConnectToEnsemblDB()
 		if refreshEnsembl:
 			print "Refreshing Ensembl Database"
 			ensembl.RefreshEnsemblDatabase()
@@ -42,6 +43,7 @@ def LoadKB(dbFilename, kbLoads, doReset = False, refreshEnsembl = False):
 	
 	
 	try:
+		cwd = os.getcwd()
 		chromosomes = ('1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', 'X', 'Y', 'MT')
 		db_exists = os.path.exists(dbFilename)
 		bioDB = biosettings.BioSettings(dbFilename)
@@ -163,7 +165,10 @@ def LoadKB(dbFilename, kbLoads, doReset = False, refreshEnsembl = False):
 		#unhandled exception means something went VERY wrong
 		# if it was a new db, just delete it!
 		if not db_exists:
+			os.chdir(cwd)
 			os.remove(dbFilename)
+
+		raise
 		
 		
 def LoadTest(dbFilename):
