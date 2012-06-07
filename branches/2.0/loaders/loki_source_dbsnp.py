@@ -178,8 +178,10 @@ CREATE TABLE [b135_SNPContigLocusId_37_3]
 )
 """
 		self.log("processing SNP roles ...")
-		numRole = 0
 		listRole = list()
+		numRole = 0
+		setOrphan = set()
+		numOrphan = 0
 		funcFile = self.zfile('b135_SNPContigLocusId_37_3.bcp.gz')
 		for line in funcFile:
 			words = line.split("\t")
@@ -188,8 +190,12 @@ CREATE TABLE [b135_SNPContigLocusId_37_3]
 			genesymbol = words[6]
 			code = int(words[11])
 			
-			numRole += 1
-			listRole.append( (rs,entrez,code) )
+			if code not in roleID:
+				setOrphan.add(code)
+				numOrphan += 1
+			else:
+				listRole.append( (rs,entrez,roleID[code]) )
+				numRole += 1
 			
 			# write to the database after each 2.5 million, to keep memory usage down
 			if len(listRole) >= 2500000:
@@ -201,6 +207,10 @@ CREATE TABLE [b135_SNPContigLocusId_37_3]
 				self.log("processing SNP roles ...")
 		#foreach line in funcFile
 		self.log(" OK: %d roles\n" % (numRole,))
+		self.logPush()
+		if setOrphan:
+			self.log("WARNING: %d roles (%d codes) unrecognized\n" % (numOrphan,len(setOrphan)))
+		self.logPop()
 		
 		# write any remaining records
 		if listRole:
