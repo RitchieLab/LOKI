@@ -32,11 +32,10 @@ VAR_FILES=test.bio
 endif
 
 knowledge.bio: liblokiupdate.la .creation
-	rm -rf knowledge.bio
 	$(LOKI_CMDS)
+	touch -mt `date +%Y%m%d%M` .creation
 
 test.bio: liblokiupdate.la .creation
-	rm -rf test.bio
 	$(LOKI_CMDS)
 	
 .creation:
