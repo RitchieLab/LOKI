@@ -180,7 +180,7 @@ void LdSplineImporter::loadPops() {
 			"SELECT * from " + _tmp_bnd_tbl;
 	sqlite3_exec(_db, insert_sql.c_str(), NULL, NULL, NULL);
 
-	restoreIndexes(index_map);
+	restoreIndexes("region_bound", index_map);
 
 	//Update the zone table
 	UpdateZones();
@@ -251,7 +251,7 @@ void LdSplineImporter::UpdateZones(){
 	string tmp_tbl_drop = "DROP TABLE " + tmp_zone_tbl;
 	sqlite3_exec(_db, tmp_tbl_drop.c_str(), NULL, NULL, NULL);
 
-	restoreIndexes(index_map);
+	restoreIndexes("region_zone", index_map);
 
 }
 
@@ -467,13 +467,16 @@ void LdSplineImporter::getAndDropIndexes(const string& tbl_name,
 	}
 }
 
-void LdSplineImporter::restoreIndexes(const map<string, string>& index_map){
+void LdSplineImporter::restoreIndexes(const string& tbl_name, const map<string, string>& index_map){
 	// Recretate the indexes
 	map<string, string>::const_iterator idx_itr = index_map.begin();
 	while(idx_itr != index_map.end()){
 		sqlite3_exec(_db, (*idx_itr).second.c_str(), NULL, NULL, NULL);
 		++idx_itr;
 	}
+	//Analyze the table
+	string analyze_sql = "ANALYZE '" + tbl_name + "'";
+	sqlite3_exec(_db, analyze_sql.c_str(), NULL, NULL, NULL);
 
 }
 

@@ -90,7 +90,7 @@ private:
 
 	// Retrieves and returns the indexes on a table.  Also, drops the indexes
 	void getAndDropIndexes(const string& tbl_name, map<string, string>& indexes_out);
-	void restoreIndexes(const map<string, string>& index_map);
+	void restoreIndexes(const string& tbl_name, const map<string, string>& index_map);
 
 	std::vector<PopulationSpline> splines;			///<population -> ldspline filename
 	std::vector<std::pair<CutoffType, float> > cutoffs;
