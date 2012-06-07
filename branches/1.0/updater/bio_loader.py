@@ -161,8 +161,6 @@ def LoadKB(dbFilename, kbLoads, doReset = False, refreshEnsembl = False):
 				
 	except Exception, e:
 		#unhandled exception means something went VERY wrong
-		# close the db:
-		bioDB.close()
 		# if it was a new db, just delete it!
 		if not db_exists:
 			os.remove(dbFilename)
