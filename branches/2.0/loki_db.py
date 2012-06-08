@@ -29,6 +29,10 @@ class Database(object):
 	# private class data
 	
 	
+	_setting_defaults = {
+		'region_zone_size': 100000,
+	} #_setting_defaults{}
+	
 	_schema = {
 		'db': {
 			# ########## db.setting ##########
@@ -601,6 +605,8 @@ class Database(object):
 						dbc.execute("CREATE INDEX IF NOT EXISTS `%s`.`%s` ON `%s` %s" % (dbName, idxName, tblName, schema[tblName]['index'][idxName]))
 				dbc.execute("ANALYZE `%s`.`%s`" % (dbName,tblName))
 		#foreach tblName in tblList
+		if indexes:
+			dbc.execute("ANALYZE `%s`.`sqlite_master`" % (dbName,))
 	#createDatabaseObjects()
 	
 	
@@ -730,11 +736,14 @@ class Database(object):
 	def getDatabaseSetting(self, setting, value=None):
 		dbc = self._db.cursor()
 		found = False
-		for row in dbc.execute("SELECT setting, value FROM `db`.`setting` WHERE setting = ?", (setting,)):
-			value = row[1]
+		for row in dbc.execute("SELECT value FROM `db`.`setting` WHERE setting = ?", (setting,)):
+			value = row[0]
 			found = True
 		if not found:
-			self.setDatabaseSetting(setting, value)
+			if value == None and setting in self._setting_defaults:
+				value = self._setting_defaults[setting]
+			if value != None:
+				self.setDatabaseSetting(setting, value)
 		return value
 	#getDatabaseSetting()
 	
@@ -766,14 +775,14 @@ class Database(object):
 		if self._updater:
 			return self._updater.prepareTableForUpdate(table)
 		return None
-	#prepareTableUpdate()
+	#prepareTableForUpdate()
 	
 	
 	def prepareTableForQuery(self, table):
 		if self._updater:
 			return self._updater.prepareTableForQuery(table)
 		return None
-	#prepareTableQuery()
+	#prepareTableForQuery()
 	
 	
 	# ##################################################
@@ -880,27 +889,145 @@ class Database(object):
 	# SNP data retrieval
 	
 	
-	def generateSNPsByRS(self, rses):
-		# rses=[ (rs,), ... ]
-		for row in self._db.cursor().executemany("SELECT rs, chr, pos FROM `db`.`snp` WHERE rs = ?", rses):
+	def generateSNPs(self, rses):
+		# rses=[ rs, ... ]
+		sql = "SELECT rs, chr, pos FROM `db`.`snp` WHERE rs = ?"
+		for row in self._db.cursor().executemany(sql, ((rs,) for rs in rses)):
 			yield row
-	#generateSNPsByRS()
+	#generateSNPs()
 	
 	
-	def generateCurrentSNPsByRS(self, rses):
-		# rses=[ (rs,), ... ]
-		for row in self._db.cursor().executemany("""
-SELECT s.rs, s.chr, s.pos
+	def generateCurrentRSesByRS(self, rses, minMatch=1, maxMatch=1, tally=None):
+		# rses=[ rs, ... ]
+		# tally=dict()
+		sql = """
+SELECT i.rs, s.rs
 FROM (SELECT ? AS rs) AS i
-LEFT JOIN `db`.`snp_merge` AS sm
-  ON sm.rsOld = i.rs
-LEFT JOIN `db`.`snp` AS s
-  ON s.rs = COALESCE(sm.rsCur, i.rs)
-""", rses):
-			yield row
-	#generateCurrentSNPsByRS()
+LEFT JOIN `db`.`snp` AS s USING (rs)
+UNION ALL
+SELECT sm.rsOld, sm.rsCur
+FROM `db`.`snp_merge` AS sm
+JOIN `db`.`snp` AS s
+  ON s.rs = sm.rsCur
+WHERE sm.rsOld = ?
+"""
+		key = matches = None
+		numNull = numAmbig = numMerge = numMatch = 0
+		for row in self._db.cursor().executemany(sql, ((rs,rs) for rs in rses)):
+			if key != row[0]:
+				if key:
+					if tally != None:
+						if not matches:
+							numNull += 1
+						elif len(matches) > 1:
+							numAmbig += 1
+						elif max(matches) != key:
+							numMerge += 1
+						else:
+							numMatch += 1
+					if minMatch < 1 and not matches:
+						yield (key,None)
+					elif minMatch <= len(matches) <= (maxMatch or len(matches)):
+						for match in matches:
+							yield (key,match)
+				key = row[0]
+				matches = set()
+			if row[1]:
+				matches.add(row[1])
+		#foreach row
+		if key:
+			if tally != None:
+				if not matches:
+					numNull += 1
+				elif len(matches) > 1:
+					numAmbig += 1
+				elif max(matches) != key:
+					numMerge += 1
+				else:
+					numMatch += 1
+			if minMatch < 1 and not matches:
+				yield (key,None)
+			elif minMatch <= len(matches) <= (maxMatch or len(matches)):
+				for match in matches:
+					yield (key,match)
+		if tally != None:
+			tally['null'] = numNull
+			tally['ambig'] = numAmbig
+			tally['merge'] = numMerge
+			tally['match'] = numMatch
+	#generateCurrentRSesByRS()
 	
-
+	
+	# ##################################################
+	# region data retrieval
+	
+	
+	def generateRegions(self, rids):
+		# rids=[ region_id, ... ]
+		sql = "SELECT region_id, type_id, label, description FROM `db`.`region` WHERE region_id = ?"
+		for row in self._db.cursor().executemany(sql, ((rid,) for rid in rids)):
+			yield row
+	#generateRegions()
+	
+	
+	def generateRegionIDsByName(self, names, minMatch=1, maxMatch=1, namespaceID=None, typeID=None, tally=None):
+		# names=[ (name,), ... ]
+		# tally=dict()
+		sql = """
+SELECT i.name, r.region_id
+FROM (SELECT ? AS name) AS i
+LEFT JOIN `db`.`region_name` AS rn
+  ON rn.name = i.name
+  {rn_join}
+LEFT JOIN `db`.`region` AS r
+  ON r.region_id = rn.region_id
+  {r_join}
+""".format(
+			rn_join=("AND rn.namespace_id = %d" % namespaceID) if namespaceID else "",
+			r_join=("AND r.type_id = %d" % typeID) if typeID else ""
+		)
+		key = matches = None
+		numNull = numAmbig = numMatch = 0
+		for row in self._db.cursor().executemany(sql, ((name,) for name in names)):
+			if key != row[0]:
+				if key:
+					if tally != None:
+						if not matches:
+							numNull += 1
+						elif len(matches) > 1:
+							numAmbig += 1
+						else:
+							numMatch += 1
+					if minMatch < 1 and not matches:
+						yield (key,None)
+					elif minMatch <= len(matches) <= (maxMatch or len(matches)):
+						for match in matches:
+							yield (key,match)
+				key = row[0]
+				matches = set()
+			if row[1]:
+				matches.add(row[1])
+		#foreach row
+		if key:
+			if tally != None:
+				if not matches:
+					numNull += 1
+				elif len(matches) > 1:
+					numAmbig += 1
+				else:
+					numMatch += 1
+			if minMatch < 1 and not matches:
+				yield (key,None)
+			elif minMatch <= len(matches) <= (maxMatch or len(matches)):
+				for match in matches:
+					yield (key,match)
+		if tally != None:
+			tally['null'] = numNull
+			tally['ambig'] = numAmbig
+			tally['match'] = numMatch
+	#generateRegionIDsByName()
+	
+	 
 	# ##################################################
 	# group data retrieval
 	
