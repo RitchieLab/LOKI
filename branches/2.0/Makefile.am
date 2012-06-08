@@ -33,7 +33,7 @@ endif
 
 knowledge.bio: liblokiupdate.la .creation
 	$(LOKI_CMDS)
-	touch -mt `date +%Y%m%d%M` .creation
+	
 
 test.bio: liblokiupdate.la .creation
 	$(LOKI_CMDS)
