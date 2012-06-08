@@ -12,13 +12,6 @@ class Updater(object):
 	
 	
 	# ##################################################
-	# private class data
-	
-	
-	_default_region_zone_size = 100000
-	
-	
-	# ##################################################
 	# constructor
 	
 	
@@ -487,33 +480,37 @@ FROM `db`.`group_region`
 	
 	def updateRegionZones(self):
 		self.log("calculating zone coverage ...")
+		zoneSize = self._loki.getDatabaseSetting('region_zone_size')
+		if not zoneSize:
+			raise Exception("ERROR: could not determine database setting 'region_zone_size'")
+		zoneSize = int(zoneSize)
 		dbc = self._db.cursor()
 		
 		# make sure all regions are correctly oriented
 		dbc.execute("UPDATE `db`.`region_bound` SET posMin = posMax, posMax = posMin WHERE posMin > posMax")
 		
-		# build a numbers table containing all covered zones
-		zoneSize = int(self._loki.getDatabaseSetting('region_zone_size', self._default_region_zone_size))
-		minZone = min( (int(row[0]) / zoneSize) for row in dbc.execute("SELECT MIN(posMin) FROM `db`.`region_bound`") )
-		maxZone = max( (int(row[0]) / zoneSize) for row in dbc.execute("SELECT MAX(posMax) FROM `db`.`region_bound`") )
-		dbc.execute("CREATE TEMP TABLE `temp`.`_zone` (zone INTEGER PRIMARY KEY NOT NULL)")
-		dbc.executemany("INSERT INTO `temp`.`_zone` (zone) VALUES (?)", ((zone,) for zone in xrange(minZone,maxZone+1)))
+		# define zone generator
+		def _zones(zoneSize, bounds):
+			# bounds=[ (region_id,population_id,chr,posMin,posMax),... ]
+			# yields:[ (region_id,population_id,chr,zone),... ]
+			for b in bounds:
+				for z in xrange(int(b[3])/zoneSize,(int(b[4])/zoneSize)+1):
+					yield (b[0],b[1],b[2],z)
+		#_zones()
 		
-		# derive region-zone coverage
+		# feed all bounds through the zone generator
 		self.prepareTableForUpdate('region_zone')
 		self.prepareTableForQuery('region_bound')
 		dbc.execute("DELETE FROM `db`.`region_zone`")
-		dbc.execute("""
-INSERT OR IGNORE INTO `db`.`region_zone` (region_id,population_id,chr,zone)
-SELECT rb.region_id, rb.population_id, rb.chr, z.zone
-FROM `db`.`region_bound` AS rb
-JOIN `temp`.`_zone` AS z
-  ON z.zone >= rb.posMin / ?
-  AND z.zone <= rb.posMax / ?
-""", (zoneSize,zoneSize))
+		dbc.executemany(
+			"INSERT OR IGNORE INTO `db`.`region_zone` (region_id,population_id,chr,zone) VALUES (?,?,?,?)",
+			_zones(
+				zoneSize,
+				self._db.cursor().execute("SELECT region_id,population_id,chr,posMin,posMax FROM `db`.`region_bound`")
+			)
+		)
 		
 		# clean up
-		dbc.execute("DROP TABLE `temp`.`_zone`")
 		self.prepareTableForQuery('region_zone')
 		for row in dbc.execute("SELECT COUNT(), COUNT(DISTINCT region_id) FROM `db`.`region_zone`"):
 			numTotal = row[0]
