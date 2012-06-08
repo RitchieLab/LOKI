@@ -488,6 +488,7 @@ class Source(object):
 		"""
 		Adds the build->assembly pairs into the build_assembly table
 		"""
+		self.prepareTableForUpdate('build_assembly')
 		self._db.cursor().executemany(
 			"INSERT OR IGNORE INTO 'db'.'build_assembly' ('build','assembly') VALUES (?,?)",
 			(tuple(ba_pair) for ba_pair in build_pairs)
@@ -501,7 +502,7 @@ class Source(object):
 		ids of the added chains.  The chain_list must be an iterable
 		container of objects that can be inserted into the chain table
 		"""
-		
+		self.prepareTableForUpdate('chain')
 		retList = []
 		for row in self._db.cursor().executemany(
 			"INSERT INTO 'db'.'chain' ('old_assembly','score','old_chr','old_start','old_end','new_chr','new_start','new_end','is_fwd') VALUES (?,?,?,?,?,?,?,?,?); SELECT last_insert_rowid()",
@@ -517,6 +518,7 @@ class Source(object):
 		"""
 		Adds all of the chain data into the chain data table
 		"""
+		self.prepareTableForUpdate('chain_data')
 		self._db.cursor().executemany(
 			"INSERT INTO 'db'.'chain_data' ('chain_id','old_start','old_end','new_start') VALUES (?,?,?,?)",
 			(tuple(cd) for cd in chain_data_list)
