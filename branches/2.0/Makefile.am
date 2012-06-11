@@ -4,6 +4,9 @@ noinst_LTLIBRARIES=liblokiupdate.la
 
 liblokiupdate_la_SOURCES=loki_db.py \
 loki.py \
+loki_source.py \
+loki_db.py \
+loki_updater.py \
 __init__.py \
 loaders/__init__.py \
 loaders/loki_source_biogrid.py \
@@ -15,7 +18,6 @@ loaders/loki_source_mint.py \
 loaders/loki_source_netpath.py \
 loaders/loki_source_pfam.py \
 loaders/loki_source_pharmgkb.py \
-loaders/loki_source.py \
 loaders/loki_source_reactome.py \
 loaders/loki_source_chainfiles.py \
 util/__init__.py \
