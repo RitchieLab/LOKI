@@ -1,17 +1,83 @@
-import loki_db
 import sys
+import bisect
 
 class liftOver(object):
 	"""
 	A class to do your heavy lifting for you
 	"""
 	
-	def __init__(self, db_fn):
-		self._db = loki_db.Database(db_fn)
-		
+	def __init__(self, db, assembly, cached=False):
+		# db is a loki_db.Database object
+		self._db = db
+		self._cached = cached
+		self._assy = assembly
 		self._minFrac = 0.95
+		if self._cached:
+			self._cached_data = {}
+			self._cached_keys = {}
+			self._chainData = self._initChains()
 	
-	def liftRegion(self, assembly, chrom, start, end):
+	def _initChains(self):
+		"""
+		Constructs the chain object that resides in memory
+		"""
+		for row in self._db._db.cursor().execute("SELECT chain_id, old_chr, score, chain.old_start, " + 
+			"chain.old_end, chain.new_start, is_fwd, new_chr, " + 
+			"chain_data.old_start, chain_data.old_end, chain_data.new_start " + 
+			"FROM db.chain INNER JOIN db.chain_data USING (chain_id) " +
+			"WHERE old_assembly=? " + 
+			"ORDER BY old_chr, score DESC, chain_data.old_start",
+			(self._assy, )):
+				
+			chain = (row[2], row[3], row[4], row[5], row[6], row[7], row[0])
+			chr = row[1]
+					
+			if chr not in self._cached_data:
+				self._cached_data[chr] = {chain: []}
+				self._cached_keys[chr] = [chain]
+			elif chain not in self._cached_data[chr]:
+				self._cached_data[chr][chain] = []
+				self._cached_keys[chr].append(chain)
+			
+			self._cached_data[chr][chain].append((row[8],row[9],row[10]))
+		
+		# Sort the chains by score
+		for k in self._cached_keys:
+			self._cached_keys[k].sort(reverse=True)
+
+			
+				
+	def _findChains(self, chrom, start, end):
+		"""
+		Finds all of the chain segments, either from the  
+		"""
+		
+		if not self._cached:
+			for row in self._db._db.cursor().execute(
+			"SELECT chain.chain_id, chain_data.old_start, chain_data.old_end, chain_data.new_start, is_fwd, new_chr " +
+			"FROM chain INNER JOIN chain_data ON chain.chain_id = chain_data.chain_id " +
+			"WHERE old_assembly=? AND old_chr=? AND chain.old_end>=? AND chain.old_start<=? AND chain_data.old_end>=? AND chain_data.old_start<=? " +
+			"ORDER BY score DESC",
+			(self._assy, chrom, start, end, start, end)):
+				yield row
+		else:
+			for c in self._cached_keys.get(chrom, []):
+				# if the region overlaps the chain...
+				if start <= c[2] and end >= c[1]:
+					data = self._cached_data[chrom][c]
+					idx = bisect.bisect(data, (start, 0, 0))
+					if idx:
+						idx = idx-1
+
+					if idx < len(data) - 1 and start == data[idx + 1]:
+						idx = idx + 1
+					
+					while idx < len(data) and data[idx][0] <= end:
+						yield (c[-1], data[idx][0], data[idx][1], data[idx][2], c[4], c[5])
+						idx = idx + 1
+					
+					
+	def liftRegion(self, chrom, start, end):
 		"""
 		Lift a region from a given chromosome on a specified assembly
 		to a region on the new assembly
@@ -27,13 +93,8 @@ class liftOver(object):
 			is_region = False
 			end = start + 1	
 		
-		ch_list = self._db._dbc.execute(
-			"SELECT chain.chain_id, chain_data.old_start, chain_data.old_end, chain_data.new_start, is_fwd, new_chr " +
-			"FROM chain INNER JOIN chain_data ON chain.chain_id = chain_data.chain_id " +
-			"WHERE old_assembly=? AND old_chr=? AND chain.old_end>? AND chain.old_start<? AND chain_data.old_end>=? AND chain_data.old_start<=? " +
-			"ORDER BY score DESC",
-			(assembly, chrom, start, end, start, end))
-		
+		ch_list = self._findChains(chrom, start, end)
+
 		# This will be a tuple of (start, end) of the mapped region
 		# If the function returns "None", then it was unable to map
 		# the region into the new assembly
@@ -99,7 +160,7 @@ class liftOver(object):
 			new_start = end_seg[3] - end_diff
 			new_end = first_seg[3] - front_diff
 				
-		# Here, detect if we have mapped a sufficient fraction 
+		# old_startHere, detect if we have mapped a sufficient fraction 
 		# of the region.  liftOver uses a default of 95%
 		mapped_size = total_mapped_sz - front_diff - (end_seg[2] - end_seg[1]) + end_diff
 		
@@ -109,7 +170,10 @@ class liftOver(object):
 		return mapped_reg
 
 if __name__ == "__main__":
-	lo = liftOver(sys.argv[2])
+	import loki_db
+	db = loki_db.Database(sys.argv[2])
+	
+	lo = liftOver(db, 18, True)
 	f = file(sys.argv[1])
 	m = file(sys.argv[3],'w')
 	u = file(sys.argv[4],'w')
@@ -119,6 +183,6 @@ if __name__ == "__main__":
 		chrm = lo._db.chr_num.get(wds[0][3:],-1)
 		n = lo.liftRegion(chrm, int(wds[1]), int(wds[2]))
 		if n:
-			print >> m, "chr" + lo._db.chr_list[n[0]], n[1], n[2]
+			print >> m, "chr" + lo._db.chr_list[n[0]-1], n[1], n[2]
 		else:
 			print >> u, l
