@@ -112,12 +112,10 @@ class EnsemblLoader(bioloader.BioLoader):
 		#print "cat %s | mysql -h rogue -u torstees -p'SMOJ2010' ensembl" % (coreSQL)
 		#os.system("cat %s | mysql " % (coreSQL) + mysql_opts)
 		
-		#print "mysqlimport -u root ensembl -h rogue -u torstees -p'SMOJ2010' -L core/*.txt"
 		os.system("mysqlimport -L " + mysql_opts + " core/*.txt")
-		#print "mysqlimport -u root variation -h rogue -u torstees -p'SMOJ2010' -L variation/*.txt"
 		os.system("mysqlimport -L " + mysql_opts + " variation/*.txt")
 				
-		os.system("mkdir -p processed; mv *.sql core variation processed")
+		#os.system("mkdir -p processed; mv *.sql core variation processed")
 		
 		os.system("mysql " + mysql_opts + " -e \"DROP TABLE IF EXISTS " + self.db_settings.db_name + ".biodb_versions; CREATE TABLE " + self.db_settings.db_name + ".biodb_versions (element VARCHAR(64), version VARCHAR(64)); INSERT INTO " + self.db_settings.db_name + ".biodb_versions VALUES ('ensembl','%s'); INSERT INTO " % (self.version) + self.db_settings.db_name + ".biodb_versions VALUES ('build', '%s');\"" % (self.ncbiVersion))
 		self.biosettings.SetVersion("build", self.ncbiVersion)
