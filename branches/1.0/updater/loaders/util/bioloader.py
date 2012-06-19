@@ -6,6 +6,7 @@ Created on May 7, 2010
 import os, subprocess, time, ftplib
 import cStringIO
 import sys
+import socket
 
 skipFTP	= False
 
@@ -181,7 +182,7 @@ class BioLoader:
 				retry = False
 				print e
 				print filename
-			except ftplib.error_temp, e:
+			except (socket.error, ftplib.error_temp), e:
 				#print "Trying to reconnect..."
 				self.OpenFTP(self.ftp.host, self.ftp_user, self.ftp_pass)
 		return self.remoteTimestamp
