@@ -135,7 +135,7 @@ class BioLoader:
 		
 	def _ParseFTPSize(self, line):
 		words = line.split()
-		return int(words[4])
+		self.file_size = int(words[4])
 	
 	def FetchViaHTTP(self, filename):
 		print>>sys.stderr, "\tFetching %s" % filename
@@ -196,7 +196,8 @@ class BioLoader:
 		sz = 0
 		while retry:
 			try:
-				sz = self._ParseFTPTimestamp(self.ftp.dir(filename))
+				self.ftp.dir(filename, self._ParseFTPSize)
+				sz = self.file_size
 				retry = False
 			except ftplib.error_perm, e:
 				retry = False
