@@ -10,9 +10,32 @@ class Source_ecrbase(loki_source.Source):
 	
 	_remHost = "www.dcode.org"
 	_remFiles = {
-		"coreEcrs.rheMac.txt.gz" : "/get_file.cgi?name=ecrbase::ECR/coreEcrs.hg18rheMac2.txt.gz",
-		"ecrs.rheMac.txt.gz" : "/get_file.cgi?name=ecrbase::ECR/ecrs.hg18rheMac2.txt.gz",
+		"coreEcrs.Macaque.txt.gz" : "/get_file.cgi?name=ecrbase::ECR/coreEcrs.hg18rheMac2.txt.gz",
+		"ecrs.Macaque.txt.gz" : "/get_file.cgi?name=ecrbase::ECR/ecrs.hg18rheMac2.txt.gz",
+		"ecrs.Chimp.txt.gz" : "/get_file.cgi?name=ecrbase::ECR/ecrs.hg18panTro2.txt.gz",
+		"coreEcrs.Chimp.txt.gz" : "/get_file.cgi?name=ecrbase::ECR/coreEcrs.hg18panTro2.txt.gz",
+		"ecrs.Mouse.txt.gz" : "/get_file.cgi?name=ecrbase::ECR/ecrs.hg18mm9.txt.gz",
+		"coreEcrs.Mouse.txt.gz" : "/get_file.cgi?name=ecrbase::ECR/coreEcrs.hg18mm9.txt.gz",
+		"ecrs.Cow.txt.gz" : "/get_file.cgi?name=ecrbase::ECR/ecrs.hg18bosTau3.txt.gz",
+		"coreEcrs.Cow.txt.gz" : "/get_file.cgi?name=ecrbase::ECR/coreEcrs.hg18bosTau3.txt.gz",
+		"ecrs.Dog.txt.gz" : "/get_file.cgi?name=ecrbase::ECR/ecrs.hg18canFam2.txt.gz",
+		"coreEcrs.Dog.txt.gz" : "/get_file.cgi?name=ecrbase::ECR/coreEcrs.hg18canFam2.txt.gz",
+		"ecrs.Opossum.txt.gz" : "/get_file.cgi?name=ecrbase::ECR/ecrs.hg18monDom4.txt.gz",
+		"coreEcrs.Opossum.txt.gz" : "/get_file.cgi?name=ecrbase::ECR/coreEcrs.hg18monDom4.txt.gz",
+		"ecrs.Chicken.txt.gz" : "/get_file.cgi?name=ecrbase::ECR/ecrs.hg18galGal3.txt.gz",
+		"coreEcrs.Chicken.txt.gz" : "/get_file.cgi?name=ecrbase::ECR/coreEcrs.hg18galGal3.txt.gz",
+		"ecrs.Frog.txt.gz" : "/get_file.cgi?name=ecrbase::ECR/ecrs.hg18xenTro2.txt.gz",
+		"coreEcrs.Frog.txt.gz" : "/get_file.cgi?name=ecrbase::ECR/coreEcrs.hg18xenTro2.txt.gz",
+		"ecrs.Zebrafish.txt.gz" : "/get_file.cgi?name=ecrbase::ECR/ecrs.hg18danRer5.txt.gz",
+		"coreEcrs.Zebrafish.txt.gz" : "/get_file.cgi?name=ecrbase::ECR/coreEcrs.hg18danRer5.txt.gz",
+		"ecrs.Fugu.txt.gz" : "/get_file.cgi?name=ecrbase::ECR/ecrs.hg18fr2.txt.gz",
+		"coreEcrs.Fugu.txt.gz" : "/get_file.cgi?name=ecrbase::ECR/coreEcrs.hg18fr2.txt.gz",
+		"ecrs.Tetradon.txt.gz" : "/get_file.cgi?name=ecrbase::ECR/ecrs.hg18tetNig1.txt.gz",
+		"coreEcrs.Tetradon.txt.gz" : "/get_file.cgi?name=ecrbase::ECR/coreEcrs.hg18tetNig1.txt.gz",
 	}
+	
+	# Temporarily disable this loader
+	_remFiles = {}
     
 	def download(self):
 		"""
@@ -52,6 +75,8 @@ class Source_ecrbase(loki_source.Source):
 			label = "ecr_" + species
 			
 			(base_gid, core_gid) = self.addTypedGroups(ecr_group_typeid, [(label, desc),("core_"+label, "Core " + desc)])
+			
+			self.log("processing base ECRs for " + species + " ...")
 			self.addGroupNamespacedNames(ecr_ns, [(base_gid, label), (core_gid, "core_"+label)])
 			
 			reg_list = [r for r in (self._convertToRegion(l, species) for l in self.zfile(base_fn)) if r is not None]
@@ -60,10 +85,12 @@ class Source_ecrbase(loki_source.Source):
 			self.addRegionNamespacedNames(ecr_ns, ((v, k) for (k, v) in reg_dict.iteritems()))
 			self.addRegionPopulationBounds(1, (tuple(itertools.chain(*c)) for c in zip(((i,) for i in reg_ids),(r[1] for r in reg_list))))			
 			self.addGroupTypedRegionNamespacedNames(ecr_typeid, ecr_ns, ((base_gid, x[0]+1, x[1]) for x in zip(xrange(len(reg_list)), (r[0] for r in reg_list))))
-				
+			self.log(" OK\n")
+			self.log("processing core ECRs for " + species + " ...")
 			# Now, parse the core ECRs
 			reg_list = [r for r in (self._convertToRegion(l, species) for l in self.zfile(base_fn)) if r is not None]
 			self.addGroupTypedRegionNamespacedNames(ecr_typeid, ecr_ns, ((core_gid, x[0]+1, x[1]) for x in zip(xrange(len(reg_list)), (r[0] for r in reg_list))))
+			self.log(" OK\n")
 			
 			
 	def _convertToRegion(self, line, species):
