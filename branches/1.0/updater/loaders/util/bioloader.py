@@ -132,6 +132,10 @@ class BioLoader:
 			words[7] = time.strftime("%Y", time.gmtime())
 		date = "-".join((words[7], months[words[5]], words[6]))
 		self.remoteTimestamp = time.strptime(date, "%Y-%m-%d")
+		
+	def _ParseFTPSize(self, line):
+		words = line.split()
+		return int(words[4])
 	
 	def FetchViaHTTP(self, filename):
 		print>>sys.stderr, "\tFetching %s" % filename
@@ -187,6 +191,23 @@ class BioLoader:
 				self.OpenFTP(self.ftp.host, self.ftp_user, self.ftp_pass)
 		return self.remoteTimestamp
 	
+	def FTP_size(self, filename):
+		retry = True
+		sz = 0
+		while retry:
+			try:
+				sz = self._ParseFTPTimestamp(self.ftp.dir(filename))
+				retry = False
+			except ftplib.error_perm, e:
+				retry = False
+				print e
+				print filename
+				
+			except (socket.error, ftplib.error_temp), e:
+				#print "Trying to reconnect..."
+				self.OpenFTP(self.ftp.host, self.ftp_user, self.ftp_pass)
+		return sz
+	
 	def _ExtractFilename(self, filename):
 		ext = os.path.splitext(filename)[-1]
 		
@@ -220,8 +241,26 @@ class BioLoader:
 		print "\tFetching ftp://%s/%s" % (self.ftp.host,filename)
 		
 		if downloadFile:
-			#print "RETR %s (-> %s)" % (filename, localFilename)
-			self.ftp.retrbinary('RETR %s' % filename, open(localFilename, 'wb').write)
+			retry = True
+			while retry:
+				try:
+					local_f = file(localFilename, 'wb')
+					self.ftp.retrbinary('RETR %s' % filename, local_f.write)
+					local_f.close()
+					rem_size = self.FTP_size(filename)
+					if rem_size == 0 or os.path.getsize(local_f.name) == rem_size:
+						retry = False
+				except ftplib.error_perm, e:
+					retry = False
+					print e
+					print filename
+				except (socket.error, ftplib.error_temp), e:
+					#print "Trying to reconnect..."
+					self.OpenFTP(self.ftp.host, self.ftp_user, self.ftp_pass)
+				#print "RETR %s (-> %s)" % (filename, localFilename)
+				
+				if retry:
+					print "\tRetrying ftp://%s/%s" % (self.ftp.host,filename)
 		else:
 			pass
 			#print "-> %s (Skipping Download)" % (localFilename)
