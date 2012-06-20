@@ -100,8 +100,7 @@ def LoadKB(dbFilename, kbLoads, doReset = False, refreshEnsembl = False):
 				loader = load_reactome.ReactomeLoader(bioDB, db_set)
 				loader.InitLog()
 				ensembl = GetEnsembl(bioDB, refreshEnsembl, db_set)
-				if refreshEnsembl:
-					loader.RefreshDatabase()
+				loader.RefreshDatabase()
 				
 				loader.Load(ensembl)
 				loader.Commit()
