@@ -253,14 +253,13 @@ SELECT DISTINCT
     c.name AS chromosome, 
     d.seq_region_start,
     d.seq_region_end,
-    b.stable_id,
+    a.stable_id,
     e.display_label,
    	e.external_db_id,
 	e.description
 
 FROM 
     ens_gene AS a
-    INNER JOIN ens_gene_stable_id AS b ON (a.gene_id=b.gene_id)
     INNER JOIN ens_seq_region c ON a.seq_region_id = c.seq_region_id
     INNER JOIN ens_transcript d ON a.gene_id=d.gene_id
     INNER JOIN ens_object_xref x ON d.canonical_translation_id=x.ensembl_id
@@ -340,14 +339,13 @@ SELECT DISTINCT
     c.name AS chromosome, 
     d.seq_region_start,
     d.seq_region_end,
-    b.stable_id,
+    a.stable_id,
     e.description,
     e.display_label,
 	GROUP_CONCAT(DISTINCT IF(e.external_db_id=2000,e.dbprimary_acc,'') SEPARATOR ' ') AS trembl_id,
 	GROUP_CONCAT(DISTINCT IF(e.external_db_id=2200,e.dbprimary_acc,'') SEPARATOR ' ') AS swissprot_id
 FROM 
     ens_gene AS a
-    INNER JOIN ens_gene_stable_id AS b ON (a.gene_id=b.gene_id)
     INNER JOIN ens_seq_region c ON a.seq_region_id = c.seq_region_id
     INNER JOIN ens_transcript d ON a.gene_id=d.gene_id
     INNER JOIN ens_object_xref x ON d.canonical_translation_id=x.ensembl_id
@@ -358,7 +356,7 @@ WHERE
     AND c.name = %s
     AND e.external_db_id IN (2000,2200,1300)
     AND coord_system_id=%s
-GROUP BY b.gene_id""", (chromosome, 2))
+GROUP BY a.gene_id""", (chromosome, 2))
 		
 		rows = c.fetchall()
 		geneCount					= 0
@@ -437,10 +435,10 @@ GROUP BY b.gene_id""", (chromosome, 2))
 					FROM (SELECT dbprimary_acc, display_label, description, xref.xref_id 
 								FROM xref
 								WHERE external_db_id=%s) AS a
-					NATURAL JOIN object_xref AS b
-					INNER JOIN translation AS c ON b.ensembl_id=c.translation_id
-					INNER JOIN transcript AS d ON c.transcript_id=d.transcript_id
-					INNER JOIN gene_stable_id as e ON e.gene_id=d.gene_id""", (aliasTypeID, ))
+					NATURAL JOIN ens_object_xref AS b
+					INNER JOIN ens_translation AS c ON b.ensembl_id=c.translation_id
+					INNER JOIN ens_transcript AS d ON c.transcript_id=d.transcript_id
+					INNER JOIN ens_gene as e ON e.gene_id=d.gene_id""", (aliasTypeID, ))
 				for row in cur.fetchall():
 					self.AddAliasToEnsemblID(row[2], row[1], aliasTypeID)
 					if aliasTypeID == 2000:

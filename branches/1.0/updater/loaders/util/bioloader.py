@@ -226,6 +226,11 @@ class BioLoader:
 			pass
 			#print "-> %s (Skipping Download)" % (localFilename)
 			
+		########
+		# Add checking code here!
+		########
+			
+			
 		if ext == ".tgz":
 			localFilename = self._Extract(localFilename, "tar -zxvf %s")
 		elif ext == ".zip":

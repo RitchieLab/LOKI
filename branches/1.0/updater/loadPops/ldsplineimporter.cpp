@@ -278,7 +278,7 @@ void LdSplineImporter::InitPopulationIDs(map<string, int>& popIDs,
 		string pop_query = "SELECT population_id FROM populations where population_label='"+popName+"';";
 		int popID = -1;
 
-		sqlite3_exec(_db, pop_query.c_str(), parsePopID, &popID, NULL);
+		sqlite3_exec(_db, pop_query.c_str(), parseSingleInt, &popID, NULL);
 
 		if (popID > 0) {
 			cerr << "Clearing out all bounds associated with population"
@@ -292,7 +292,7 @@ void LdSplineImporter::InitPopulationIDs(map<string, int>& popIDs,
 
 		} else {
 			pop_query = "SELECT MAX(population_id) FROM populations;";
-			sqlite3_exec(_db, pop_query.c_str(), parsePopID, &popID, NULL);
+			sqlite3_exec(_db, pop_query.c_str(), parseSingleInt, &popID, NULL);
 			popID++;
 		}
 
@@ -337,7 +337,7 @@ int LdSplineImporter::parseGenes(void* obj, int n_cols, char** col_vals, char** 
 
 }
 
-int LdSplineImporter::parsePopID(void* pop_id, int n_cols, char** col_vals, char** col_names){
+int LdSplineImporter::parseSingleInt(void* pop_id, int n_cols, char** col_vals, char** col_names){
 	if(n_cols !=  1){
 		return 2;
 	}
