@@ -3,7 +3,7 @@
 import loki_source
 import itertools
 
-class Source_ecrbase(loki_source):
+class Source_ecrbase(loki_source.Source):
 	"""
 	A class to load ECRBase into LOKI
 	"""
@@ -27,8 +27,8 @@ class Source_ecrbase(loki_source):
 		fn_by_species = {}
 		for fn in self._remFiles:
 			(ecr_type, species, other) = fn.split(".",2)
-			fn_by_species.get(species,[]).append(fn)
-		
+			fn_by_species.setdefault(species,[]).append(fn)
+				
 		# this will put the "ecr" file last
 		for s, fns in fn_by_species.iteritems():
 			fns.sort()
@@ -54,7 +54,7 @@ class Source_ecrbase(loki_source):
 			(base_gid, core_gid) = self.addTypedGroups(ecr_group_typeid, [(label, desc),("core_"+label, "Core " + desc)])
 			self.addGroupNamespacedNames(ecr_ns, [(base_gid, label), (core_gid, "core_"+label)])
 			
-			reg_list = [r for r in (_convertToRegion(l) for l in self.zfile(base_fn)) if r is not None]		
+			reg_list = [r for r in (self._convertToRegion(l, species) for l in self.zfile(base_fn)) if r is not None]
 			reg_ids = self.addTypedRegions(ecr_typeid, ((r[0], '') for r in reg_list))
 			reg_dict = dict(zip((r[0] for r in reg_list), reg_ids))
 			self.addRegionNamespacedNames(ecr_ns, ((v, k) for (k, v) in reg_dict.iteritems()))
@@ -62,7 +62,7 @@ class Source_ecrbase(loki_source):
 			self.addGroupTypedRegionNamespacedNames(ecr_typeid, ecr_ns, ((base_gid, x[0]+1, x[1]) for x in zip(xrange(len(reg_list)), (r[0] for r in reg_list))))
 				
 			# Now, parse the core ECRs
-			reg_list = [r for r in (_convertToRegion(l) for l in self.zfile(base_fn)) if r is not None]
+			reg_list = [r for r in (self._convertToRegion(l, species) for l in self.zfile(base_fn)) if r is not None]
 			self.addGroupTypedRegionNamespacedNames(ecr_typeid, ecr_ns, ((core_gid, x[0]+1, x[1]) for x in zip(xrange(len(reg_list)), (r[0] for r in reg_list))))
 			
 			
@@ -76,7 +76,7 @@ class Source_ecrbase(loki_source):
 		if ch.lower().startswith('chr'):
 			ch = ch[3:]
 		
-		ch_num = self._db.get(ch, None)
+		ch_num = self._loki.chr_num.get(ch, None)
 		if ch_num is None:
 			return None
 		

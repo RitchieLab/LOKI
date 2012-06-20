@@ -238,6 +238,9 @@ WHERE polyregion > 0 OR implication >= name_implication
 		numTotal = numUnrec = numMatch = 0
 		self.prepareTableForQuery('region_name_name')
 		self.prepareTableForQuery('region_name')
+		numTotal =0
+		numUnrec =0
+		numMatch =0
 		for row in dbc.execute("""
 SELECT COUNT(), SUM(CASE WHEN regions < 1 THEN 1 ELSE 0 END)
 FROM (
@@ -253,7 +256,8 @@ FROM (
 )
 """):
 			numTotal = row[0]
-			numUnrec = row[1]
+			if row[1] is not None:
+				numUnrec = row[1]
 		for row in dbc.execute("""
 SELECT COUNT()
 FROM (
