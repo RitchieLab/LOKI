@@ -9,7 +9,6 @@ import re
 import shutil
 from ftplib import FTP
 from optparse import OptionParser
-import sqlite3
 
 def downloadFile(ftp_obj, fn):
 	"""

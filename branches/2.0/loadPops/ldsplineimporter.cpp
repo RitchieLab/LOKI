@@ -119,7 +119,7 @@ void LdSplineImporter::loadPops() {
 
 	// First, collect all of the indexes
 	map<string, string> index_map;
-	getAndDropIndexes("region_bound", index_map);
+	getAndDropIndexes("biopolymer_region", index_map);
 
 
 	vector<PopulationSpline>::const_iterator spItr = splines.begin();
@@ -156,8 +156,8 @@ void LdSplineImporter::loadPops() {
 
 	stringstream load_others_str;
 	load_others_str << "INSERT INTO " << _tmp_bnd_tbl << " "
-			<< "SELECT region_id, p.population_id, chr, posMin, posMax, source_id "
-			<< "FROM region_bound JOIN "
+			<< "SELECT biopolymer_id, p.population_id, chr, posMin, posMax, source_id "
+			<< "FROM biopolymer_region JOIN "
 			<< "(SELECT DISTINCT population_id FROM " << _tmp_bnd_tbl << ") as p "
 			<< "WHERE chr NOT IN (";
 
@@ -176,11 +176,11 @@ void LdSplineImporter::loadPops() {
 	sqlite3_exec(_db, load_others_sql.c_str(), NULL, NULL, NULL);
 
 	// Move everything from the temporary table into the "real" table
-	string insert_sql = "INSERT OR IGNORE INTO region_bound "
+	string insert_sql = "INSERT OR IGNORE INTO biopolymer_region "
 			"SELECT * from " + _tmp_bnd_tbl;
 	sqlite3_exec(_db, insert_sql.c_str(), NULL, NULL, NULL);
 
-	restoreIndexes("region_bound", index_map);
+	restoreIndexes("biopolymer_region", index_map);
 
 	//Update the zone table
 	UpdateZones();
@@ -197,14 +197,14 @@ void LdSplineImporter::UpdateZones(){
 	sqlite3_exec(_db, zone_sql.c_str(), &parseSingleInt, &zone_size, NULL);
 
 	// Reverse any regions that are backwards
-	string region_reverse_sql = "UPDATE region_bound "
+	string region_reverse_sql = "UPDATE biopolymer_region "
 			"SET posMin = posMax, posMax = posMin WHERE posMin > posMax";
 	sqlite3_exec(_db, region_reverse_sql.c_str(), NULL, NULL, NULL);
 
 	// Find the minimum and maximum zone sizes
 	int minPos, maxPos = 0;
-	string min_pos_sql = "SELECT MIN(posMin) FROM region_bound";
-	string max_pos_sql = "SELECT MAX(posMax) FROM region_bound";
+	string min_pos_sql = "SELECT MIN(posMin) FROM biopolymer_region";
+	string max_pos_sql = "SELECT MAX(posMax) FROM biopolymer_region";
 
 	sqlite3_exec(_db, min_pos_sql.c_str(), &parseSingleInt, &minPos, NULL);
 	sqlite3_exec(_db, max_pos_sql.c_str(), &parseSingleInt, &maxPos, NULL);
@@ -231,17 +231,17 @@ void LdSplineImporter::UpdateZones(){
 
 	// drop the indexes on zone table
 	map<string, string> index_map;
-	getAndDropIndexes("region_zone",index_map);
+	getAndDropIndexes("biopolymer_zone",index_map);
 
 	// Get rid of the entire region zone table
-	string zone_del_sql = "DELETE FROM region_zone";
+	string zone_del_sql = "DELETE FROM biopolymer_zone";
 	sqlite3_exec(_db, zone_del_sql.c_str(), NULL, NULL, NULL);
 
 	// OK, now we're ready to do some insertin'!
 	stringstream zone_ins_str;
-	zone_ins_str << "INSERT OR IGNORE INTO region_zone (region_id,population_id,chr,zone) "
-			<< "SELECT rb.region_id, rb.population_id, rb.chr, z.zone "
-			<< "FROM region_bound AS rb JOIN " << tmp_zone_tbl << " AS z "
+	zone_ins_str << "INSERT OR IGNORE INTO biopolymer_zone (biopolymer_id,chr,zone) "
+			<< "SELECT rb.biopolymer_id, rb.chr, z.zone "
+			<< "FROM biopolymer_region AS rb JOIN " << tmp_zone_tbl << " AS z "
 			<< "ON z.zone >= rb.posMin / " << zone_size << " "
 			<< "AND z.zone <= rb.posMax / " << zone_size << " ";
 
@@ -251,7 +251,7 @@ void LdSplineImporter::UpdateZones(){
 	string tmp_tbl_drop = "DROP TABLE " + tmp_zone_tbl;
 	sqlite3_exec(_db, tmp_tbl_drop.c_str(), NULL, NULL, NULL);
 
-	restoreIndexes("region_zone", index_map);
+	restoreIndexes("biopolymer_zone", index_map);
 
 }
 
@@ -403,7 +403,7 @@ void LdSplineImporter::InitPopulationIDs(map<string, int>& popIDs,
 	while (sItr != cutoffs.end()) {
 		string popName = sp.GetPopulationName((*sItr).first, (*sItr).second);
 
-		string pop_query = "SELECT population_id FROM population where population='"+popName+"';";
+		string pop_query = "SELECT ldprofile_id FROM ldprofile WHERE ldprofile='"+popName+"';";
 		int popID = -1;
 
 		sqlite3_exec(_db, pop_query.c_str(), parseSingleInt, &popID, NULL);
@@ -412,7 +412,7 @@ void LdSplineImporter::InitPopulationIDs(map<string, int>& popIDs,
 
 			stringstream pop_ins_ss;
 			string type = ((*sItr).first == R_SQUARED ? "RS" : ((*sItr).first == D_PRIME ? "DP" : "UNK"));
-			pop_ins_ss << "INSERT INTO population (population, ldcomment, description) "
+			pop_ins_ss << "INSERT INTO ldprofile (ldprofile, comment, description) "
 					<< "VALUES ('" << popName << "','" << type << " " << (*sItr).second << "','"
 					<< sp.desc << " with " << type << " cutoff " << (*sItr).second << "');";
 
@@ -421,7 +421,7 @@ void LdSplineImporter::InitPopulationIDs(map<string, int>& popIDs,
 
 		} else {
 			stringstream del_ss;
-			del_ss << "DELETE FROM region_bound WHERE population_id=" << popID <<"; ";
+			del_ss << "DELETE FROM biopolymer_region WHERE ldprofile_id=" << popID <<"; ";
 			
 			sqlite3_exec(_db, del_ss.str().c_str(), NULL, NULL, NULL);
 		}
@@ -435,10 +435,11 @@ void LdSplineImporter::LoadGenes() {
 
 	stringstream query_ss;
 	query_ss << "SELECT region_id, chr, posMin, posMax, region_bound.source_id "
-			<< "FROM region_bound "
-			<< "INNER JOIN region USING (region_id) "
+			<< "FROM biopolymer_region "
+			<< "INNER JOIN biopolymer USING (biopolymer_id) "
 			<< "INNER JOIN type ON region.type_id=type.type_id "
-			<< "WHERE population_id=1 AND type='gene' "
+			<< "INNER JOIN ldprofile ON ldprofile.ldprofile_id=region_bound.ldprofile_id"
+			<< "WHERE ldprofile='n/a' AND type='gene' "
 			<< "ORDER BY chr, posMin;";
 
 	sqlite3_exec(_db, query_ss.str().c_str(), parseGenes, &_region_map, NULL);
