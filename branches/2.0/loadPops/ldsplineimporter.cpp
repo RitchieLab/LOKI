@@ -193,7 +193,7 @@ void LdSplineImporter::UpdateZones(){
 	// Get the zone size
 	int zone_size=100000;
 	string zone_sql = "SELECT value FROM setting "
-			"WHERE setting='region_zone_size'";
+			"WHERE setting='biopolymer_zone_size'";
 	sqlite3_exec(_db, zone_sql.c_str(), &parseSingleInt, &zone_size, NULL);
 
 	// Reverse any regions that are backwards
