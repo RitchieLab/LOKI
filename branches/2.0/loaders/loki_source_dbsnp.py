@@ -6,7 +6,7 @@ import loki_source
 class Source_dbsnp(loki_source.Source):
 	
 	
-	# ##################################################
+	##################################################
 	# private class data
 	
 	
@@ -21,7 +21,7 @@ class Source_dbsnp(loki_source.Source):
 		_remFiles['chr_%s.txt.gz' % chm] = '/snp/organisms/human_9606/chr_rpts/chr_%s.txt.gz' % chm
 	
 	
-	# ##################################################
+	##################################################
 	# source interface
 	
 	
@@ -37,80 +37,39 @@ class Source_dbsnp(loki_source.Source):
 		self.deleteAll()
 		self.log(" OK\n")
 		
-		# process chromosome report files
-		for fileChm in self._chmList:
-			self.log("processing chromosome %s SNPs ..." % fileChm)
-			chmFile = self.zfile('chr_%s.txt.gz' % fileChm)
+		# process merge report (no header!)
+		self.log("processing SNP merge records ...")
+		mergeFile = self.zfile('RsMergeArch.bcp.gz') #TODO:context manager,iterator
+		numMerge = 0
+		listMerge = list()
+		for line in mergeFile:
+			words = line.split("\t")
+			if len(words) <= 6:
+				continue
+			rsOld = long(words[0])
+			#rsNew = long(words[1])
+			rsCur = long(words[6])
 			
-			# verify file headers
-			header1 = chmFile.next().rstrip()
-			chmFile.next()
-			chmFile.next()
-			header2 = chmFile.next().rstrip()
-			header3 = chmFile.next().rstrip()
-			chmFile.next()
-			chmFile.next()
-			if header1 != "dbSNP Chromosome Report":
-				self.log(" ERROR\n")
-				self.log("unrecognized file header: %s\n" % header1)
-				return False
-			elif header2 != "rs#\tmap\tsnp\tchr\tctg\ttotal\tchr\tctg\tctg\tctg\tctg\tchr\tlocal\tavg\ts.e.\tmax\tvali-\tgeno-\tlink\torig\tupd":
-				self.log(" ERROR\n")
-				self.log("unrecognized file subheader: %s\n" % header2)
-				return False
-			elif header3 != "\twgt\ttype\thits\thits\thits\t\tacc\tver\tID\tpos\tpos\tloci\thet\thet\tprob\tdated\ttypes\touts\tbuild\tbuild":
-				self.log(" ERROR\n")
-				self.log("unrecognized file subheader: %s\n" % header3)
-				return False
+			numMerge += 1
+			listMerge.append( (rsOld,rsCur) )
 			
-			# process lines
-			setPos = set()
-			setNoGRCh = set()
-			setInvalid = set()
-			setMismatch = set()
-			for line in chmFile:
-				words = line.split("\t")
-				rs = words[0].strip()
-				chm = words[6].strip()
-				pos = words[11].strip()
-				valid = int(words[16])
-				build = words[21]
-				
-				if rs != '' and chm != '' and pos != '':
-					rs = long(rs)
-					pos = long(pos)
-					if not build.startswith("GRCh"):
-						setNoGRCh.add(rs)
-					elif valid <= 0:
-						setInvalid.add(rs)
-					elif chm != fileChm:
-						setMismatch.add(rs)
-					else:
-						setPos.add( (rs,pos) )
-				#if rs/chm/pos provided
-			#foreach line in chmFile
-			
-			# print results
-			setSNP = set(pos[0] for pos in setPos)
-			setNoGRCh.difference_update(setSNP)
-			setInvalid.difference_update(setSNP, setNoGRCh)
-			setMismatch.difference_update(setSNP, setNoGRCh, setInvalid)
-			self.log(" OK: %d SNP positions (%d RS#s)\n" % (len(setPos),len(setSNP)))
-			self.logPush()
-			if setNoGRCh:
-				self.log("WARNING: %d SNPs not mapped to GRCh build\n" % (len(setNoGRCh)))
-			if setInvalid:
-				self.log("WARNING: %d SNPs not validated\n" % (len(setInvalid)))
-			if setMismatch:
-				self.log("WARNING: %d SNPs on mismatching chromosome\n" % (len(setMismatch)))
-			self.logPop()
-			
-			# store data
-			self.log("writing chromosome %s SNPs to the database ..." % fileChm)
-			self.addChromosomeSNPs(self._loki.chr_num[fileChm], setPos)
-			setPos = setSNP = setNoGRCh = setInvalid = setMismatch = None
+			# write to the database after each million, to keep memory usage down
+			if len(listMerge) >= 1000000:
+				self.log(" %1.f million so far\n" % (numMerge/1000000.0)) #TODO: time estimate
+				self.log("writing SNP merge records to the database ...")
+				self.addSNPMerges(listMerge)
+				listMerge = list()
+				self.log(" OK\n")
+				self.log("processing SNP merge records ...")
+		#foreach line in mergeFile
+		self.log(" OK: %d merged RS#s\n" % numMerge)
+		
+		# write any remaining records
+		if listMerge:
+			self.log("writing SNP merge records to the database ...")
+			self.addSNPMerges(listMerge)
 			self.log(" OK\n")
-		#foreach chromosome
+		listMerge = None
 		
 		# process SNP role function codes
 		""" /* from dbSNP_main_table.sql.gz */
@@ -187,7 +146,7 @@ CREATE TABLE [b135_SNPContigLocusId_37_3]
 			words = line.split("\t")
 			rs = long(words[0])
 			entrez = int(words[5])
-			genesymbol = words[6]
+			#genesymbol = words[6]
 			code = int(words[11])
 			
 			if code not in roleID:
@@ -219,39 +178,90 @@ CREATE TABLE [b135_SNPContigLocusId_37_3]
 			self.log(" OK\n")
 		listRole = None
 		
-		# process merge report (no header!)
-		self.log("processing SNP merge records ...")
-		mergeFile = self.zfile('RsMergeArch.bcp.gz') #TODO:context manager,iterator
-		numMerge = 0
-		listMerge = list()
-		for line in mergeFile:
-			words = line.split("\t")
-			if len(words) <= 6:
-				continue
-			rsOld = long(words[0])
-			rsNew = long(words[1])
-			rsCur = long(words[6])
+		# process chromosome report files
+		grcBuild = grcNum = None
+		for fileChm in self._chmList:
+			self.log("processing chromosome %s SNPs ..." % fileChm)
+			chmFile = self.zfile('chr_%s.txt.gz' % fileChm)
 			
-			numMerge += 1
-			listMerge.append( (rsOld,rsNew,rsCur) )
+			# verify file headers
+			header1 = chmFile.next().rstrip()
+			chmFile.next()
+			chmFile.next()
+			header2 = chmFile.next().rstrip()
+			header3 = chmFile.next().rstrip()
+			chmFile.next()
+			chmFile.next()
+			if header1 != "dbSNP Chromosome Report":
+				raise Exception("ERROR: unrecognized file header '%s'" % header1)
+			if header2 != "rs#\tmap\tsnp\tchr\tctg\ttotal\tchr\tctg\tctg\tctg\tctg\tchr\tlocal\tavg\ts.e.\tmax\tvali-\tgeno-\tlink\torig\tupd":
+				raise Exception("ERROR: unrecognized file subheader '%s'" % header2)
+			if header3 != "\twgt\ttype\thits\thits\thits\t\tacc\tver\tID\tpos\tpos\tloci\thet\thet\tprob\tdated\ttypes\touts\tbuild\tbuild":
+				raise Exception("ERROR: unrecognized file subheader '%s'" % header3)
 			
-			# write to the database after each million, to keep memory usage down
-			if len(listMerge) >= 1000000:
-				self.log(" %1.f million so far\n" % (numMerge/1000000.0)) #TODO: time estimate
-				self.log("writing SNP merge records to the database ...")
-				self.addSNPMerges(listMerge)
-				listMerge = list()
-				self.log(" OK\n")
-				self.log("processing SNP merge records ...")
-		#foreach line in mergeFile
-		self.log(" OK: %d merged RS#s\n" % numMerge)
-		
-		# write any remaining records
-		if listMerge:
-			self.log("writing SNP merge records to the database ...")
-			self.addSNPMerges(listMerge)
+			# process lines
+			setPos = set()
+			setNoGRCh = set()
+			setBadBuild = set()
+			setInvalid = set()
+			setBadChr = set()
+			for line in chmFile:
+				words = line.split("\t")
+				rs = words[0].strip()
+				chm = words[6].strip()
+				pos = words[11].strip()
+				valid = int(words[16])
+				build = words[21]
+				
+				if rs != '' and chm != '' and pos != '':
+					rs = long(rs)
+					pos = long(pos)
+					if not build.startswith("GRCh"):
+						setNoGRCh.add(rs)
+					elif grcBuild and grcBuild != build:
+						setBadBuild.add(rs)
+					elif valid <= 0:
+						setInvalid.add(rs)
+					elif chm != fileChm:
+						setBadChr.add(rs)
+					else:
+						if not grcBuild:
+							grcBuild = build
+							try:
+								grcNum = int(build[4:].split('.')[0])
+							except ValueError:
+								raise Exception("ERROR: unrecognized GRCh build format '%s'" % build)
+						setPos.add( (rs,pos) )
+				#if rs/chm/pos provided
+			#foreach line in chmFile
+			
+			# print results
+			setSNP = set(pos[0] for pos in setPos)
+			setNoGRCh.difference_update(setSNP)
+			setBadBuild.difference_update(setSNP, setNoGRCh)
+			setInvalid.difference_update(setSNP, setNoGRCh, setBadBuild)
+			setBadChr.difference_update(setSNP, setNoGRCh, setBadBuild, setInvalid)
+			self.log(" OK: %d SNP positions (%d RS#s)\n" % (len(setPos),len(setSNP)))
+			self.logPush()
+			if setNoGRCh:
+				self.log("WARNING: %d SNPs not mapped to GRCh build\n" % (len(setNoGRCh)))
+			if setBadBuild:
+				self.log("WARNING: %d SNPs mapped to GRCh build other than %s\n" % (len(setBadChr),grcBuild))
+			if setInvalid:
+				self.log("WARNING: %d SNPs not validated\n" % (len(setInvalid)))
+			if setBadChr:
+				self.log("WARNING: %d SNPs on mismatching chromosome\n" % (len(setBadChr)))
+			self.logPop()
+			
+			# store data
+			self.log("writing chromosome %s SNPs to the database ..." % fileChm)
+			self.addChromosomeSNPLoci(self._loki.chr_num[fileChm], setPos)
+			setPos = setSNP = setNoGRCh = setBadBuild = setInvalid = setBadChr = None
 			self.log(" OK\n")
-		listMerge = None
+		#foreach chromosome
+		
+		# store source metadata
+		self.setSourceBuild(grcNum)
 	#update()
 	
 #Source_dbsnp

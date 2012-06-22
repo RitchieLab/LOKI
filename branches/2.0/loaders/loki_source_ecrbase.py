@@ -34,9 +34,6 @@ class Source_ecrbase(loki_source.Source):
 		"coreEcrs.Tetradon.txt.gz" : "/get_file.cgi?name=ecrbase::ECR/coreEcrs.hg18tetNig1.txt.gz",
 	}
 	
-	# Temporarily disable this loader
-	_remFiles = {}
-    
 	def download(self):
 		"""
 		Download the ECRBase files
@@ -65,6 +62,9 @@ class Source_ecrbase(loki_source.Source):
 		# Add a type of "ecr_group"
 		ecr_group_typeid = self.addType("ecr_group")
 		
+		# Make sure the 'n/a' ldprofile exists
+		ecr_ldprofile_id = self.addLDProfile('n/a', 'no LD adjustment', None)
+		
 		for species, fn_list in fn_by_species.iteritems():
 			
 			# Should only (exactly!) be 2 files:
@@ -80,16 +80,16 @@ class Source_ecrbase(loki_source.Source):
 			self.addGroupNamespacedNames(ecr_ns, [(base_gid, label), (core_gid, "core_"+label)])
 			
 			reg_list = [r for r in (self._convertToRegion(l, species) for l in self.zfile(base_fn)) if r is not None]
-			reg_ids = self.addTypedRegions(ecr_typeid, ((r[0], '') for r in reg_list))
+			reg_ids = self.addTypedBiopolymers(ecr_typeid, ((r[0], '') for r in reg_list))
 			reg_dict = dict(zip((r[0] for r in reg_list), reg_ids))
-			self.addRegionNamespacedNames(ecr_ns, ((v, k) for (k, v) in reg_dict.iteritems()))
-			self.addRegionPopulationBounds(1, (tuple(itertools.chain(*c)) for c in zip(((i,) for i in reg_ids),(r[1] for r in reg_list))))			
-			self.addGroupTypedRegionNamespacedNames(ecr_typeid, ecr_ns, ((base_gid, x[0]+1, x[1]) for x in zip(xrange(len(reg_list)), (r[0] for r in reg_list))))
+			self.addBiopolymerNamespacedNames(ecr_ns, ((v, k) for (k, v) in reg_dict.iteritems()))
+			self.addBiopolymerLDProfileRegions(ecr_ldprofile_id, (tuple(itertools.chain(*c)) for c in zip(((i,) for i in reg_ids),(r[1] for r in reg_list))))			
+			self.addGroupMemberTypedNamespacedNames(ecr_typeid, ecr_ns, ((base_gid, x[0]+1, x[1]) for x in zip(xrange(len(reg_list)), (r[0] for r in reg_list))))
 			self.log(" OK\n")
 			self.log("processing core ECRs for " + species + " ...")
 			# Now, parse the core ECRs
 			reg_list = [r for r in (self._convertToRegion(l, species) for l in self.zfile(base_fn)) if r is not None]
-			self.addGroupTypedRegionNamespacedNames(ecr_typeid, ecr_ns, ((core_gid, x[0]+1, x[1]) for x in zip(xrange(len(reg_list)), (r[0] for r in reg_list))))
+			self.addGroupMemberTypedNamespacedNames(ecr_typeid, ecr_ns, ((core_gid, x[0]+1, x[1]) for x in zip(xrange(len(reg_list)), (r[0] for r in reg_list))))
 			self.log(" OK\n")
 			
 			

@@ -7,10 +7,6 @@ import loki_source
 class Source_kegg(loki_source.Source):
 	
 	
-	# ##################################################
-	# source interface
-	
-	
 	def download(self):
 		pass
 	#download()
@@ -66,7 +62,7 @@ class Source_kegg(loki_source.Source):
 		
 		# store gene associations
 		self.log("writing gene associations to the database ...")
-		self.addGroupTypedRegionNamespacedNames(typeID['gene'], namespaceID['entrez_gid'], setAssoc)
+		self.addGroupMemberTypedNamespacedNames(typeID['gene'], namespaceID['entrez_gid'], setAssoc)
 		self.log(" OK\n")
 	#update()
 	

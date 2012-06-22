@@ -4,10 +4,10 @@ import apsw
 import datetime
 import ftplib
 import httplib
+import itertools
 import os
 import time
 import zlib
-import itertools
 
 import loki_db
 
@@ -15,7 +15,7 @@ import loki_db
 class Source(object):
 	
 	
-	# ##################################################
+	##################################################
 	# constructor
 	
 	
@@ -29,7 +29,7 @@ class Source(object):
 	#__init__()
 	
 	
-	# ##################################################
+	##################################################
 	# source interface
 	
 	
@@ -43,8 +43,8 @@ class Source(object):
 	#update()
 	
 	
-	# ##################################################
-	# context managers
+	##################################################
+	# context manager
 	
 	
 	def __enter__(self):
@@ -57,7 +57,7 @@ class Source(object):
 	#__exit__()
 	
 	
-	# ##################################################
+	##################################################
 	# logging
 	
 	
@@ -76,21 +76,7 @@ class Source(object):
 	#logPop()
 	
 	
-	# ##################################################
-	# instance management
-	
-	
-	def getSourceName(self):
-		return self.__class__.__name__[7:]
-	#getSourceName()
-	
-	
-	def getSourceID(self):
-		return self._sourceID
-	#getSourceID()
-	
-	
-	# ##################################################
+	##################################################
 	# database update
 	
 	
@@ -104,390 +90,336 @@ class Source(object):
 	#prepareTableQuery()
 	
 	
-	# ##################################################
+	##################################################
 	# metadata management
 	
 	
-	def addNamespace(self, name, polyregion=0):
-		result = self._loki.getNamespaceID(name)
-		if not result:
-			self._db.cursor().execute("INSERT INTO `db`.`namespace` (`namespace`,`polyregion`) VALUES (LOWER(?),?)", (name,polyregion))
-			result = self._db.last_insert_rowid()
-		return result
+	def addLDProfile(self, ldprofile, comment=None, description=None):
+		return self.addLDProfiles([(ldprofile,comment,description)])[ldprofile]
+	#addLDProfile()
+	
+	
+	def addLDProfiles(self, ldprofiles):
+		# ldprofiles=[ (ldprofile,comment,description), ... ]
+		self._loki.testDatabaseUpdate()
+		ldprofiles = list(ldprofiles)
+		self._db.cursor().executemany("INSERT OR IGNORE INTO `db`.`ldprofile` (ldprofile,comment,description) VALUES (LOWER(?),?,?)", ldprofiles)
+		return self._loki.getLDProfileIDs(l[0] for l in ldprofiles)
+	#addLDProfiles()
+	
+	
+	def addNamespace(self, namespace, polygenic=0):
+		return self.addNamespaces([(namespace,polygenic)])[namespace]
 	#addNamespace()
 	
 	
 	def addNamespaces(self, namespaces):
-		# namespaces=[ (namespace,polyregion), ... ]
-		result = self._loki.getNamespaceIDs(n[0] for n in namespaces)
-		for n in namespaces:
-			if not result[n[0]]:
-				self._db.cursor().execute("INSERT INTO `db`.`namespace` (`namespace`,`polyregion`) VALUES (LOWER(?),?)", n)
-				result[n[0]] = self._db.last_insert_rowid()
-		return result
+		# namespaces=[ (namespace,polygenic), ... ]
+		self._loki.testDatabaseUpdate()
+		namespaces = list(namespaces)
+		self._db.cursor().executemany("INSERT OR IGNORE INTO `db`.`namespace` (namespace,polygenic) VALUES (LOWER(?),?)", namespaces)
+		return self._loki.getNamespaceIDs(n[0] for n in namespaces)
 	#addNamespaces()
 	
 	
-	def addPopulation(self, name, ldcomment=None, desc=None):
-		result = self._loki.getPopulationID(name)
-		if not result:
-			self._db.cursor().execute("INSERT INTO `db`.`population` (`population`,`ldcomment`,`description`) VALUES (LOWER(?),?,?)", (name,ldcomment,desc))
-			result = self._db.last_insert_rowid()
-		return result
-	#addPopulation()
-	
-	
-	def addPopulations(self, populations):
-		# populations=[ (population,ldcomment,description), ... ]
-		result = self._loki.getPopulationIDs(p[0] for p in populations)
-		for p in populations:
-			if not result[p[0]]:
-				self._db.cursor().execute("INSERT INTO `db`.`population` (`population`,`ldcomment`,`description`) VALUES (LOWER(?),?,?)", p)
-				result[p[0]] = self._db.last_insert_rowid()
-		return result
-	#addPopulations()
-	
-	
-	def addRelationship(self, name):
-		result = self._loki.getRelationshipID(name)
-		if not result:
-			self._db.cursor().execute("INSERT INTO `db`.`relationship` (`relationship`) VALUES (LOWER(?))", (name,))
-			result = self._db.last_insert_rowid()
-		return result
+	def addRelationship(self, relationship):
+		return self.addRelationships([(relationship,)])[relationship]
 	#addRelationship()
 	
 	
 	def addRelationships(self, relationships):
 		# relationships=[ (relationship,), ... ]
-		result = self._loki.getRelationshipIDs(r[0] for r in relationships)
-		for r in relationships:
-			if not result[r[0]]:
-				self._db.cursor().execute("INSERT INTO `db`.`relationship` (`relationship`) VALUES (LOWER(?))", r)
-				result[r[0]] = self._db.last_insert_rowid()
-		return result
+		self._loki.testDatabaseUpdate()
+		relationships = list(relationships)
+		self._db.cursor().executemany("INSERT OR IGNORE INTO `db`.`relationship` (relationship) VALUES (LOWER(?))", relationships)
+		return self._loki.getRelationshipIDs(r[0] for r in relationships)
 	#addRelationships()
 	
 	
-	def addRole(self, name, description=None, coding=None, exon=None):
-		result = self._loki.getRoleID(name)
-		if not result:
-			self._db.cursor().execute("INSERT INTO `db`.`role` (`role`,`description`,`coding`,`exon`) VALUES (LOWER(?),?,?,?)", (name,description,coding,exon))
-			result = self._db.last_insert_rowid()
-		return result
+	def addRole(self, role, description=None, coding=None, exon=None):
+		return self.addRoles([(role,description,coding,exon)])[role]
 	#addRole()
 	
 	
 	def addRoles(self, roles):
 		# roles=[ (role,description,coding,exon), ... ]
-		result = self._loki.getRoleIDs(r[0] for r in roles)
-		for r in roles:
-			if not result[r[0]]:
-				self._db.cursor().execute("INSERT INTO `db`.`role` (`role`,`description`,`coding`,`exon`) VALUES (LOWER(?),?,?,?)", r)
-				result[r[0]] = self._db.last_insert_rowid()
-		return result
+		self._loki.testDatabaseUpdate()
+		roles = list(roles)
+		self._db.cursor().executemany("INSERT OR IGNORE INTO `db`.`role` (role,description,coding,exon) VALUES (LOWER(?),?,?,?)", roles)
+		return self._loki.getRoleIDs(r[0] for r in roles)
 	#addRoles()
 	
 	
-	def addSource(self, name):
-		result = self._loki.getSourceID(name)
-		if not result:
-			self._db.cursor().execute("INSERT INTO `db`.`source` (`source`) VALUES (LOWER(?))", (name,))
-			result = self._db.last_insert_rowid()
-		return result
+	def addSource(self, source):
+		return self.addSources([(source,)])[source]
 	#addSource()
 	
 	
 	def addSources(self, sources):
 		# sources=[ (source,), ... ]
-		result = self._loki.getSourceIDs(s[0] for s in sources)
-		for s in sources:
-			if not result[s[0]]:
-				self._db.cursor().execute("INSERT INTO `db`.`source` (`source`) VALUES (LOWER(?))", s)
-				result[s[0]] = self._db.last_insert_rowid()
-		return result
+		self._loki.testDatabaseUpdate()
+		sources = list(sources)
+		self._db.cursor().executemany("INSERT OR IGNORE INTO `db`.`source` (source) VALUES (LOWER(?))", sources)
+		return self._loki.getSourceIDs(s[0] for s in sources)
 	#addSources()
 	
-	
-	def addType(self, name):
-		result = self._loki.getTypeID(name)
-		if not result:
-			self._db.cursor().execute("INSERT INTO `db`.`type` (`type`) VALUES (LOWER(?))", (name,))
-			result = self._db.last_insert_rowid()
-		return result
+		
+	def addType(self, type):
+		return self.addTypes([(type,)])[type]
 	#addType()
 	
 	
 	def addTypes(self, types):
 		# types=[ (type,), ... ]
-		result = self._loki.getTypeIDs(t[0] for t in types)
-		for t in types:
-			if not result[t[0]]:
-				self._db.cursor().execute("INSERT INTO `db`.`type` (`type`) VALUES (LOWER(?))", t)
-				result[t[0]] = self._db.last_insert_rowid()
-		return result
+		self._loki.testDatabaseUpdate()
+		types = list(types)
+		self._db.cursor().executemany("INSERT OR IGNORE INTO `db`.`type` (type) VALUES (LOWER(?))", types)
+		return self._loki.getTypeIDs(t[0] for t in types)
 	#addTypes()
 	
 	
-	# ##################################################
-	# data management
-	
-	
 	def deleteAll(self):
+		self._loki.testDatabaseUpdate()
 		dbc = self._db.cursor()
 		tables = [
-			'group', 'group_name', 'group_group', 'group_region_name',
-			'region', 'region_name', 'region_name_name', 'region_bound',
-			'snp', 'snp_merge', 'snp_role_entrez'
+			'snp_merge', 'snp_locus', 'snp_entrez_role',
+			'biopolymer', 'biopolymer_name', 'biopolymer_name_name', 'biopolymer_region',
+			'group', 'group_name', 'group_group', 'group_biopolymer', 'group_member_name',
 		]
-		args = (self.getSourceID(),)
 		for table in tables:
-			exists = max( row[0] for row in dbc.execute("SELECT COUNT() FROM (SELECT 1 FROM `db`.`%s` WHERE `source_id` = ? LIMIT 1)" % table, args) )
-			if exists:
-				self.prepareTableForUpdate(table)
-				dbc.execute("DELETE FROM `db`.`%s` WHERE `source_id` = ?" % table, args)
+			dbc.execute("DELETE FROM `db`.`%s` WHERE source_id = %d" % (table,self.getSourceID()))
 	#deleteAll()
+	
+	
+	##################################################
+	# source metadata management
+	
+	
+	def getSourceName(self):
+		return self.__class__.__name__[7:]
+	#getSourceName()
+	
+	
+	def getSourceID(self):
+		return self._sourceID
+	#getSourceID()
+	
+	
+	def setSourceUpdated(self, timestamp='now'):
+		self._loki.testDatabaseUpdate()
+		self._db.cursor().execute("UPDATE `db`.`source` SET updated = DATETIME(?) WHERE source_id = ?", (timestamp, self.getSourceID()))
+	#setSourceUpdated()
+	
+	
+	def setSourceBuild(self, build):
+		self._loki.testDatabaseUpdate()
+		self._db.cursor().execute("UPDATE `db`.`source` SET build = ? WHERE source_id = ?", (build, self.getSourceID()))
+	#setSourceBuild()
+	
+	
+	##################################################
+	# snp data management
+	
+	
+	def addSNPMerges(self, snpMerges):
+		# snpMerges=[ (rsMerged,rsCurrent), ... ]
+		self._loki.testDatabaseUpdate()
+		self.prepareTableForUpdate('snp_merge')
+		sql = "INSERT OR IGNORE INTO `db`.`snp_merge` (rsMerged,rsCurrent,source_id) VALUES (?,?,%d)" % (self.getSourceID(),)
+		self._db.cursor().executemany(sql, snpMerges)
+	#addSNPMerges()
+	
+	
+	def addSNPLoci(self, snpLoci):
+		# snpLoci=[ (rs,chr,pos), ... ]
+		self._loki.testDatabaseUpdate()
+		self.prepareTableForUpdate('snp_locus')
+		sql = "INSERT OR IGNORE INTO `db`.`snp_locus` (rs,chr,pos,source_id) VALUES (?,?,?,%d)" % (self.getSourceID(),)
+		self._db.cursor().executemany(sql, snpLoci)
+	#addSNPLoci()
+	
+	
+	def addChromosomeSNPLoci(self, chromosome, snpLoci):
+		# snpLoci=[ (rs,pos), ... ]
+		self._loki.testDatabaseUpdate()
+		self.prepareTableForUpdate('snp_locus')
+		sql = "INSERT OR IGNORE INTO `db`.`snp_locus` (rs,chr,pos,source_id) VALUES (?,%d,?,%d)" % (chromosome,self.getSourceID(),)
+		self._db.cursor().executemany(sql, snpLoci)
+	#addChromosomeSNPLoci()
+	
+	
+	def addSNPEntrezRoles(self, snpRoles):
+		# snpRoles=[ (rs,entrez_id,role_id), ... ]
+		self._loki.testDatabaseUpdate()
+		self.prepareTableForUpdate('snp_entrez_role')
+		sql = "INSERT OR IGNORE INTO `db`.`snp_entrez_role` (rs,entrez_id,role_id,source_id) VALUES (?,?,?,%d)" % (self.getSourceID(),)
+		self._db.cursor().executemany(sql, snpRoles)
+	#addSNPEntrezRoles()
+	
+	
+	##################################################
+	# biopolymer data management
+	
+	
+	def addBiopolymers(self, biopolymers):
+		# biopolymers=[ (type_id,label,description), ... ]
+		self._loki.testDatabaseUpdate()
+		self.prepareTableForUpdate('biopolymer')
+		sql = "INSERT INTO `db`.`biopolymer` (type_id,label,description,source_id) VALUES (?,?,?,%d); SELECT last_insert_rowid()" % (self.getSourceID(),)
+		return [ row[0] for row in self._db.cursor().executemany(sql, biopolymers) ]
+	#addBiopolymers()
+	
+	
+	def addTypedBiopolymers(self, typeID, biopolymers):
+		# biopolymers=[ (label,description), ... ]
+		self._loki.testDatabaseUpdate()
+		self.prepareTableForUpdate('biopolymer')
+		sql = "INSERT INTO `db`.`biopolymer` (type_id,label,description,source_id) VALUES (%d,?,?,%d); SELECT last_insert_rowid()" % (typeID,self.getSourceID(),)
+		return [ row[0] for row in self._db.cursor().executemany(sql, biopolymers) ]
+	#addTypedBiopolymers()
+	
+	
+	def addBiopolymerNames(self, biopolymerNames):
+		# biopolymerNames=[ (biopolymer_id,namespace_id,name), ... ]
+		self._loki.testDatabaseUpdate()
+		self.prepareTableForUpdate('biopolymer_name')
+		sql = "INSERT OR IGNORE INTO `db`.`biopolymer_name` (biopolymer_id,namespace_id,name,source_id) VALUES (?,?,?,%d)" % (self.getSourceID(),)
+		self._db.cursor().executemany(sql, biopolymerNames)
+	#addBiopolymerNames()
+	
+	
+	def addBiopolymerNamespacedNames(self, namespaceID, biopolymerNames):
+		# biopolymerNames=[ (biopolymer_id,name), ... ]
+		self._loki.testDatabaseUpdate()
+		self.prepareTableForUpdate('biopolymer_name')
+		sql = "INSERT OR IGNORE INTO `db`.`biopolymer_name` (biopolymer_id,namespace_id,name,source_id) VALUES (?,%d,?,%d)" % (namespaceID,self.getSourceID(),)
+		self._db.cursor().executemany(sql, biopolymerNames)
+	#addBiopolymerNamespacedNames()
+	
+	
+	def addBiopolymerNameNames(self, biopolymerNameNames):
+		# biopolymerNameNames=[ (old_namespace_id,old_name,old_type_id,new_namespace_id,new_name), ... ]
+		self._loki.testDatabaseUpdate()
+		self.prepareTableForUpdate('biopolymer_name_name')
+		sql = "INSERT OR IGNORE INTO `db`.`biopolymer_name_name` (namespace_id,name,type_id,new_namespace_id,new_name,source_id) VALUES (?,?,?,?,?,%d)" % (self.getSourceID(),)
+		self._db.cursor().executemany(sql, biopolymerNameNames)
+	#addBiopolymerNameNames()
+	
+	
+	def addBiopolymerTypedNameNamespacedNames(self, oldTypeID, newNamespaceID, biopolymerNameNames):
+		# biopolymerNameNames=[ (old_namespace_id,old_name,new_name), ... ]
+		self._loki.testDatabaseUpdate()
+		self.prepareTableForUpdate('biopolymer_name_name')
+		sql = "INSERT OR IGNORE INTO `db`.`biopolymer_name_name` (namespace_id,name,type_id,new_namespace_id,new_name,source_id) VALUES (?,?,%d,%d,?,%d)" % (oldTypeID,newNamespaceID,self.getSourceID(),)
+		self._db.cursor().executemany(sql, biopolymerNameNames)
+	#addBiopolymerTypedNameNamespacedNames()
+	
+	
+	def addBiopolymerRegions(self, biopolymerRegions):
+		# biopolymerRegions=[ (biopolymer_id,ldprofile_id,chr,posMin,posMax), ... ]
+		self._loki.testDatabaseUpdate()
+		self.prepareTableForUpdate('biopolymer_region')
+		sql = "INSERT OR IGNORE INTO `db`.`biopolymer_region` (biopolymer_id,ldprofile_id,chr,posMin,posMax,source_id) VALUES (?,?,?,?,?,%d)" % (self.getSourceID(),)
+		self._db.cursor().executemany(sql, biopolymerRegions)
+	#addBiopolymerRegions()
+	
+	
+	def addBiopolymerLDProfileRegions(self, ldprofileID, biopolymerRegions):
+		# biopolymerRegions=[ (biopolymer_id,chr,posMin,posMax), ... ]
+		self._loki.testDatabaseUpdate()
+		self.prepareTableForUpdate('biopolymer_region')
+		sql = "INSERT OR IGNORE INTO `db`.`biopolymer_region` (biopolymer_id,ldprofile_id,chr,posMin,posMax,source_id) VALUES (?,%d,?,?,?,%d)" % (ldprofileID,self.getSourceID(),)
+		self._db.cursor().executemany(sql, biopolymerRegions)
+	#addBiopolymerLDProfileRegions()
+	
+	
+	##################################################
+	# group data management
 	
 	
 	def addGroups(self, groups):
 		# groups=[ (type_id,label,description), ... ]
+		self._loki.testDatabaseUpdate()
 		self.prepareTableForUpdate('group')
-		extra = (self.getSourceID(),)
-		return [
-			row[0] for row in self._db.cursor().executemany(
-				"INSERT INTO `db`.`group` (`type_id`,`label`,`description`,`source_id`) VALUES (?,?,?,?); SELECT last_insert_rowid()",
-				(g+extra for g in groups)
-			)
-		]
+		sql = "INSERT INTO `db`.`group` (type_id,label,description,source_id) VALUES (?,?,?,%d); SELECT last_insert_rowid()" % (self.getSourceID(),)
+		return [ row[0] for row in self._db.cursor().executemany(sql, groups) ]
 	#addGroups()
 	
 	
 	def addTypedGroups(self, typeID, groups):
 		# groups=[ (label,description), ... ]
+		self._loki.testDatabaseUpdate()
 		self.prepareTableForUpdate('group')
-		extra = (typeID,self.getSourceID(),)
-		return [
-			row[0] for row in self._db.cursor().executemany(
-				"INSERT INTO `db`.`group` (`label`,`description`,`type_id`,`source_id`) VALUES (?,?,?,?); SELECT last_insert_rowid()",
-				(g+extra for g in groups)
-			)
-		]
+		sql = "INSERT INTO `db`.`group` (type_id,label,description,source_id) VALUES (%d,?,?,%d); SELECT last_insert_rowid()" % (typeID,self.getSourceID(),)
+		return [ row[0] for row in self._db.cursor().executemany(sql, groups) ]
 	#addTypedGroups()
 	
 	
-	def addGroupNames(self, groupnames):
-		# groupnames=[ (group_id,namespace_id,name), ... ]
+	def addGroupNames(self, groupNames):
+		# groupNames=[ (group_id,namespace_id,name), ... ]
+		self._loki.testDatabaseUpdate()
 		self.prepareTableForUpdate('group_name')
-		extra = (self.getSourceID(),)
-		self._db.cursor().executemany(
-				"INSERT OR IGNORE INTO `db`.`group_name` (`group_id`,`namespace_id`,`name`,`source_id`) VALUES (?,?,?,?)",
-				(gn+extra for gn in groupnames)
-		)
+		sql = "INSERT OR IGNORE INTO `db`.`group_name` (group_id,namespace_id,name,source_id) VALUES (?,?,?,%d)" % (self.getSourceID(),)
+		self._db.cursor().executemany(sql, groupNames)
 	#addGroupNames()
 	
 	
-	def addGroupNamespacedNames(self, namespaceID, groupnames):
-		# groupnames=[ (group_id,name), ... ]
+	def addGroupNamespacedNames(self, namespaceID, groupNames):
+		# groupNames=[ (group_id,name), ... ]
+		self._loki.testDatabaseUpdate()
 		self.prepareTableForUpdate('group_name')
-		extra = (namespaceID,self.getSourceID(),)
-		self._db.cursor().executemany(
-				"INSERT OR IGNORE INTO `db`.`group_name` (`group_id`,`name`,`namespace_id`,`source_id`) VALUES (?,?,?,?)",
-				(gn+extra for gn in groupnames)
-		)
+		sql = "INSERT OR IGNORE INTO `db`.`group_name` (group_id,namespace_id,name,source_id) VALUES (?,%d,?,%d)" % (namespaceID,self.getSourceID(),)
+		self._db.cursor().executemany(sql, groupNames)
 	#addGroupNamespacedNames()
 	
 	
-	def addGroupRelationships(self, grouprels):
-		# grouprels=[ (group_id,related_group_id,relationship_id), ... ]
+	def addGroupRelationships(self, groupRels):
+		# groupRels=[ (group_id,related_group_id,relationship_id), ... ]
+		self._loki.testDatabaseUpdate()
 		self.prepareTableForUpdate('group_group')
-		extra = (1,self.getSourceID(),)
-		self._db.cursor().executemany(
-				"INSERT OR IGNORE INTO `db`.`group_group` (`group_id`,`related_group_id`,`relationship_id`,`direction`,`source_id`) VALUES (?,?,?,?,?)",
-				(gr+extra for gr in grouprels)
-		)
-		extra = (-1,self.getSourceID(),)
-		self._db.cursor().executemany(
-				"INSERT OR IGNORE INTO `db`.`group_group` (`group_id`,`related_group_id`,`relationship_id`,`direction`,`source_id`) VALUES (?,?,?,?,?)",
-				(gr+extra for gr in grouprels)
-		)
+		sql = "INSERT OR IGNORE INTO `db`.`group_group` (group_id,related_group_id,relationship_id,direction,source_id) VALUES (?,?,?,1,%d)" % (self.getSourceID(),)
+		sql += ";INSERT OR IGNORE INTO `db`.`group_group` (related_group_id,group_id,relationship_id,direction,source_id) VALUES (?,?,?,-1,%d)" % (self.getSourceID(),)
+		# because we're doing two inserts per input tuple, we have to duplicate each tuple to satisfy the query bindings
+		self._db.cursor().executemany(sql, (2*gr for gr in groupRels))
 	#addGroupRelationships()
 	
 	
-	def addGroupRegions(self, groupregions):
-		# group_region is now a derived table; nothing should be inserted directly
-		raise Exception('addGroupsRegions() is restricted')
-		
-		# groupregions=[ (group_id,region_id), ... ]
-		self.prepareTableForUpdate('group_region')
-		extra = (self.getSourceID(),)
-		self._db.cursor().executemany(
-				"INSERT OR IGNORE INTO `db`.`group_region` (`group_id`,`region_id`,`source_id`) VALUES (?,?,?)",
-				(gr+extra for gr in groupregions)
-		)
-	#addGroupRegions()
+	def addGroupBiopolymers(self, groupBiopolymers):
+		# groupBiopolymers=[ (group_id,biopolymer_id), ... ]
+		self._loki.testDatabaseUpdate()
+		self.prepareTableForUpdate('group_biopolymer')
+		sql = "INSERT OR IGNORE INTO `db`.`group_biopolymer` (group_id,biopolymer_id,specificity,implication,quality,source_id) VALUES (?,?,100,100,100,%d)" % (self.getSourceID(),)
+		self._db.cursor().executemany(sql, groupBiopolymers)
+	#addGroupBiopolymers()
 	
 	
-	def addGroupRegionNames(self, groupregionnames):
-		# groupregionnames=[ (group_id,member,type_id,namespace_id,name), ... ]
-		self.prepareTableForUpdate('group_region_name')
-		extra = (self.getSourceID(),)
-		self._db.cursor().executemany(
-				"INSERT OR IGNORE INTO `db`.`group_region_name` (`group_id`,`member`,`type_id`,`namespace_id`,`name`,`source_id`) VALUES (?,?,?,?,?,?)",
-				(grn+extra for grn in groupregionnames)
-		)
-	#addGroupRegionNames()
+	def addGroupMemberNames(self, groupMemberNames):
+		# groupMemberNames=[ (group_id,member,type_id,namespace_id,name), ... ]
+		self._loki.testDatabaseUpdate()
+		self.prepareTableForUpdate('group_member_name')
+		sql = "INSERT OR IGNORE INTO `db`.`group_member_name` (group_id,member,type_id,namespace_id,name,source_id) VALUES (?,?,?,?,?,%d)" % (self.getSourceID(),)
+		self._db.cursor().executemany(sql, groupMemberNames)
+	#addGroupMemberNames()
 	
 	
-	def addGroupTypedRegionNamespacedNames(self, typeID, namespaceID, groupregionnames):
-		# groupregionnames=[ (group_id,member,name), ... ]
-		self.prepareTableForUpdate('group_region_name')
-		extra = (typeID,namespaceID,self.getSourceID(),)
-		self._db.cursor().executemany(
-				"INSERT OR IGNORE INTO `db`.`group_region_name` (`group_id`,`member`,`name`,`type_id`,`namespace_id`,`source_id`) VALUES (?,?,?,?,?,?)",
-				(grn+extra for grn in groupregionnames)
-		)
-	#addGroupTypedRegionNamespacedNames()
+	def addGroupMemberTypedNamespacedNames(self, typeID, namespaceID, groupMemberNames):
+		# groupMemberNames=[ (group_id,member,name), ... ]
+		self._loki.testDatabaseUpdate()
+		self.prepareTableForUpdate('group_member_name')
+		sql = "INSERT OR IGNORE INTO `db`.`group_member_name` (group_id,member,type_id,namespace_id,name,source_id) VALUES (?,?,%d,%d,?,%d)" % (typeID,namespaceID,self.getSourceID(),)
+		self._db.cursor().executemany(sql, groupMemberNames)
+	#addGroupMemberTypedNamespacedNames()
 	
 	
-	def addRegions(self, regions):
-		# regions=[ (type_id,label,description), ... ]
-		self.prepareTableForUpdate('region')
-		extra = (self.getSourceID(),)
-		return [
-			row[0] for row in self._db.cursor().executemany(
-				"INSERT INTO `db`.`region` (`type_id`,`label`,`description`,`source_id`) VALUES (?,?,?,?); SELECT last_insert_rowid()",
-				(r+extra for r in regions)
-			)
-		]
-	#addRegions()
-	
-	
-	def addTypedRegions(self, typeID, regions):
-		# regions=[ (label,description), ... ]
-		self.prepareTableForUpdate('region')
-		extra = (typeID,self.getSourceID(),)
-		return [
-			row[0] for row in self._db.cursor().executemany(
-				"INSERT INTO `db`.`region` (`label`,`description`,`type_id`,`source_id`) VALUES (?,?,?,?); SELECT last_insert_rowid()",
-				(r+extra for r in regions)
-			)
-		]
-	#addTypedRegions()
-	
-	
-	def addRegionNames(self, regionnames):
-		# regionnames=[ (region_id,namespace_id,name), ... ]
-		self.prepareTableForUpdate('region_name')
-		extra = (self.getSourceID(),)
-		self._db.cursor().executemany(
-				"INSERT OR IGNORE INTO `db`.`region_name` (`region_id`,`namespace_id`,`name`,`source_id`) VALUES (?,?,?,?)",
-				(rn+extra for rn in regionnames)
-		)
-	#addRegionNames()
-	
-	
-	def addRegionNamespacedNames(self, namespaceID, regionnames):
-		# regionnames=[ (region_id,name), ... ]
-		self.prepareTableForUpdate('region_name')
-		extra = (namespaceID,self.getSourceID(),)
-		self._db.cursor().executemany(
-				"INSERT OR IGNORE INTO `db`.`region_name` (`region_id`,`name`,`namespace_id`,`source_id`) VALUES (?,?,?,?)",
-				(rn+extra for rn in regionnames)
-		)
-	#addRegionNamespacedNames()
-	
-	
-	def addRegionNameNames(self, regionnamenames):
-		# regionnamenames=[ (old_type_id,old_namespace_id,old_name,new_namespace_id,new_name), ... ]
-		self.prepareTableForUpdate('region_name_name')
-		extra = (self.getSourceID(),)
-		self._db.cursor().executemany(
-				"INSERT OR IGNORE INTO `db`.`region_name_name` (`type_id`,`namespace_id`,`name`,`new_namespace_id`,`new_name`,`source_id`) VALUES (?,?,?,?,?,?)",
-				(rnn+extra for rnn in regionnamenames)
-		)
-	#addRegionNameNames()
-	
-	
-	def addRegionTypedNameNamespacedNames(self, typeID, newNamespaceID, regionnamenames):
-		# regionnamenames=[ (old_namespace_id,old_name,new_name), ... ]
-		self.prepareTableForUpdate('region_name_name')
-		extra = (typeID,newNamespaceID,self.getSourceID(),)
-		self._db.cursor().executemany(
-				"INSERT OR IGNORE INTO `db`.`region_name_name` (`namespace_id`,`name`,`new_name`,`type_id`,`new_namespace_id`,`source_id`) VALUES (?,?,?,?,?,?)",
-				(rnn+extra for rnn in regionnamenames)
-		)
-	#addRegionTypedNameNamespacedNames()
-	
-	
-	def addRegionBounds(self, regionbounds):
-		# regionbounds=[ (region_id,population_id,chr,posMin,posMax), ... ]
-		self.prepareTableForUpdate('region_bound')
-		extra = (self.getSourceID(),)
-		self._db.cursor().executemany(
-				"INSERT OR IGNORE INTO `db`.`region_bound` (`region_id`,`population_id`,`chr`,`posMin`,`posMax`,`source_id`) VALUES (?,?,?,?,?,?)",
-				(rb+extra for rb in regionbounds)
-		)
-	#addRegionBounds()
-	
-	
-	def addRegionPopulationBounds(self, populationID, regionbounds):
-		# regionbounds=[ (region_id,chr,posMin,posMax), ... ]
-		self.prepareTableForUpdate('region_bound')
-		extra = (populationID,self.getSourceID(),)
-		self._db.cursor().executemany(
-				"INSERT OR IGNORE INTO `db`.`region_bound` (`region_id`,`chr`,`posMin`,`posMax`,`population_id`,`source_id`) VALUES (?,?,?,?,?,?)",
-				(rb+extra for rb in regionbounds)
-		)
-	#addRegionPopulationBounds()
-	
-	
-	def addSNPs(self, snps):
-		# snps=[ (rs,chr,pos), ... ]
-		self.prepareTableForUpdate('snp')
-		extra = (self.getSourceID(),)
-		self._db.cursor().executemany(
-				"INSERT INTO `db`.`snp` (`rs`,`chr`,`pos`,`source_id`) VALUES (?,?,?,?)",
-				(s+extra for s in snps)
-		)
-	#addChromosomeSNPs()
-	
-	
-	def addChromosomeSNPs(self, chromosome, snps):
-		# snps=[ (rs,pos), ... ]
-		self.prepareTableForUpdate('snp')
-		extra = (chromosome,self.getSourceID(),)
-		self._db.cursor().executemany(
-				"INSERT INTO `db`.`snp` (`rs`,`pos`,`chr`,`source_id`) VALUES (?,?,?,?)",
-				(s+extra for s in snps)
-		)
-	#addChromosomeSNPs()
-	
-	
-	def addSNPMerges(self, snpmerges):
-		# snpmerges=[ (rsOld,rsNew,rsCur), ... ]
-		self.prepareTableForUpdate('snp_merge')
-		extra = (self.getSourceID(),)
-		self._db.cursor().executemany(
-				"INSERT INTO `db`.`snp_merge` (`rsOld`,`rsNew`,`rsCur`,`source_id`) VALUES (?,?,?,?)",
-				(sm+extra for sm in snpmerges)
-		)
-	#addSNPMerges()
-	
-	
-	def addSNPEntrezRoles(self, snproles):
-		# snproles=[ (rs,entrez,role_id), ... ]
-		self.prepareTableForUpdate('snp_role_entrez')
-		extra = (self.getSourceID(),)
-		self._db.cursor().executemany(
-				"INSERT OR IGNORE INTO `db`.`snp_role_entrez` (`rs`,`region_entrez`,`role_id`,`source_id`) VALUES (?,?,?,?)",
-				(sr+extra for sr in snproles)
-		)
-	#addSNPEntrezRoles()
+	##################################################
+	# liftover data management
 	
 	
 	def addBuildTrans(self, build_pairs):
 		"""
 		Adds the build->assembly pairs into the build_assembly table
 		"""
+		self._loki.testDatabaseUpdate()
 		self.prepareTableForUpdate('build_assembly')
 		self._db.cursor().executemany(
 			"INSERT OR IGNORE INTO 'db'.'build_assembly' ('build','assembly') VALUES (?,?)",
@@ -502,6 +434,7 @@ class Source(object):
 		ids of the added chains.  The chain_list must be an iterable
 		container of objects that can be inserted into the chain table
 		"""
+		self._loki.testDatabaseUpdate()
 		self.prepareTableForUpdate('chain')
 		retList = []
 		for row in self._db.cursor().executemany(
@@ -518,6 +451,7 @@ class Source(object):
 		"""
 		Adds all of the chain data into the chain data table
 		"""
+		self._loki.testDatabaseUpdate()
 		self.prepareTableForUpdate('chain_data')
 		self._db.cursor().executemany(
 			"INSERT INTO 'db'.'chain_data' ('chain_id','old_start','old_end','new_start') VALUES (?,?,?,?)",
@@ -526,7 +460,7 @@ class Source(object):
 	#addChainData()
 	
 	
-	# ##################################################
+	##################################################
 	# source utility methods
 	
 	

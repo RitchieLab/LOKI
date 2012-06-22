@@ -1,16 +1,18 @@
 #!/usr/bin/env python
 
 import apsw
+import itertools
 import sys
+
 
 class Database(object):
 	
 	
-	# ##################################################
+	##################################################
 	# public class data
 	
 	
-	ver_maj,ver_min,ver_rev,ver_date = 0,0,524,'2012-05-24'
+	ver_maj,ver_min,ver_rev,ver_date = 2,-1,620,'2012-06-20'
 	chr_list = ('1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19','20','21','22','X','Y','XY','MT')
 	chr_num = {}
 	chr_name = {}
@@ -25,17 +27,22 @@ class Database(object):
 		chr_name[cname] = cname
 	
 	
-	# ##################################################
+	##################################################
 	# private class data
 	
 	
 	_setting_defaults = {
-		'region_zone_size': 100000,
+		'zone_size': 100000,
+		'finalized': 0,
 	} #_setting_defaults{}
+	
 	
 	_schema = {
 		'db': {
-			# ########## db.setting ##########
+			##################################################
+			# configuration tables
+			
+			
 			'setting': {
 				'table': """
 (
@@ -47,35 +54,35 @@ class Database(object):
 			}, #.db.setting
 			
 			
-			# ##############################
+			##################################################
+			# metadata tables
 			
 			
-			# ########## db.namespace ##########
+			'ldprofile': {
+				'table': """
+(
+  ldprofile_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+  ldprofile VARCHAR(32) UNIQUE NOT NULL,
+  comment VARCHAR(128),
+  description VARCHAR(128)
+)
+""",
+				'index': {}
+			}, #.db.ldprofile
+			
+			
 			'namespace': {
 				'table': """
 (
   namespace_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
   namespace VARCHAR(32) UNIQUE NOT NULL,
-  polyregion TINYINT NOT NULL DEFAULT 0
+  polygenic TINYINT NOT NULL DEFAULT 0
 )
 """,
 				'index': {}
 			}, #.db.namespace
 			
-			# ########## db.population ##########
-			'population': {
-				'table': """
-(
-  population_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-  population VARCHAR(32) UNIQUE NOT NULL,
-  ldcomment VARCHAR(128),
-  description VARCHAR(128)
-)
-""",
-				'index': {}
-			}, #.db.population
 			
-			# ########## db.relationship ##########
 			'relationship': {
 				'table': """
 (
@@ -86,7 +93,7 @@ class Database(object):
 				'index': {}
 			}, #.db.relationship
 			
-			# ########## db.role ##########
+			
 			'role': {
 				'table': """
 (
@@ -100,19 +107,20 @@ class Database(object):
 				'index': {}
 			}, #.db.role
 			
-			# ########## db.source ##########
+			
 			'source': {
 				'table': """
 (
   source_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
   source VARCHAR(32) UNIQUE NOT NULL,
-  updated DATETIME
+  updated DATETIME,
+  build INTEGER
 )
 """,
 				'index': {}
 			}, #.db.source
 			
-			# ########## db.type ##########
+			
 			'type': {
 				'table': """
 (
@@ -124,10 +132,159 @@ class Database(object):
 			}, #.db.type
 			
 			
-			# ##############################
+			##################################################
+			# snp tables
 			
 			
-			# ########## db.group ##########
+			'snp_merge': {
+				'table': """
+(
+  rsMerged INTEGER PRIMARY KEY NOT NULL,
+  rsCurrent INTEGER NOT NULL,
+  source_id TINYINT NOT NULL
+)
+""",
+				'index': {}
+			}, #.db.snp_merge
+			
+			
+			'snp_locus': {
+				'table': """
+(
+  rs INTEGER NOT NULL,
+  chr TINYINT NOT NULL,
+  pos BIGINT NOT NULL,
+  source_id TINYINT NOT NULL,
+  PRIMARY KEY (rs,chr,pos)
+)
+""",
+				'index': {
+					'snp_locus__chr_pos_rs': '(chr,pos,rs)',
+				}
+			}, #.db.snp_locus
+			
+			
+			'snp_entrez_role': {
+				'table': """
+(
+  rs INTEGER NOT NULL,
+  entrez_id INTEGER NOT NULL,
+  role_id INTEGER NOT NULL,
+  source_id TINYINT NOT NULL,
+  PRIMARY KEY (entrez_id,rs,role_id)
+)
+""",
+				'index': {}
+			}, #.db.snp_entrez_role
+			
+			
+			'snp_biopolymer_role': {
+				'table': """
+(
+  rs INTEGER NOT NULL,
+  biopolymer_id INTEGER NOT NULL,
+  role_id INTEGER NOT NULL,
+  source_id TINYINT NOT NULL,
+  PRIMARY KEY (rs,biopolymer_id,role_id)
+)
+""",
+				'index': {
+					'snp_biopolymer_role__biopolymer_rs_role': '(biopolymer_id,rs,role_id)',
+				}
+			}, #.db.snp_biopolymer_role
+			
+			
+			##################################################
+			# biopolymer tables
+			
+			
+			'biopolymer': {
+				'table': """
+(
+  biopolymer_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+  type_id TINYINT NOT NULL,
+  label VARCHAR(64) NOT NULL,
+  description VARCHAR(256),
+  source_id TINYINT NOT NULL
+)
+""",
+				'index': {
+					'biopolymer__type_label': '(type_id,label)',
+				}
+			}, #.db.biopolymer
+			
+			
+			'biopolymer_name': {
+				'table': """
+(
+  biopolymer_id INTEGER NOT NULL,
+  namespace_id INTEGER NOT NULL,
+  name VARCHAR(256) NOT NULL,
+  source_id TINYINT NOT NULL,
+  PRIMARY KEY (biopolymer_id,namespace_id,name)
+)
+""",
+				'index': {
+					'biopolymer_name__name_namespace_biopolymer': '(name,namespace_id,biopolymer_id)',
+				}
+			}, #.db.biopolymer_name
+			
+			
+			'biopolymer_name_name': {
+				# PRIMARY KEY column order satisfies the need to GROUP BY new_namespace_id, new_name
+				'table': """
+(
+  namespace_id INTEGER NOT NULL,
+  name VARCHAR(256) NOT NULL,
+  type_id TINYINT NOT NULL,
+  new_namespace_id INTEGER NOT NULL,
+  new_name VARCHAR(256) NOT NULL,
+  source_id TINYINT NOT NULL,
+  PRIMARY KEY (new_namespace_id,new_name,type_id,namespace_id,name)
+)
+""",
+				'index': {}
+			}, #.db.biopolymer_name_name
+			
+			
+			'biopolymer_region': {
+				'table': """
+(
+  biopolymer_id INTEGER NOT NULL,
+  ldprofile_id INTEGER NOT NULL,
+  chr TINYINT NOT NULL,
+  posMin BIGINT NOT NULL,
+  posMax BIGINT NOT NULL,
+  source_id TINYINT NOT NULL,
+  PRIMARY KEY (biopolymer_id,ldprofile_id,chr,posMin,posMax)
+)
+""",
+				'index': {
+					'biopolymer_region__ldprofile_chr_min': '(ldprofile_id,chr,posMin)',
+					'biopolymer_region__ldprofile_chr_max': '(ldprofile_id,chr,posMax)',
+				}
+			}, #.db.biopolymer_region
+			
+			
+			'biopolymer_zone': {
+				'table': """
+(
+  biopolymer_id INTEGER NOT NULL,
+  chr TINYINT NOT NULL,
+  zone INTEGER NOT NULL,
+  PRIMARY KEY (biopolymer_id,chr,zone)
+)
+""",
+				'index': {
+					'biopolymer_zone__zone': '(chr,zone,biopolymer_id)',
+				}
+			}, #.db.biopolymer_zone
+			
+			
+			##################################################
+			# group tables
+			
+			
 			'group': {
 				'table': """
 (
@@ -143,7 +300,7 @@ class Database(object):
 				}
 			}, #.db.group
 			
-			# ########## db.group_name ##########
+			
 			'group_name': {
 				'table': """
 (
@@ -151,16 +308,16 @@ class Database(object):
   namespace_id INTEGER NOT NULL,
   name VARCHAR(256) NOT NULL,
   source_id TINYINT NOT NULL,
-  PRIMARY KEY (group_id,namespace_id,name,source_id)
+  PRIMARY KEY (group_id,namespace_id,name)
 )
 """,
 				'index': {
-					'group_name__name': '(name,namespace_id)',
+					'group_name__name_namespace_group': '(name,namespace_id,group_id)',
 					'group_name__source_name': '(source_id,name)',
 				}
 			}, #.db.group_name
 			
-			# ########## db.group_group ##########
+			
 			'group_group': {
 				'table': """
 (
@@ -169,7 +326,7 @@ class Database(object):
   relationship_id SMALLINT NOT NULL,
   direction TINYINT NOT NULL,
   source_id TINYINT NOT NULL,
-  PRIMARY KEY (group_id,related_group_id,relationship_id,direction,source_id)
+  PRIMARY KEY (group_id,related_group_id,relationship_id,direction)
 )
 """,
 				'index': {
@@ -177,183 +334,45 @@ class Database(object):
 				}
 			}, #.db.group_group
 			
-			# ########## db.group_region ##########
-			'group_region': {
+			
+			'group_biopolymer': {
 				'table': """
 (
   group_id INTEGER NOT NULL,
-  region_id INTEGER NOT NULL,
+  biopolymer_id INTEGER NOT NULL,
   specificity TINYINT NOT NULL,
   implication TINYINT NOT NULL,
   quality TINYINT NOT NULL,
-  PRIMARY KEY (group_id,region_id)
+  source_id TINYINT NOT NULL,
+  PRIMARY KEY (group_id,biopolymer_id,source_id)
 )
 """,
 				'index': {
-					'group_region__region': '(region_id,group_id)',
+					'group_biopolymer__biopolymer': '(biopolymer_id,group_id)',
 				}
-			}, #.db.group_region
+			}, #.db.group_biopolymer
 			
-			# ########## db.group_region_name ##########
-			'group_region_name': {
+			
+			'group_member_name': {
 				'table': """
 (
   group_id INTEGER NOT NULL,
   member INTEGER NOT NULL,
+  type_id TINYINT NOT NULL,
   namespace_id INTEGER NOT NULL,
   name VARCHAR(256) NOT NULL,
-  type_id TINYINT NOT NULL,
   source_id TINYINT NOT NULL,
-  PRIMARY KEY (group_id,member,namespace_id,name,source_id)
+  PRIMARY KEY (group_id,member,type_id,namespace_id,name)
 )
 """,
 				'index': {}
-			}, #.db.group_region_name
+			}, #.db.group_member_name
 			
-			# ########## db.region ##########
-			'region': {
-				'table': """
-(
-  region_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-  type_id TINYINT NOT NULL,
-  label VARCHAR(64) NOT NULL,
-  description VARCHAR(256),
-  source_id TINYINT NOT NULL
-)
-""",
-				'index': {
-					'region__type_label': '(type_id,label)',
-				}
-			}, #.db.region
 			
-			# ########## db.region_name ##########
-			'region_name': {
-				'table': """
-(
-  region_id INTEGER NOT NULL,
-  namespace_id INTEGER NOT NULL,
-  name VARCHAR(256) NOT NULL,
-  derived TINYINT NOT NULL DEFAULT 0,
-  source_id TINYINT NOT NULL,
-  PRIMARY KEY (region_id,namespace_id,name,source_id)
-)
-""",
-				'index': {
-					'region_name__name': '(name,namespace_id)',
-				}
-			}, #.db.region_name
+			##################################################
+			# liftover tables
 			
-			# ########## db.region_name_name ##########
-			'region_name_name': {
-				'table': """
-(
-  new_namespace_id INTEGER NOT NULL,
-  new_name VARCHAR(256) NOT NULL,
-  namespace_id INTEGER NOT NULL,
-  name VARCHAR(256) NOT NULL,
-  type_id TINYINT NOT NULL,
-  source_id TINYINT NOT NULL,
-  PRIMARY KEY (new_namespace_id,new_name,namespace_id,name,source_id)
-)
-""",
-				'index': {}
-			}, #.db.region_name_name
 			
-			# ########## db.region_bound ##########
-			'region_bound': {
-				'table': """
-(
-  region_id INTEGER NOT NULL,
-  population_id INTEGER NOT NULL,
-  chr TINYINT NOT NULL,
-  posMin BIGINT NOT NULL,
-  posMax BIGINT NOT NULL,
-  source_id TINYINT NOT NULL,
-  PRIMARY KEY (region_id,population_id,chr,posMin,posMax,source_id)
-)
-""",
-				'index': {
-					'region_bound__posmin': '(population_id,chr,posMin)',
-					'region_bound__posmax': '(population_id,chr,posMax)',
-				}
-			}, #.db.region_bound
-			
-			# ########## db.region_zone ##########
-			'region_zone': {
-				'table': """
-(
-  region_id INTEGER NOT NULL,
-  population_id INTEGER NOT NULL,
-  chr TINYINT NOT NULL,
-  zone INTEGER NOT NULL,
-  PRIMARY KEY (region_id,population_id,chr,zone)
-)
-""",
-				'index': {
-					'region_zone__zone': '(population_id,chr,zone)',
-				}
-			}, #.db.region_zone
-			
-			# ########## db.snp ##########
-			'snp': {
-				'table': """
-(
-  rs INTEGER NOT NULL,
-  chr TINYINT NOT NULL,
-  pos BIGINT NOT NULL,
-  source_id TINYINT NOT NULL,
-  PRIMARY KEY (rs,chr,pos,source_id)
-)
-""",
-				'index': {
-					'snp__chrpos': '(chr,pos)',
-				}
-			}, #.db.snp
-			
-			# ########## db.snp_merge ##########
-			'snp_merge': {
-				'table': """
-(
-  rsOld INTEGER NOT NULL,
-  rsNew INTEGER,
-  rsCur INTEGER,
-  source_id TINYINT NOT NULL,
-  PRIMARY KEY (rsOld,rsNew,rsCur,source_id)
-)
-""",
-				'index': {}
-			}, #.db.snp_merge
-			
-			# ########## db.snp_role_entrez ##########
-			'snp_role_entrez': {
-				'table': """
-(
-  rs INTEGER NOT NULL,
-  region_entrez INTEGER NOT NULL,
-  role_id INTEGER NOT NULL,
-  source_id TINYINT NOT NULL,
-  PRIMARY KEY (rs,region_entrez,role_id,source_id)
-)
-""",
-				'index': {}
-			}, #.db.snp_role_entrez
-			
-			# ########## db.snp_role ##########
-			'snp_role': {
-				'table': """
-(
-  rs INTEGER NOT NULL,
-  region_id INTEGER NOT NULL,
-  role_id INTEGER NOT NULL,
-  PRIMARY KEY (rs,region_id,role_id)
-)
-""",
-				'index': {
-					'snp_role__region': '(region_id)',
-				}
-			}, #.db.snp_role
-			
-			# ########## db.build_assembly ##########		
 			'build_assembly': {
 				'table': """
 (
@@ -364,7 +383,7 @@ class Database(object):
 				'index': {}
 			}, #.db.build_assembly
 			
-			# ########## db.chain ##########		
+			
 			'chain': {
 				'table': """
 (
@@ -385,7 +404,7 @@ class Database(object):
 				}
 			}, #.db.chain
 			
-			# ########## db.chain_data ##########
+			
 			'chain_data': {
 				'table': """
 (
@@ -406,7 +425,7 @@ class Database(object):
 	} #_schema{}
 	
 	
-	# ##################################################
+	##################################################
 	# class interrogation
 	
 	
@@ -434,28 +453,39 @@ class Database(object):
 	#getDatabaseInterfaceVersion()
 	
 	
-	# ##################################################
+	##################################################
 	# constructor
 	
 	
-	def __init__(self, dbFile=None):
+	def __init__(self, dbFile=None, cacheLimit=1024*1024*1024): # default 1GB cache
 		# initialize instance properties
 		self._verbose = False
 		self._logger = None
 		self._logFile = sys.stderr
 		self._logIndent = 0
 		self._logHanging = False
-		self._db = apsw.Connection(':memory:')
-		self._db.cursor().execute("PRAGMA synchronous=OFF") #TODO: document why this is a good idea
+		self._db = apsw.Connection('')
 		self._dbFile = None
 		self._dbNew = None
 		self._updater = None
+		
+		dbc = self._db.cursor()
+		# linux VFS doesn't usually report actual disk cluster size, so sqlite
+		# ends up using 1KB pages; 4KB is probably better
+		dbc.execute("PRAGMA page_size = %d" % (4*1024))
+		# negative cache_size means the limit is in kilobytes
+		dbc.execute("PRAGMA cache_size = -%d" % (cacheLimit / 1024))
+		# for typical read-only usage, synchronization behavior is moot anyway,
+		# and while updating we're not that worried about a power failure
+		# corrupting the database file since the user could just start the
+		# update over from the beginning; so, we'll take the performance gain
+		dbc.execute("PRAGMA synchronous = OFF")
 		
 		self.attachDatabaseFile(dbFile)
 	#__init__()
 	
 	
-	# ##################################################
+	##################################################
 	# context manager
 	
 	
@@ -469,7 +499,7 @@ class Database(object):
 	#__exit__()
 	
 	
-	# ##################################################
+	##################################################
 	# logging
 	
 	
@@ -531,24 +561,22 @@ class Database(object):
 	#logPop()
 	
 	
-	# ##################################################
+	##################################################
 	# database management
 	
 	
-	def attachDatabaseFile(self, dbFile):
+	def attachDatabaseFile(self, dbFile, cacheLimit=1024*1024*1024, readOnly=False, quiet=False):
 		dbc = self._db.cursor()
 		
 		# detach the current db file, if any
-		if self._dbFile:
+		if self._dbFile and not quiet:
 			self.log("unloading knowledge database file '%s' ..." % self._dbFile)
 		try:
 			dbc.execute("DETACH DATABASE `db`")
 		except apsw.SQLError as e:
-			# no easy way to check beforehand if a db is attached already,
-			# so just ignore that error (but re-raise any other)
 			if not str(e).startswith('SQLError: no such database: '):
 				raise e
-		if self._dbFile:
+		if self._dbFile and not quiet:
 			self.log(" OK\n")
 		
 		# reset db info
@@ -557,12 +585,18 @@ class Database(object):
 		
 		# attach the new db file, if any
 		if dbFile:
-			self.logPush("loading knowledge database file '%s' ..." % dbFile)
+			if not quiet:
+				self.logPush("loading knowledge database file '%s' ..." % dbFile)
 			dbc.execute("ATTACH DATABASE ? AS `db`", (dbFile,))
+			
+			# configure the newly attached database just like in __init__()
+			dbc.execute("PRAGMA db.page_size = 4096")
+			dbc.execute("PRAGMA db.cache_size = -%d" % (cacheLimit / 1024))
+			dbc.execute("PRAGMA db.synchronous = OFF")
 			
 			# establish or audit database schema
 			with self._db:
-				dbNew = (max(row[0] for row in dbc.execute("SELECT COUNT(1) FROM `db`.`sqlite_master`")) == 0)
+				dbNew = (0 == max(row[0] for row in dbc.execute("SELECT COUNT(1) FROM `db`.`sqlite_master`")))
 				if dbNew:
 					self.createDatabaseObjects(None, 'db')
 					ok = True
@@ -571,73 +605,88 @@ class Database(object):
 			if ok:
 				self._dbFile = dbFile
 				self._dbNew = dbNew
-				self.logPop("... OK\n")
+				if not quiet:
+					self.logPop("... OK\n")
 			else:
 				dbc.execute("DETACH DATABASE `db`")
-				self.logPop("... ERROR\n")
+				if not quiet:
+					self.logPop("... ERROR\n")
 		#if new dbFile
 	#attachDatabaseFile()
 	
 	
-	def detachDatabaseFile(self):
-		return self.attachDatabaseFile(None)
+	def detachDatabaseFile(self, quiet=False):
+		return self.attachDatabaseFile(None, quiet=quiet)
 	#detachDatabaseFile()
 	
 	
-	def createDatabaseObjects(self, schema, dbName, tblList=None, tables=True, idxList=None, indexes=True):
+	def testDatabaseUpdate(self):
+		if self._dbFile == None:
+			raise Exception("ERROR: no knowledge database file is loaded")
+		if int(self.getDatabaseSetting('finalized') or 0):
+			raise Exception("ERROR: knowledge database has been finalized")
+		try:
+			if self._db.readonly('db'):
+				raise Exception("ERROR: knowledge database file may not be modified")
+		except AttributeError: # apsw.Connection.readonly() added in 3.7.11
+			try:
+				self._db.cursor().execute("UPDATE `db`.`setting` SET value = value")
+			except apsw.ReadOnlyError:
+				raise Exception("ERROR: knowledge database file may not be modified")
+		return True
+	#testDatabaseUpdate()
+	
+	
+	def createDatabaseObjects(self, schema, dbName, tblList=None, doTables=True, idxList=None, doIndecies=True):
 		dbc = self._db.cursor()
 		schema = schema or self._schema[dbName]
 		dbType = "TEMP " if (dbName == "temp") else ""
-		if tblList == '*':
-			tblList = None
-		elif isinstance(tblList, str):
+		if tblList and isinstance(tblList, str):
 			tblList = (tblList,)
-		if idxList == '*':
-			idxList = None
-		elif isinstance(idxList, str):
+		if idxList and isinstance(idxList, str):
 			idxList = (idxList,)
 		for tblName in (tblList or schema.keys()):
-			if tables:
+			if doTables:
 				dbc.execute("CREATE %sTABLE IF NOT EXISTS `%s`.`%s` %s" % (dbType, dbName, tblName, schema[tblName]['table']))
-			if indexes:
-				for idxName in schema[tblName]['index']:
-					if (not idxList) or (idxName in idxList):
-						dbc.execute("CREATE INDEX IF NOT EXISTS `%s`.`%s` ON `%s` %s" % (dbName, idxName, tblName, schema[tblName]['index'][idxName]))
+			if doIndecies:
+				for idxName in (idxList or schema[tblName]['index'].keys()):
+					if idxName not in schema[tblName]['index']:
+						raise Exception("ERROR: no definition for index '%s' on table '%s'" % (idxName,tblName))
+					dbc.execute("CREATE INDEX IF NOT EXISTS `%s`.`%s` ON `%s` %s" % (dbName, idxName, tblName, schema[tblName]['index'][idxName]))
+				#foreach idxName in idxList
 				dbc.execute("ANALYZE `%s`.`%s`" % (dbName,tblName))
 		#foreach tblName in tblList
-		if indexes:
+		if doIndecies:
 			dbc.execute("ANALYZE `%s`.`sqlite_master`" % (dbName,))
 	#createDatabaseObjects()
 	
 	
-	def createDatabaseTables(self, schema, dbName, tblList, indexes=False):
-		return self.createDatabaseObjects(schema, dbName, tblList, True, None, indexes)
+	def createDatabaseTables(self, schema, dbName, tblList, doIndecies=False):
+		return self.createDatabaseObjects(schema, dbName, tblList, True, None, doIndecies)
 	#createDatabaseTables()
 	
 	
-	def createDatabaseIndexes(self, schema, dbName, tblList, tables=False, idxList=None):
-		return self.createDatabaseObjects(schema, dbName, tblList, tables, idxList, True)
-	#createDatabaseIndexes()
+	def createDatabaseIndecies(self, schema, dbName, tblList, doTables=False, idxList=None):
+		return self.createDatabaseObjects(schema, dbName, tblList, doTables, idxList, True)
+	#createDatabaseIndecies()
 	
 	
-	def dropDatabaseObjects(self, schema, dbName, tblList=None, tables=True, idxList=None, indexes=True):
+	def dropDatabaseObjects(self, schema, dbName, tblList=None, doTables=True, idxList=None, doIndecies=True):
 		dbc = self._db.cursor()
 		schema = schema or self._schema[dbName]
-		if tblList == '*':
-			tblList = None
-		elif isinstance(tblList, str):
+		if tblList and isinstance(tblList, str):
 			tblList = (tblList,)
-		if idxList == '*':
-			idxList = None
-		elif isinstance(idxList, str):
+		if idxList and isinstance(idxList, str):
 			idxList = (idxList,)
 		for tblName in (tblList or schema.keys()):
-			if indexes:
-				for idxName in schema[tblName]['index']:
-					if (tables) or (not idxList) or (idxName in idxList):
-						dbc.execute("DROP INDEX IF EXISTS `%s`.`%s`" % (dbName, idxName))
-			if tables:
+			if doTables:
+				if dbName == 'db':
+					self.testDatabaseUpdate()
 				dbc.execute("DROP TABLE IF EXISTS `%s`.`%s`" % (dbName, tblName))
+			elif doIndecies:
+				for idxName in (idxList or schema[tblName]['index'].keys()):
+					dbc.execute("DROP INDEX IF EXISTS `%s`.`%s`" % (dbName, idxName))
+				#foreach idxName in idxList
 		#foreach tblName in tblList
 	#dropDatabaseObjects()
 	
@@ -647,75 +696,92 @@ class Database(object):
 	#dropDatabaseTables()
 	
 	
-	def dropDatabaseIndexes(self, schema, dbName, tblList, idxList=None):
+	def dropDatabaseIndecies(self, schema, dbName, tblList, idxList=None):
 		return self.dropDatabaseObjects(schema, dbName, tblList, False, idxList, True)
-	#dropDatabaseIndexes()
+	#dropDatabaseIndecies()
 	
 	
-	def auditDatabaseObjects(self, schema, dbName, tblList=None, tables=True, idxList=None, indexes=True, repair=True):
+	def auditDatabaseObjects(self, schema, dbName, tblList=None, doTables=True, idxList=None, doIndecies=True, doRepair=True):
+		# fetch current schema
 		dbc = self._db.cursor()
+		current = dict()
+		dbMaster = "`sqlite_temp_master`" if (dbName == "temp") else ("`%s`.`sqlite_master`" % dbName)
+		for row in dbc.execute("SELECT tbl_name,type,name,sql FROM %s WHERE type IN ('table','index')" % dbMaster):
+			tblName,objType,idxName,objDef = row
+			if tblName not in current:
+				current[tblName] = {'table':None, 'index':{}}
+			if objType == 'table':
+				current[tblName]['table'] = objDef
+			elif objType == 'index':
+				current[tblName]['index'][idxName] = objDef
+		tblEmpty = dict()
+		for tblName in current:
+			tblEmpty[tblName] = True
+			for row in dbc.execute("SELECT 1 FROM `%s`.`%s` LIMIT 1" % (dbName,tblName)):
+				tblEmpty[tblName] = False
+		# audit requested objects
 		schema = schema or self._schema[dbName]
-		master = "`sqlite_temp_master`" if (dbName == "temp") else ("`%s`.`sqlite_master`" % dbName)
-		if tblList == '*':
-			tblList = None
-		elif isinstance(tblList, str):
+		if tblList and isinstance(tblList, str):
 			tblList = (tblList,)
-		if idxList == '*':
-			idxList = None
-		elif isinstance(idxList, str):
+		if idxList and isinstance(idxList, str):
 			idxList = (idxList,)
 		ok = True
 		for tblName in (tblList or schema.keys()):
-			try:
-				if tables:
-					sql = dbc.execute("SELECT sql FROM %s WHERE type=? AND name=?" % master, ('table',tblName)).next()[0]
-					if sql != ("CREATE TABLE `%s` %s" % (tblName, schema[tblName]['table'].rstrip())):
-						if repair:
-							rows = dbc.execute("SELECT COUNT() FROM `%s`.`%s`" % (dbName,tblName)).next()[0]
-							if rows == 0:
-								self.log("WARNING: table '%s' schema mismatch -- repairing ..." % tblName)
-								self.dropDatabaseTables(None, dbName, tblName)
-								self.createDatabaseTables(None, dbName, tblName, True)
-								self.log(" OK\n")
-							else:
-								self.log("ERROR: table '%s' schema mismatch -- cannot repair\n" % tblName)
-								ok = False
-						else:
-							self.log("ERROR: table '%s' schema mismatch\n" % tblName)
-							ok = False
-				if indexes:
-					for idxName in schema[tblName]['index']:
-						if (not idxList) or (idxName in idxList):
-							try:
-								sql = dbc.execute("SELECT sql FROM %s WHERE type=? AND name=?" % master, ('index',idxName)).next()[0]
-								if sql != ("CREATE INDEX `%s` ON `%s` %s" % (idxName, tblName, schema[tblName]['index'][idxName].rstrip())):
-									if repair:
-										self.log("WARNING: index '%s' on table '%s' schema mismatch -- repairing ..." % (tblName, idxName))
-										self.dropDatabaseIndexes(None, dbName, tblName, idxName)
-										self.createDatabaseIndexes(None, dbName, tblName, False, idxName)
-										self.log(" OK\n")
-									else:
-										self.log("ERROR: index '%s' on table '%s' schema mismatch\n" % (tblName, idxName))
-										ok = False
-							except StopIteration:
-								if repair:
-									self.log("WARNING: index '%s' on table '%s' missing -- repairing ..." % (idxName, tblName))
-									self.createDatabaseIndexes(None, dbName, tblName, False, idxName)
-									self.log(" OK\n")
-								else:
-									self.log("ERROR: index '%s' on table '%s' missing\n" % (idxName, tblName))
-									ok = False
-			except StopIteration:
-				if repair:
-					self.log("WARNING: table '%s' missing -- repairing ..." % tblName)
-					self.createDatabaseTables(None, dbName, tblName, True)
+			if doTables:
+				if tblName in current:
+					if current[tblName]['table'].rstrip() == ("CREATE TABLE `%s` %s" % (tblName, schema[tblName]['table'].rstrip())):
+						pass
+					elif doRepair and tblEmpty[tblName]:
+						self.log("WARNING: table '%s' schema mismatch -- repairing ..." % tblName)
+						self.dropDatabaseTables(schema, dbName, tblName)
+						self.createDatabaseTables(schema, dbName, tblName, doIndecies)
+						self.log(" OK\n")
+					elif doRepair:
+						self.log("ERROR: table '%s' schema mismatch -- cannot repair\n" % tblName)
+						ok = False
+					else:
+						self.log("ERROR: table '%s' schema mismatch\n" % tblName)
+						ok = False
+					#if definition match
+				elif doRepair:
+					self.log("WARNING: table '%s' is missing -- repairing ..." % tblName)
+					self.createDatabaseTables(schema, dbName, tblName, doIndecies)
 					self.log(" OK\n")
 				else:
-					self.log("ERROR: table '%s' missing\n" % tblName)
+					self.log("ERROR: table '%s' is missing\n" % tblName)
 					ok = False
+				#if tblName in current
+			#if doTables
+			if doIndecies:
+				for idxName in (idxList or schema[tblName]['index'].keys()):
+					if (tblName not in current) and not (doTables and doRepair):
+						self.log("ERROR: table '%s' is missing for index '%s'\n" % (tblName, idxName))
+						ok = False
+					elif tblName in current and idxName in current[tblName]['index']:
+						if current[tblName]['index'][idxName].rstrip() == ("CREATE INDEX `%s` ON `%s` %s" % (idxName, tblName, schema[tblName]['index'][idxName].rstrip())):
+							pass
+						elif doRepair:
+							self.log("WARNING: index '%s' on table '%s' schema mismatch -- repairing ..." % (idxName, tblName))
+							self.dropDatabaseIndecies(schema, dbName, tblName, idxName)
+							self.createDatabaseIndecies(schema, dbName, tblName, False, idxName)
+							self.log(" OK\n")
+						else:
+							self.log("ERROR: index '%s' on table '%s' schema mismatch\n" % (idxName, tblName))
+							ok = False
+						#if definition match
+					elif doRepair:
+						self.log("WARNING: index '%s' on table '%s' is missing -- repairing ..." % (idxName, tblName))
+						self.createDatabaseIndecies(schema, dbName, tblName, False, idxName)
+						self.log(" OK\n")
+					else:
+						self.log("ERROR: index '%s' on table '%s' is missing\n" % (idxName, tblName))
+						ok = False
+					#if tblName,idxName in current
+				#foreach idxName in idxList
+			#if doIndecies
 		#foreach tblName in tblList
 		return ok
-	#auditDatabaseTables()
+	#auditDatabaseObjects()
 	
 	
 	def defragmentDatabase(self):
@@ -723,35 +789,41 @@ class Database(object):
 		# so we have to detach, make a new direct connection, then re-attach
 		if self._dbFile:
 			dbFile = self._dbFile
-			self.detachDatabaseFile()
+			self.detachDatabaseFile(quiet=True)
 			db = apsw.Connection(dbFile)
-			dbc = db.cursor()
-			dbc.execute("VACUUM")
-			dbc.close()
+			db.cursor().execute("VACUUM")
 			db.close()
-			self.attachDatabaseFile(dbFile)
+			self.attachDatabaseFile(dbFile, quiet=True)
 	#defragmentDatabase()
 	
 	
-	def getDatabaseSetting(self, setting, value=None):
-		dbc = self._db.cursor()
-		found = False
-		for row in dbc.execute("SELECT value FROM `db`.`setting` WHERE setting = ?", (setting,)):
+	def finalizeDatabase(self):
+		self.log("discarding intermediate data ...")
+		self.testDatabaseUpdate()
+		self.dropDatabaseTables(None, 'db', ('snp_entrez_role','biopolymer_name_name','group_member_name'))
+		self.createDatabaseTables(None, 'db', ('snp_entrez_role','biopolymer_name_name','group_member_name'), True)
+		self.log(" OK\n")
+		self.log("updating optimizer statistics ...")
+		self._db.cursor().execute("ANALYZE `db`")
+		self.log(" OK\n")
+		self.log("compacting knowledge database file (this may take several hours!) ...")
+		self.defragmentDatabase()
+		self.log(" OK\n")
+		self.setDatabaseSetting('finalized', 1)
+	#finalizeDatabase()
+	
+	
+	def getDatabaseSetting(self, setting):
+		value = self._setting_defaults[setting] if setting in self._setting_defaults else None
+		for row in self._db.cursor().execute("SELECT value FROM `db`.`setting` WHERE setting = ?", (setting,)):
 			value = row[0]
-			found = True
-		if not found:
-			if value == None and setting in self._setting_defaults:
-				value = self._setting_defaults[setting]
-			if value != None:
-				self.setDatabaseSetting(setting, value)
 		return value
 	#getDatabaseSetting()
 	
 	
 	def setDatabaseSetting(self, setting, value):
-		dbc = self._db.cursor()
-		dbc.execute("INSERT OR REPLACE INTO `db`.`setting` (setting, value) VALUES (?, ?)", (setting,value))
-		return True
+		self.testDatabaseUpdate()
+		self._db.cursor().execute("INSERT OR REPLACE INTO `db`.`setting` (setting, value) VALUES (?, ?)", (setting,value))
 	#setDatabaseSetting()
 	
 	
@@ -764,6 +836,7 @@ class Database(object):
 	
 	
 	def updateDatabase(self, sources, cacheOnly=False):
+		self.testDatabaseUpdate()
 		if not self._updater:
 			import loki_updater
 			self._updater = loki_updater.Updater(self)
@@ -785,210 +858,172 @@ class Database(object):
 	#prepareTableForQuery()
 	
 	
-	# ##################################################
+	##################################################
 	# metadata retrieval
 	
 	
-	def getNamespaceID(self, name):
-		result = None
-		for row in self._db.cursor().execute("SELECT namespace_id FROM `db`.`namespace` WHERE namespace = LOWER(?)", (name,)):
-			result = row[0]
-		return result
+	def getLDProfileID(self, ldprofile):
+		return self.getLDProfileIDs([ldprofile])[ldprofile]
+	#getLDProfileID()
+	
+	
+	def getLDProfileIDs(self, ldprofiles):
+		sql = "SELECT i.ldprofile, l.ldprofile_id FROM (SELECT ? AS ldprofile) AS i LEFT JOIN `db`.`ldprofile` AS l ON l.ldprofile = LOWER(i.ldprofile)"
+		return { row[0]:row[1] for row in self._db.cursor().executemany(sql, itertools.izip(ldprofiles)) }
+	#getLDProfileIDs()
+	
+	
+	def getNamespaceID(self, namespace):
+		return self.getNamespaceIDs([namespace])[namespace]
 	#getNamespaceID()
 	
 	
-	def getNamespaceIDs(self, names):
-		result = { name:None for name in names }
-		for row in self._db.cursor().executemany("SELECT namespace,namespace_id FROM `db`.`namespace` WHERE namespace = LOWER(?)", ((name,) for name in result)):
-			result[row[0]] = row[1]
-		return result
+	def getNamespaceIDs(self, namespaces):
+		sql = "SELECT i.namespace, n.namespace_id FROM (SELECT ? AS namespace) AS i LEFT JOIN `db`.`namespace` AS n ON n.namespace = LOWER(i.namespace)"
+		return { row[0]:row[1] for row in self._db.cursor().executemany(sql, itertools.izip(namespaces)) }
 	#getNamespaceIDs()
 	
 	
-	def getPopulationID(self, name):
-		result = None
-		for row in self._db.cursor().execute("SELECT population_id FROM `db`.`population` WHERE population = LOWER(?)", (name,)):
-			result = row[0]
-		return result
-	#getPopulationID()
-	
-	
-	def getPopulationIDs(self, names):
-		result = { name:None for name in names }
-		for row in self._db.cursor().executemany("SELECT population,population_id FROM `db`.`population` WHERE population = LOWER(?)", ((name,) for name in result)):
-			result[row[0]] = row[1]
-		return result
-	#getPopulationIDs()
-	
-	
-	def getRelationshipID(self, name):
-		result = None
-		for row in self._db.cursor().execute("SELECT relationship_id FROM `db`.`relationship` WHERE relationship = LOWER(?)", (name,)):
-			result = row[0]
-		return result
+	def getRelationshipID(self, relationship):
+		return self.getRelationshipIDs([relationship])[relationship]
 	#getRelationshipID()
 	
 	
-	def getRelationshipIDs(self, names):
-		result = { name:None for name in names }
-		for row in self._db.cursor().executemany("SELECT relationship,relationship_id FROM `db`.`relationship` WHERE relationship = LOWER(?)", ((name,) for name in result)):
-			result[row[0]] = row[1]
-		return result
+	def getRelationshipIDs(self, relationships):
+		sql = "SELECT i.relationship, r.relationship_id FROM (SELECT ? AS relationship) AS i LEFT JOIN `db`.`relationship` AS r ON r.relationship = LOWER(i.relationship)"
+		return { row[0]:row[1] for row in self._db.cursor().executemany(sql, itertools.izip(relationships)) }
 	#getRelationshipIDs()
 	
 	
-	def getRoleID(self, name):
-		result = None
-		for row in self._db.cursor().execute("SELECT role_id FROM `db`.`role` WHERE role = LOWER(?)", (name,)):
-			result = row[0]
-		return result
+	def getRoleID(self, role):
+		return self.getRoleIDs([role])[role]
 	#getRoleID()
 	
 	
-	def getRoleIDs(self, names):
-		result = { name:None for name in names }
-		for row in self._db.cursor().executemany("SELECT role,role_id FROM `db`.`role` WHERE role = LOWER(?)", ((name,) for name in result)):
-			result[row[0]] = row[1]
-		return result
+	def getRoleIDs(self, roles):
+		sql = "SELECT i.role, role_id FROM (SELECT ? AS role) AS i LEFT JOIN `db`.`role` AS r ON r.role = LOWER(i.role)"
+		return { row[0]:row[1] for row in self._db.cursor().executemany(sql, itertools.izip(roles)) }
 	#getRoleIDs()
 	
 	
-	def getSourceID(self, name):
-		result = None
-		for row in self._db.cursor().execute("SELECT source_id FROM `db`.`source` WHERE source = LOWER(?)", (name,)):
-			result = row[0]
-		return result
+	def getSourceID(self, source):
+		return self.getSourceIDs([source])[source]
 	#getSourceID()
 	
 	
-	def getSourceIDs(self, names):
-		result = { name:None for name in names }
-		for row in self._db.cursor().executemany("SELECT source,source_id FROM `db`.`source` WHERE source = LOWER(?)", ((name,) for name in result)):
-			result[row[0]] = row[1]
-		return result
+	def getSourceIDs(self, sources):
+		sql = "SELECT i.source, s.source_id FROM (SELECT ? AS source) AS i LEFT JOIN `db`.`source` AS s ON s.source = LOWER(i.source)"
+		return { row[0]:row[1] for row in self._db.cursor().executemany(sql, itertools.izip(sources)) }
 	#getSourceIDs()
 	
 	
-	def getTypeID(self, name):
-		result = None
-		for row in self._db.cursor().execute("SELECT type_id FROM `db`.`type` WHERE type = LOWER(?)", (name,)):
-			result = row[0]
-		return result
+	def getTypeID(self, type):
+		return self.getTypeIDs([type])[type]
 	#getTypeID()
 	
 	
-	def getTypeIDs(self, names):
-		result = { name:None for name in names }
-		for row in self._db.cursor().executemany("SELECT type,type_id FROM `db`.`type` WHERE type = LOWER(?)", ((name,) for name in result)):
-			result[row[0]] = row[1]
-		return result
+	def getTypeIDs(self, types):
+		sql = "SELECT i.type, t.type_id FROM (SELECT ? AS type) AS i LEFT JOIN `db`.`type` AS t ON t.type = LOWER(i.type)"
+		return { row[0]:row[1] for row in self._db.cursor().executemany(sql, itertools.izip(types)) }
 	#getTypeIDs()
 	
 	
-	# ##################################################
-	# SNP data retrieval
+	##################################################
+	# snp data retrieval
 	
 	
-	def generateSNPs(self, rses):
-		# rses=[ rs, ... ]
-		sql = "SELECT rs, chr, pos FROM `db`.`snp` WHERE rs = ?"
-		for row in self._db.cursor().executemany(sql, ((rs,) for rs in rses)):
-			yield row
-	#generateSNPs()
-	
-	
-	def generateCurrentRSesByRS(self, rses, minMatch=1, maxMatch=1, tally=None):
+	def generateCurrentRSesByRS(self, rses, tally=None):
 		# rses=[ rs, ... ]
 		# tally=dict()
+		# yield:[ (rsInput,rsCurrent), ... ]
 		sql = """
-SELECT i.rs, s.rs
-FROM (SELECT ? AS rs) AS i
-LEFT JOIN `db`.`snp` AS s USING (rs)
-UNION ALL
-SELECT sm.rsOld, sm.rsCur
-FROM `db`.`snp_merge` AS sm
-JOIN `db`.`snp` AS s
-  ON s.rs = sm.rsCur
-WHERE sm.rsOld = ?
+SELECT i.rsMerged, COALESCE(sm.rsCurrent, i.rsMerged) AS rsCurrent
+FROM (SELECT ? AS rsMerged) AS i
+LEFT JOIN `db`.`snp_merge` AS sm USING (rsMerged)
 """
-		key = matches = None
-		numNull = numAmbig = numMerge = numMatch = 0
-		for row in self._db.cursor().executemany(sql, ((rs,rs) for rs in rses)):
-			if key != row[0]:
-				if key:
-					if tally != None:
-						if not matches:
-							numNull += 1
-						elif len(matches) > 1:
-							numAmbig += 1
-						elif max(matches) != key:
-							numMerge += 1
-						else:
-							numMatch += 1
-					if minMatch < 1 and not matches:
-						yield (key,None)
-					elif minMatch <= len(matches) <= (maxMatch or len(matches)):
-						for match in matches:
-							yield (key,match)
-				key = row[0]
-				matches = set()
-			if row[1]:
-				matches.add(row[1])
-		#foreach row
-		if key:
-			if tally != None:
-				if not matches:
-					numNull += 1
-				elif len(matches) > 1:
-					numAmbig += 1
-				elif max(matches) != key:
-					numMerge += 1
-				else:
-					numMatch += 1
-			if minMatch < 1 and not matches:
-				yield (key,None)
-			elif minMatch <= len(matches) <= (maxMatch or len(matches)):
-				for match in matches:
-					yield (key,match)
+		numMerge = numMatch = 0
+		for row in self._db.cursor().executemany(sql, itertools.izip(rses)):
+			if row[1] != row[0]:
+				numMerge += 1
+			else:
+				numMatch += 1
+			yield row
 		if tally != None:
-			tally['null'] = numNull
-			tally['ambig'] = numAmbig
 			tally['merge'] = numMerge
 			tally['match'] = numMatch
 	#generateCurrentRSesByRS()
 	
 	
-	# ##################################################
-	# region data retrieval
-	
-	
-	def generateRegions(self, rids):
-		# rids=[ region_id, ... ]
-		sql = "SELECT region_id, type_id, label, description FROM `db`.`region` WHERE region_id = ?"
-		for row in self._db.cursor().executemany(sql, ((rid,) for rid in rids)):
-			yield row
-	#generateRegions()
-	
-	
-	def generateRegionIDsByName(self, names, minMatch=1, maxMatch=1, namespaceID=None, typeID=None, tally=None):
-		# names=[ (name,), ... ]
+	def generateSNPLociByRS(self, rses, minMatch=1, maxMatch=1, tally=None):
+		# rses=[ rs, ... ]
 		# tally=dict()
+		# yield:[ (rs,chr,pos), ... ]
 		sql = """
-SELECT i.name, r.region_id
+SELECT i.rs, sl.chr, sl.pos
+FROM (SELECT ? AS rs) AS i
+LEFT JOIN `db`.`snp_locus` AS sl USING (rs)
+"""
+		key = matches = None
+		numNull = numAmbig = numMatch = 0
+		for row in itertools.chain(self._db.cursor().executemany(sql, itertools.izip(rses)), [(None,None,None)]):
+			if key != row[0]:
+				if key:
+					if tally != None:
+						if not matches:
+							numNull += 1
+						elif len(matches) > 1:
+							numAmbig += 1
+						else:
+							numMatch += 1
+					if (minMatch or 0) < 1 and not matches:
+						yield (key,None,None)
+					elif (minMatch or 0) <= len(matches) <= (maxMatch or len(matches)):
+						for match in matches:
+							yield match
+				key = row[0]
+				matches = set()
+			if row[1] and row[2]:
+				matches.add(row)
+		#foreach row
+		if tally != None:
+			tally['null'] = numNull
+			tally['ambig'] = numAmbig
+			tally['match'] = numMatch
+	#generateSNPLociByRS()
+	
+	
+	##################################################
+	# biopolymer data retrieval
+	
+	
+	def generateBiopolymersByID(self, ids):
+		# ids=[ id, ... ]
+		# yield:[ (id,type_id,label,description), ... ]
+		sql = "SELECT biopolymer_id, type_id, label, description FROM `db`.`biopolymer` WHERE biopolymer_id = ?"
+		return self._db.cursor().executemany(sql, itertools.izip(ids))
+	#generateBiopolymersByID()
+	
+	
+	def generateBiopolymerIDsByName(self, names, minMatch=1, maxMatch=1, tally=None, namespaceID=None, typeID=None):
+		# names=[ name, ... ]
+		# tally=dict()
+		# yield:[ (name,id), ... ]
+		sql = """
+SELECT i.name, b.biopolymer_id
 FROM (SELECT ? AS name) AS i
-LEFT JOIN `db`.`region_name` AS rn
-  ON rn.name = i.name
-  {rn_join}
-LEFT JOIN `db`.`region` AS r
-  ON r.region_id = rn.region_id
-  {r_join}
+LEFT JOIN `db`.`biopolymer_name` AS bn
+  ON bn.name = i.name
+  {bn_join}
+LEFT JOIN `db`.`biopolymer` AS b
+  ON b.biopolymer_id = bn.biopolymer_id
+  {b_join}
 """.format(
-			rn_join=("AND rn.namespace_id = %d" % namespaceID) if namespaceID else "",
-			r_join=("AND r.type_id = %d" % typeID) if typeID else ""
+			bn_join=("AND bn.namespace_id = %d" % namespaceID) if namespaceID else "",
+			b_join=("AND b.type_id = %d" % typeID) if typeID else ""
 		)
 		key = matches = None
 		numNull = numAmbig = numMatch = 0
-		for row in self._db.cursor().executemany(sql, ((name,) for name in names)):
+		for row in itertools.chain(self._db.cursor().executemany(sql, itertools.izip(names)), [(None,None)]):
 			if key != row[0]:
 				if key:
 					if tally != None:
@@ -1000,185 +1035,109 @@ LEFT JOIN `db`.`region` AS r
 							numMatch += 1
 					if minMatch < 1 and not matches:
 						yield (key,None)
-					elif minMatch <= len(matches) <= (maxMatch or len(matches)):
+					elif (minMatch or 0) <= len(matches) <= (maxMatch or len(matches)):
 						for match in matches:
-							yield (key,match)
+							yield match
 				key = row[0]
 				matches = set()
 			if row[1]:
-				matches.add(row[1])
+				matches.add(row)
 		#foreach row
-		if key:
-			if tally != None:
-				if not matches:
-					numNull += 1
-				elif len(matches) > 1:
-					numAmbig += 1
-				else:
-					numMatch += 1
-			if minMatch < 1 and not matches:
-				yield (key,None)
-			elif minMatch <= len(matches) <= (maxMatch or len(matches)):
-				for match in matches:
-					yield (key,match)
 		if tally != None:
 			tally['null'] = numNull
 			tally['ambig'] = numAmbig
 			tally['match'] = numMatch
-	#generateRegionIDsByName()
+	#generateBiopolymerIDsByName()
 	
-	 
-	# ##################################################
+	
+	def getBiopolymerNameStats(self, namespaceID=None, typeID=None):
+		sql = """
+SELECT
+  COUNT(1) AS `total`,
+  SUM(CASE WHEN names = 1 THEN 1 ELSE 0 END) AS `unique`,
+  SUM(CASE WHEN names > 1 AND matches = 1 THEN 1 ELSE 0 END) AS `redundant`,
+  SUM(CASE WHEN names > 1 AND matches > 1 THEN 1 ELSE 0 END) AS `ambiguous`
+FROM (
+  SELECT name, COUNT() AS names, COUNT(DISTINCT bn.biopolymer_id) AS matches
+  FROM `db`.`biopolymer_name` AS bn
+"""
+		
+		if typeID:
+			sql += """
+  JOIN `db`.`biopolymer` AS b
+    ON b.biopolymer_id = bn.biopolymer_id AND b.type_id = %d
+""" % typeID
+		
+		if namespaceID:
+			sql += """
+  WHERE bn.namespace_id = %d
+""" % namespaceID
+		
+		sql += """
+  GROUP BY bn.name
+"""
+		for row in self._db.cursor().execute(sql):
+			ret = { 'total':row[0], 'unique':row[1], 'redundant':row[2], 'ambiguous':row[3] }
+		return ret
+	#getBiopolymerNameStats()
+	
+	
+	##################################################
 	# group data retrieval
 	
 	
-	def getGroupIDsByName(self, name, namespaceID=None, typeID=None): #TODO
-		dbc = self._db.cursor()
-		if typeID and namespaceID:
-			result = dbc.execute("""
-SELECT DISTINCT gn.`group_id`
-FROM `db`.`group_name` AS gn
-JOIN `db`.`group` AS g
-  ON g.`group_id` = gn.`group_id` AND g.`type_id` = ?
-WHERE gn.`name` = ? AND gn.`namespace_id` = ?
-""", (typeID,name,namespaceID))
-		elif typeID:
-			result = dbc.execute("""
-SELECT DISTINCT gn.`group_id`
-FROM `db`.`group_name` AS gn
-JOIN `db`.`group` AS g
-  ON g.`group_id` = gn.`group_id` AND g.`type_id` = ?
-WHERE gn.`name` = ?
-""", (typeID,name))
-		elif namespaceID:
-			result = dbc.execute("""
-SELECT DISTINCT gn.`group_id`
-FROM `db`.`group_name` AS gn
-WHERE gn.`name` = ? AND gn.`namespace_id` = ?
-""", (name,namespaceID))
-		else:
-			result = dbc.execute("""
-SELECT DISTINCT gn.`group_id`
-FROM `db`.`group_name` AS gn
-WHERE gn.`name` = ?
-""", (name,))
-		return [row[0] for row in result]
-	#getGroupIDsByName()
+	def generateGroupsByID(self, ids):
+		# ids=[ id, ... ]
+		# yield:[ (id,type_id,label,description), ... ]
+		sql = "SELECT group_id, type_id, label, description FROM `db`.`group` WHERE group_id = ?"
+		return self._db.cursor().executemany(sql, itertools.izip(ids))
+	#generateGroupsByID()
 	
 	
-	# ##################################################
-	# region data retrieval
-	
-	
-	def getRegionIDsByName(self, name, namespaceID=None, typeID=None, matchMode=None): #TODO
-		return self.getRegionIDsByNames((name,), (namespaceID,), typeID, matchMode)
-	#getRegionIDsByName()
-	
-	
-	def getRegionIDsByNames(self, names, namespaceIDs, typeID=None, matchMode=None): #TODO
-		dbc = self._db.cursor()
+	def generateGroupIDsByName(self, names, minMatch=1, maxMatch=1, tally=None, namespaceID=None, typeID=None):
+		# names=[ name, ... ]
+		# tally=dict()
+		# yield:[ (name,id), ... ]
 		sql = """
-SELECT rn.region_id
-FROM db.region_name AS rn"""
-		if typeID:
-			sql += """
-JOIN db.region AS r
-  ON r.region_id = rn.region_id AND r.type_id = %d""" % typeID
-		sql += """
-WHERE rn.name = ? AND (rn.namespace_id = ? OR COALESCE(?,0) = 0)"""
-		setArgs = set(args for args in zip(names,namespaceIDs,namespaceIDs) if args[0] != None)
-		
-		if (matchMode == None) or (matchMode == self.MATCH_ALL):
-			return list( set( row[0] for row in dbc.executemany(sql, setArgs) ) )
-		elif matchMode == self.MATCH_FIRST:
-			regionIDs = None
-			for args in setArgs:
-				newIDs = set( row[0] for row in dbc.execute(sql, args) )
-				if not regionIDs:
-					regionIDs = newIDs
-				else:
-					regionIDs &= newIDs
-				if len(regionIDs) == 1:
-					return list(regionIDs)
-			return list()
-		elif matchMode == self.MATCH_BEST:
-			regionHits = dict()
-			bestHits = 0
-			for row in dbc.executemany(sql, setArgs):
-				regionID = row[0]
-				hits = (regionHits.get(regionID) or 0) + 1
-				regionHits[regionID] = hits
-				bestHits = max(bestHits, hits)
-			return [ regionID for regionID in regionHits if regionHits[regionID] == bestHits ]
-		else:
-			raise ValueError("invalid matchMode '%s'" % matchMode)
-	#getRegionIDsByNames()
-	
-	
-	def getRegionNameStats(self, namespaceID=None, typeID=None): #TODO
-		dbc = self._db.cursor()
-		if typeID and namespaceID:
-			result = dbc.execute("""
-SELECT
-  COUNT(1) AS `total`,
-  SUM(CASE WHEN names = 1 THEN 1 ELSE 0 END) AS `unique`,
-  SUM(CASE WHEN names > 1 AND regions = 1 THEN 1 ELSE 0 END) AS `redundant`,
-  SUM(CASE WHEN names > 1 AND regions > 1 THEN 1 ELSE 0 END) AS `ambiguous`
-FROM (
-  SELECT name, COUNT() AS names, COUNT(DISTINCT rn.`region_id`) AS regions
-  FROM `db`.`region_name` AS rn
-  JOIN `db`.`region` AS r
-    ON r.`region_id` = rn.`region_id` AND r.`type_id` = ?
-  WHERE rn.`namespace_id` = ?
-  GROUP BY rn.`name`
-)
-""", (typeID,namespaceID))
-		elif typeID:
-			result = dbc.execute("""
-SELECT
-  COUNT(1) AS `total`,
-  SUM(CASE WHEN names = 1 THEN 1 ELSE 0 END) AS `unique`,
-  SUM(CASE WHEN names > 1 AND regions = 1 THEN 1 ELSE 0 END) AS `redundant`,
-  SUM(CASE WHEN names > 1 AND regions > 1 THEN 1 ELSE 0 END) AS `ambiguous`
-FROM (
-  SELECT name, COUNT() AS names, COUNT(DISTINCT rn.`region_id`) AS regions
-  FROM `db`.`region_name` AS rn
-  JOIN `db`.`region` AS r
-    ON r.`region_id` = rn.`region_id` AND r.`type_id` = ?
-  GROUP BY rn.`name`
-)
-""", (typeID,))
-		elif namespaceID:
-			result = dbc.execute("""
-SELECT
-  COUNT(1) AS `total`,
-  SUM(CASE WHEN names = 1 THEN 1 ELSE 0 END) AS `unique`,
-  SUM(CASE WHEN names > 1 AND regions = 1 THEN 1 ELSE 0 END) AS `redundant`,
-  SUM(CASE WHEN names > 1 AND regions > 1 THEN 1 ELSE 0 END) AS `ambiguous`
-FROM (
-  SELECT name, COUNT() AS names, COUNT(DISTINCT rn.`region_id`) AS regions
-  FROM `db`.`region_name` AS rn
-  WHERE rn.`namespace_id` = ?
-  GROUP BY rn.`name`
-)
-""", (namespaceID,))
-		else:
-			result = dbc.execute("""
-SELECT
-  COUNT(1) AS `total`,
-  SUM(CASE WHEN names = 1 THEN 1 ELSE 0 END) AS `unique`,
-  SUM(CASE WHEN names > 1 AND regions = 1 THEN 1 ELSE 0 END) AS `redundant`,
-  SUM(CASE WHEN names > 1 AND regions > 1 THEN 1 ELSE 0 END) AS `ambiguous`
-FROM (
-  SELECT name, COUNT() AS names, COUNT(DISTINCT rn.`region_id`) AS regions
-  FROM `db`.`region_name` AS rn
-  GROUP BY rn.`name`
-)
-""")
-		for row in result:
-			ret = { 'total':row[0], 'unique':row[1], 'redundant':row[2], 'ambiguous':row[3] }
-		return ret
-	#getRegionNameStats()
+SELECT i.name, g.group_id
+FROM (SELECT ? AS name) AS i
+LEFT JOIN `db`.`group_name` AS gn
+  ON gn.name = i.name
+  {gn_join}
+LEFT JOIN `db`.`group` AS g
+  ON g.group_id = gn.group_id
+  {g_join}
+""".format(
+			gn_join=("AND gn.namespace_id = %d" % namespaceID) if namespaceID else "",
+			g_join=("AND g.type_id = %d" % typeID) if typeID else ""
+		)
+		key = matches = None
+		numNull = numAmbig = numMatch = 0
+		for row in itertools.chain(self._db.cursor().executemany(sql, itertools.izip(names)), [(None,None)]):
+			if key != row[0]:
+				if key:
+					if tally != None:
+						if not matches:
+							numNull += 1
+						elif len(matches) > 1:
+							numAmbig += 1
+						else:
+							numMatch += 1
+					if minMatch < 1 and not matches:
+						yield (key,None)
+					elif (minMatch or 0) <= len(matches) <= (maxMatch or len(matches)):
+						for match in matches:
+							yield match
+				key = row[0]
+				matches = set()
+			if row[1]:
+				matches.add(row)
+		#foreach row
+		if tally != None:
+			tally['null'] = numNull
+			tally['ambig'] = numAmbig
+			tally['match'] = numMatch
+	#generateGroupIDsByName()
 	
 	
 #Database

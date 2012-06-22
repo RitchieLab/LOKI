@@ -7,10 +7,6 @@ import loki_source
 class Source_go(loki_source.Source):
 	
 	
-	# ##################################################
-	# source interface
-	
-	
 	def download(self):
 		# download the latest source files
 		self.downloadFilesFromFTP('ftp.geneontology.org', {
@@ -195,7 +191,7 @@ class Source_go(loki_source.Source):
 		# store gene associations
 		self.log("writing gene associations to the database ...")
 		for ns in nsAssoc:
-			self.addGroupTypedRegionNamespacedNames(typeID['gene'], namespaceID[ns], nsAssoc[ns])
+			self.addGroupMemberTypedNamespacedNames(typeID['gene'], namespaceID[ns], nsAssoc[ns])
 		self.log(" OK\n")
 	#update()
 	

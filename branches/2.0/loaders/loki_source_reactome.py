@@ -7,10 +7,6 @@ import loki_source
 class Source_reactome(loki_source.Source):
 	
 	
-	# ##################################################
-	# source interface
-	
-	
 	def download(self):
 		# download the latest source files
 		self.downloadFilesFromHTTP('www.reactome.org', {

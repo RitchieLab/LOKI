@@ -7,10 +7,6 @@ import loki_source
 class Source_biogrid(loki_source.Source):
 	
 	
-	# ##################################################
-	# source interface
-	
-	
 	def download(self):
 		# download the latest source files
 		self.downloadFilesFromHTTP('thebiogrid.org', {
@@ -122,7 +118,7 @@ class Source_biogrid(loki_source.Source):
 			for n in xrange(1,len(pair[1])):
 				nsAssoc['symbol'].add( (pairGID[pair],numAssoc,pair[1][n]) )
 		for ns in nsAssoc:
-			self.addGroupTypedRegionNamespacedNames(typeID['gene'], namespaceID[ns], nsAssoc[ns])
+			self.addGroupMemberTypedNamespacedNames(typeID['gene'], namespaceID[ns], nsAssoc[ns])
 		self.log(" OK\n")
 		
 		# identify pseudo-pathways

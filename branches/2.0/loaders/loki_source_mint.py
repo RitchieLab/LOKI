@@ -6,10 +6,6 @@ import loki_source
 class Source_mint(loki_source.Source):
 	
 	
-	# ##################################################
-	# source interface
-	
-	
 	def download(self):
 		# download the latest source files
 		self.downloadFilesFromFTP('mint.bio.uniroma2.it', {
@@ -124,7 +120,7 @@ class Source_mint(loki_source.Source):
 		# store gene interactions
 		self.log("writing gene interactions to the database ...")
 		for ns in nsAssoc:
-			self.addGroupTypedRegionNamespacedNames(typeID['gene'], namespaceID[ns], ((mintGID[a[0]],a[1],a[2]) for a in nsAssoc[ns]))
+			self.addGroupMemberTypedNamespacedNames(typeID['gene'], namespaceID[ns], ((mintGID[a[0]],a[1],a[2]) for a in nsAssoc[ns]))
 		self.log(" OK\n")
 	#update()
 	

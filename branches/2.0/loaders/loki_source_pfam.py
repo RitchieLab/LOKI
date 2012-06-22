@@ -6,10 +6,6 @@ import loki_source
 class Source_pfam(loki_source.Source):
 	
 	
-	# ##################################################
-	# source interface
-	
-	
 	def download(self):
 		# download the latest source files
 		self.downloadFilesFromFTP('ftp.sanger.ac.uk', {
@@ -109,7 +105,7 @@ class Source_pfam(loki_source.Source):
 		
 		# store gene associations
 		self.log("writing gene associations to the database ...")
-		self.addGroupTypedRegionNamespacedNames(typeID['gene'], namespaceID['uniprot_pid'], setAssoc)
+		self.addGroupMemberTypedNamespacedNames(typeID['gene'], namespaceID['uniprot_pid'], setAssoc)
 		self.log(" OK\n")
 	#update()
 	

@@ -7,10 +7,6 @@ import loki_source
 class Source_pharmgkb(loki_source.Source):
 	
 	
-	# ##################################################
-	# source interface
-	
-	
 	def download(self):
 		# download the latest source files
 		self.downloadFilesFromHTTP('www.pharmgkb.org', {
@@ -114,7 +110,7 @@ class Source_pharmgkb(loki_source.Source):
 		
 		# store gene names
 		self.log("writing gene names to the database ...")
-		self.addRegionTypedNameNamespacedNames(typeID['gene'], namespaceID['pharmgkb_gid'], setNames)
+		self.addBiopolymerTypedNameNamespacedNames(typeID['gene'], namespaceID['pharmgkb_gid'], setNames)
 		self.log(" OK\n")
 		setNames = None
 		
@@ -185,7 +181,7 @@ class Source_pharmgkb(loki_source.Source):
 		# store gene associations
 		self.log("writing gene associations to the database ...")
 		for ns in nsAssoc:
-			self.addGroupTypedRegionNamespacedNames(typeID['gene'], namespaceID[ns], ((pathGID[a[0]],a[1],a[2]) for a in nsAssoc[ns]) )
+			self.addGroupMemberTypedNamespacedNames(typeID['gene'], namespaceID[ns], ((pathGID[a[0]],a[1],a[2]) for a in nsAssoc[ns]) )
 		self.log(" OK\n")
 		
 		#TODO: diseases,drugs,relationships?

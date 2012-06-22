@@ -6,10 +6,6 @@ import loki_source
 class Source_entrez(loki_source.Source):
 	
 	
-	# ##################################################
-	# source interface
-	
-	
 	def download(self):
 		# download the latest source files
 		self.downloadFilesFromFTP('ftp.ncbi.nih.gov', {
@@ -33,6 +29,9 @@ class Source_entrez(loki_source.Source):
 		self.log(" OK\n")
 		
 		# get or create the required metadata records
+		ldprofileID = self.addLDProfiles([
+			('n/a', 'no LD adjustment', None),
+		])
 		namespaceID = self.addNamespaces([
 			('symbol',      0),
 			('entrez_gid',  0),
@@ -49,9 +48,6 @@ class Source_entrez(loki_source.Source):
 			('unigene_gid', 0),
 			('uniprot_gid', 0),
 			('uniprot_pid', 1),
-		])
-		populationID = self.addPopulations([
-			('n/a', 'no LD adjustment', None),
 		])
 		typeID = self.addTypes([
 			('gene',),
@@ -98,7 +94,7 @@ class Source_entrez(loki_source.Source):
 					primaryEntrez[symbol] = False
 				
 				# entrezID as a name for itself looks funny here, but later on
-				# we'll be translating the target entrezID to region_id and
+				# we'll be translating the target entrezID to biopolymer_id and
 				# adding more historical entrezID aliases
 				nsNames['entrez_gid'].add( (entrezID,entrezID) )
 				nsNames['symbol'].add( (entrezID,symbol) )
@@ -133,32 +129,34 @@ class Source_entrez(loki_source.Source):
 		# store genes
 		self.log("writing genes to the database ...")
 		listEntrez = entrezGene.keys()
-		listRID = self.addTypedRegions(typeID['gene'], (entrezGene[entrezID] for entrezID in listEntrez))
-		entrezRID = dict(zip(listEntrez,listRID))
-		numGenes = len(entrezRID)
+		listBID = self.addTypedBiopolymers(typeID['gene'], (entrezGene[entrezID] for entrezID in listEntrez))
+		entrezBID = dict(zip(listEntrez,listBID))
+		numGenes = len(entrezBID)
 		self.log(" OK: %d genes\n" % (numGenes))
 		entrezGene = None
 		
-		# translate target entrezID to region_id in nsNames
+		# translate target entrezID to biopolymer_id in nsNames
 		for ns in nsNames:
-			names = set( (entrezRID[name[0]],name[1]) for name in nsNames[ns] if name[0] in entrezRID )
+			names = set( (entrezBID[name[0]],name[1]) for name in nsNames[ns] if name[0] in entrezBID )
 			nsNames[ns] = names
 		numNames = sum(len(nsNames[ns]) for ns in nsNames)
 		
-		# process gene boundaries
-		self.log("processing gene boundaries ...")
-		setBounds = set()
+		# process gene regions
+		self.log("processing gene regions ...")
+		setRegions = set()
 		setOrphan = set()
 		setNoNC = set()
+		setNoGRC = set()
 		setMismatch = set()
-		refseqRIDs = dict()
-		boundFile = self.zfile('gene2refseq.gz') #TODO:context manager,iterator
-		header = boundFile.next().rstrip()
+		refseqBIDs = dict()
+		grcBuild = grcNum = None
+		regionFile = self.zfile('gene2refseq.gz') #TODO:context manager,iterator
+		header = regionFile.next().rstrip()
 		if header != "#Format: tax_id GeneID status RNA_nucleotide_accession.version RNA_nucleotide_gi protein_accession.version protein_gi genomic_nucleotide_accession.version genomic_nucleotide_gi start_position_on_the_genomic_accession end_position_on_the_genomic_accession orientation assembly (tab is used as a separator, pound sign - start of a comment)":
 			self.log(" ERROR: unrecognized file header\n")
 			self.log("%s\n" % header)
 		else:
-			for line in boundFile:
+			for line in regionFile:
 				# quickly filter out all non-9606 (human) taxonomies before taking the time to split()
 				if line.startswith("9606\t"):
 					words = line.split("\t")
@@ -168,14 +166,17 @@ class Source_entrez(loki_source.Source):
 					genAcc = words[7].rsplit('.',1)[0] if words[7] != "-" else None
 					posMin = long(words[9]) if words[9] != "-" else None
 					posMax = long(words[10]) if words[10] != "-" else None
+					build = words[12].rstrip() if len(words) > 12 and words[12] != "-" else None
 					
-					if entrezID in entrezRID:
+					if entrezID in entrezBID:
 						if posMin and posMax:
 							# refseq accession types: http://www.ncbi.nlm.nih.gov/RefSeq/key.html
 							# NC_ is the "complete genomic" accession, with positions relative to the whole chromosome;
 							# NT_ for example has positions relative to the read fragment, which is no use to us
-							if (not genAcc) or (not genAcc.startswith('NC_')):
+							if not (genAcc and genAcc.startswith('NC_')):
 								setNoNC.add(entrezID)
+							elif not (build and build.startswith("Reference ") and build.endswith(" Primary Assembly")):
+								setNoGRC.add(entrezID)
 							else:
 								# TODO: is there some better way to load these mappings?
 								# in theory they ought not to change, but hardcoding them is unfortunate
@@ -187,7 +188,7 @@ class Source_entrez(loki_source.Source):
 									chm = 'MT'
 								else:
 									chm = genAcc[3:].lstrip('0')
-								# TODO: we're ignoring any region with an ambiguous chromosome
+								# TODO: we're ignoring any gene region with an ambiguous chromosome
 								# (gene_info says one thing, gene2refseq says another); is that right?
 								#6066 17 -> 7
 								#6090 7 -> 12
@@ -205,33 +206,39 @@ class Source_entrez(loki_source.Source):
 								elif (entrezID in entrezChm) and (chm not in entrezChm[entrezID].split('|')):
 									setMismatch.add(entrezID)
 								else:
-									setBounds.add( (entrezRID[entrezID],self._loki.chr_num[chm],posMin,posMax) )
+									if not grcBuild:
+										grcBuild = build
+										try:
+											grcNum = int(build.split(' ')[1][4:].split('.')[0])
+										except ValueError:
+											raise Exception("ERROR: unrecognized GRCh build format '%s'" % build)
+									setRegions.add( (entrezBID[entrezID],self._loki.chr_num[chm],posMin,posMax) )
 							#if genAcc is NC_
 						# if posMin and posMax
 						
 						if rnaAcc:
-							nsNames['refseq_gid'].add( (entrezRID[entrezID],rnaAcc) )
+							nsNames['refseq_gid'].add( (entrezBID[entrezID],rnaAcc) )
 						if proAcc:
-							nsNames['refseq_pid'].add( (entrezRID[entrezID],proAcc) )
-							if proAcc not in refseqRIDs:
-								refseqRIDs[proAcc] = set()
-							refseqRIDs[proAcc].add(entrezRID[entrezID])
+							nsNames['refseq_pid'].add( (entrezBID[entrezID],proAcc) )
+							if proAcc not in refseqBIDs:
+								refseqBIDs[proAcc] = set()
+							refseqBIDs[proAcc].add(entrezBID[entrezID])
 						# don't store genAcc as an alias, there's only one per chromosome
 					else:
 						setOrphan.add(entrezID)
-					#if entrezID in entrezRID
+					#if entrezID in entrezBID
 				#if taxonomy is 9606 (human)
-			#foreach line in boundFile
+			#foreach line in regionFile
 			
 			# print stats
-			setGenes = set(bound[0] for bound in setBounds)
+			setGenes = set(region[0] for region in setRegions)
 			setNoNC -= setGenes
 			setMismatch -= setGenes
-			numBounds = len(setBounds)
+			numRegions = len(setRegions)
 			numGenes = len(setGenes)
 			numNames0 = numNames
 			numNames = sum(len(nsNames[ns]) for ns in nsNames)
-			self.log(" OK: %d boundaries (%d genes), %d identifiers\n" % (numBounds,numGenes,numNames-numNames0))
+			self.log(" OK: %d regions (%d genes), %d identifiers\n" % (numRegions,numGenes,numNames-numNames0))
 			self.logPush()
 			if setOrphan:
 				self.log("WARNING: %d genes not defined\n" % (len(setOrphan)))
@@ -242,13 +249,13 @@ class Source_entrez(loki_source.Source):
 			self.logPop()
 			entrezChm = setOrphan = setNoNC = setMismatch = setGenes = None
 			
-			# store gene boundaries
-			self.log("writing gene boundaries to the database ...")
-			numBounds = len(setBounds)
-			self.addRegionPopulationBounds(populationID['n/a'], setBounds)
-			self.log(" OK: %d boundaries\n" % (numBounds))
-			setBounds = None
-		#if gene boundary header ok
+			# store gene regions
+			self.log("writing gene regions to the database ...")
+			numRegions = len(setRegions)
+			self.addBiopolymerLDProfileRegions(ldprofileID['n/a'], setRegions)
+			self.log(" OK: %d regions\n" % (numRegions))
+			setRegions = None
+		#if gene regions header ok
 		
 		# process historical gene names
 		self.log("processing historical gene names ...")
@@ -268,16 +275,16 @@ class Source_entrez(loki_source.Source):
 					oldEntrez = int(words[2]) if words[2] != "-" else None
 					oldName = words[3] if words[3] != "-" else None
 					
-					if entrezID and entrezID in entrezRID:
+					if entrezID and entrezID in entrezBID:
 						if oldEntrez and oldEntrez != entrezID:
 							entrezUpdate[oldEntrez] = entrezID
-							nsNames['entrez_gid'].add( (entrezRID[entrezID],oldEntrez) )
+							nsNames['entrez_gid'].add( (entrezBID[entrezID],oldEntrez) )
 						if oldName and (oldName not in primaryEntrez or primaryEntrez[oldName] == False):
 							if oldName not in historyEntrez:
 								historyEntrez[oldName] = entrezID
 							elif historyEntrez[oldName] != entrezID:
 								historyEntrez[oldName] = False
-							nsNames['symbol'].add( (entrezRID[entrezID],oldName) )
+							nsNames['symbol'].add( (entrezBID[entrezID],oldName) )
 				#if taxonomy is 9606 (human)
 			#foreach line in histFile
 			
@@ -318,13 +325,13 @@ class Source_entrez(loki_source.Source):
 						while entrezID and (entrezID in entrezUpdate):
 							entrezID = entrezUpdate[entrezID]
 						
-						if entrezID and (entrezID in entrezRID):
+						if entrezID and (entrezID in entrezBID):
 							if ensemblG:
-								nsNames['ensembl_gid'].add( (entrezRID[entrezID],ensemblG) )
+								nsNames['ensembl_gid'].add( (entrezBID[entrezID],ensemblG) )
 							if ensemblT:
-								nsNames['ensembl_gid'].add( (entrezRID[entrezID],ensemblT) )
+								nsNames['ensembl_gid'].add( (entrezBID[entrezID],ensemblT) )
 							if ensemblP:
-								nsNames['ensembl_pid'].add( (entrezRID[entrezID],ensemblP) )
+								nsNames['ensembl_pid'].add( (entrezBID[entrezID],ensemblP) )
 				#if taxonomy is 9606 (human)
 			#foreach line in ensFile
 			
@@ -351,8 +358,8 @@ class Source_entrez(loki_source.Source):
 						entrezID = entrezUpdate[entrezID]
 					
 					# there will be lots of extraneous mappings for genes of other species
-					if entrezID and (entrezID in entrezRID) and unigeneID:
-						nsNames['unigene_gid'].add( (entrezRID[entrezID],unigeneID) )
+					if entrezID and (entrezID in entrezBID) and unigeneID:
+						nsNames['unigene_gid'].add( (entrezBID[entrezID],unigeneID) )
 				#foreach line in ugFile
 				
 				# print stats
@@ -376,10 +383,10 @@ class Source_entrez(loki_source.Source):
 					proteinAcc = words[0].rsplit('.',1)[0] if words[0] != "-" else None
 					uniprotAcc = words[1] if words[1] != "-" else None
 					
-					# there will be tons of identifiers missing from refseqRIDs because they're non-human
-					if proteinAcc and (proteinAcc in refseqRIDs) and uniprotAcc:
-						for regionID in refseqRIDs[proteinAcc]:
-							nsNames['uniprot_pid'].add( (regionID,uniprotAcc) )
+					# there will be tons of identifiers missing from refseqBIDs because they're non-human
+					if proteinAcc and (proteinAcc in refseqBIDs) and uniprotAcc:
+						for biopolymerID in refseqBIDs[proteinAcc]:
+							nsNames['uniprot_pid'].add( (biopolymerID,uniprotAcc) )
 				#foreach line in upFile
 					
 				# print stats
@@ -423,7 +430,7 @@ class Source_entrez(loki_source.Source):
 			found = False
 			for word2 in words[2].split(';'):
 				entrezID = int(word2.strip()) if word2 else None
-				if entrezID and (entrezID in entrezRID):
+				if entrezID and (entrezID in entrezBID):
 					nsNameNames['uniprot_pid'].add( (namespaceID['entrez_gid'],entrezID,uniprotAcc) )
 					nsNameNames['uniprot_gid'].add( (namespaceID['entrez_gid'],entrezID,uniprotID) )
 					found = True
@@ -485,7 +492,7 @@ class Source_entrez(loki_source.Source):
 		for ns in nsNames:
 			if nsNames[ns]:
 				numNames += len(nsNames[ns])
-				self.addRegionNamespacedNames(namespaceID[ns], nsNames[ns])
+				self.addBiopolymerNamespacedNames(namespaceID[ns], nsNames[ns])
 		self.log(" OK: %d identifiers\n" % (numNames,))
 		nsNames = None
 		
@@ -495,9 +502,12 @@ class Source_entrez(loki_source.Source):
 		for ns in nsNameNames:
 			if nsNameNames[ns]:
 				numNameNames += len(nsNameNames[ns])
-				self.addRegionTypedNameNamespacedNames(typeID['gene'], namespaceID[ns], nsNameNames[ns])
+				self.addBiopolymerTypedNameNamespacedNames(typeID['gene'], namespaceID[ns], nsNameNames[ns])
 		self.log(" OK: %d references\n" % (numNameNames,))
 		nsNameNames = None
+		
+		# store source metadata
+		self.setSourceBuild(grcNum)
 	#update()
 	
 #Source_entrez
