@@ -301,8 +301,8 @@ FROM (
   GROUP BY bnn.new_namespace_id, bnn.new_name
 )
 """):
-			numTotal = row[0]
-			numUnrec = row[1]
+			numTotal = row[0] or 0
+			numUnrec = row[1] or 0
 		for row in dbc.execute("""
 SELECT COUNT()
 FROM (
@@ -312,7 +312,7 @@ FROM (
   GROUP BY namespace_id, name
 )
 """):
-			numMatch = row[0]
+			numMatch = row[0] or 0
 		numAmbig = numTotal - numUnrec - numMatch
 		self.log(" OK: %d identifiers (%d ambiguous, %d unrecognized)\n" % (numMatch,numAmbig,numUnrec))
 	#resolveBiopolymerNames()
