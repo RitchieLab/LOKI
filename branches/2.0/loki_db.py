@@ -1007,20 +1007,43 @@ LEFT JOIN `db`.`snp_locus` AS sl USING (rs)
 	def generateBiopolymerIDsByName(self, names, minMatch=1, maxMatch=1, tally=None, namespaceID=None, typeID=None):
 		# names=[ name, ... ]
 		# tally=dict()
-		# yield:[ (name,id), ... ]
+		# namespaceID=0 means to search names using any namespace
+		# namespaceID=None means to search primary labels directly
+		# yields (name,id)
+		
 		sql = """
 SELECT i.name, b.biopolymer_id
 FROM (SELECT ? AS name) AS i
+"""
+		
+		if namespaceID != None:
+			sql += """
 LEFT JOIN `db`.`biopolymer_name` AS bn
   ON bn.name = i.name
-  {bn_join}
+"""
+			if namespaceID:
+				sql += """
+  AND bn.namespace_id = %d
+""" % namespaceID
+		
+		sql += """
 LEFT JOIN `db`.`biopolymer` AS b
+"""
+		
+		if namespaceID != None:
+			sql += """
   ON b.biopolymer_id = bn.biopolymer_id
-  {b_join}
-""".format(
-			bn_join=("AND bn.namespace_id = %d" % namespaceID) if namespaceID else "",
-			b_join=("AND b.type_id = %d" % typeID) if typeID else ""
-		)
+"""
+		else:
+			sql += """
+  ON b.label = i.name
+"""
+		
+		if typeID:
+			sql += """
+  AND b.type_id = %d
+""" % typeID
+		
 		key = matches = None
 		numNull = numAmbig = numMatch = 0
 		for row in itertools.chain(self._db.cursor().executemany(sql, itertools.izip(names)), [(None,None)]):
@@ -1097,20 +1120,43 @@ FROM (
 	def generateGroupIDsByName(self, names, minMatch=1, maxMatch=1, tally=None, namespaceID=None, typeID=None):
 		# names=[ name, ... ]
 		# tally=dict()
-		# yield:[ (name,id), ... ]
+		# namespaceID=0 means to search names using any namespace
+		# namespaceID=None means to search primary labels directly
+		# yields (name,id)
+		
 		sql = """
 SELECT i.name, g.group_id
 FROM (SELECT ? AS name) AS i
+"""
+		
+		if namespaceID != None:
+			sql += """
 LEFT JOIN `db`.`group_name` AS gn
   ON gn.name = i.name
-  {gn_join}
+"""
+			if namespaceID:
+				sql += """
+  AND gn.namespace_id = %d
+""" % namespaceID
+		
+		sql += """
 LEFT JOIN `db`.`group` AS g
+"""
+		
+		if namespaceID != None:
+			sql += """
   ON g.group_id = gn.group_id
-  {g_join}
-""".format(
-			gn_join=("AND gn.namespace_id = %d" % namespaceID) if namespaceID else "",
-			g_join=("AND g.type_id = %d" % typeID) if typeID else ""
-		)
+"""
+		else:
+			sql += """
+  ON g.label = i.name
+"""
+		
+		if typeID:
+			sql += """
+  AND g.type_id = %d
+""" % typeID
+		
 		key = matches = None
 		numNull = numAmbig = numMatch = 0
 		for row in itertools.chain(self._db.cursor().executemany(sql, itertools.izip(names)), [(None,None)]):
