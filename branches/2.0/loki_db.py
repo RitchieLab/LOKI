@@ -12,7 +12,7 @@ class Database(object):
 	# public class data
 	
 	
-	ver_maj,ver_min,ver_rev,ver_date = 2,-1,620,'2012-06-20'
+	ver_maj,ver_min,ver_rev,ver_date = 2,-1,621,'2012-06-21'
 	chr_list = ('1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19','20','21','22','X','Y','XY','MT')
 	chr_num = {}
 	chr_name = {}
