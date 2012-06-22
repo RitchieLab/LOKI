@@ -588,6 +588,8 @@ class Database(object):
 			if not quiet:
 				self.logPush("loading knowledge database file '%s' ..." % dbFile)
 			dbc.execute("ATTACH DATABASE ? AS `db`", (dbFile,))
+			self._dbFile = dbFile
+			self._dbNew = (0 == max(row[0] for row in dbc.execute("SELECT COUNT(1) FROM `db`.`sqlite_master`")))
 			
 			# configure the newly attached database just like in __init__()
 			dbc.execute("PRAGMA db.page_size = 4096")
@@ -596,18 +598,19 @@ class Database(object):
 			
 			# establish or audit database schema
 			with self._db:
-				dbNew = (0 == max(row[0] for row in dbc.execute("SELECT COUNT(1) FROM `db`.`sqlite_master`")))
-				if dbNew:
+				if self._dbNew:
 					self.createDatabaseObjects(None, 'db')
+					for setting in self._setting_defaults:
+						self.setDatabaseSetting(setting, self._setting_defaults[setting])
 					ok = True
 				else:
-					ok = self.auditDatabaseObjects(None, 'db')
+					ok = self.auditDatabaseObjects(None, 'db') and self.auditDatabaseSettings()
 			if ok:
-				self._dbFile = dbFile
-				self._dbNew = dbNew
 				if not quiet:
 					self.logPop("... OK\n")
 			else:
+				self._dbFile = None
+				self._dbNew = None
 				dbc.execute("DETACH DATABASE `db`")
 				if not quiet:
 					self.logPop("... ERROR\n")
@@ -784,6 +787,27 @@ class Database(object):
 	#auditDatabaseObjects()
 	
 	
+	def auditDatabaseSettings(self, doRepair=True):
+		dbc = self._db.cursor()
+		ok = True
+		for setting in self._setting_defaults:
+			value = None
+			for row in dbc.execute("SELECT value FROM `db`.`setting` WHERE setting = ?", (setting,)):
+				value = row[0]
+			if value == None:
+				if doRepair:
+					value = self._setting_defaults[setting]
+					self.log("WARNING: database setting '%s' is missing -- setting to default '%s' ..." % (setting,value))
+					self.setDatabaseSetting(setting, value)
+					self.log(" OK\n")
+				else:
+					self.log("ERROR: database setting '%s' is missing\n" % (setting,))
+					ok = False
+		#foreach setting
+		return ok
+	#auditDatabaseSettings()
+	
+		
 	def defragmentDatabase(self):
 		# unfortunately sqlite's VACUUM doesn't work on attached databases,
 		# so we have to detach, make a new direct connection, then re-attach
