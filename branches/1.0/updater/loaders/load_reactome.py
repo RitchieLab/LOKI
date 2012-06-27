@@ -242,24 +242,28 @@ class ReactomeLoader(bioloader.BioLoader):
 		#print "%s associations made -- CatalystActivity " %(report)
 	
 	def LoadAssociation(self, dbCursor, tableName):
-		sql = "SELECT * FROM %s" % tableName
-		dbCursor.execute(sql)
-		rows = dbCursor.fetchall()
 		
-		associationsMade = 0
-		for row in rows:
-				dbID = int(row[0])
-				if dbID in self.entityLookup:
-#					if row[2] in self.dbIDGenes:
-#						self.entityLookup[dbID].AddGene(self.dbIDGenes[row[2]])
-#						print "Gene Association ", dbID, " -> ", self.dbIDGenes[row[2]]
-#					else:
-					if row[2] in self.entityLookup:
-						self.entityLookup[dbID].AddChild(self.entityLookup[row[2]], tableName)
-						self.entityLookup[row[2]].AddParent(self.entityLookup[dbID])
-						associationsMade+=1
-		report = ' ' * (10-len(str(associationsMade))) + str(associationsMade) + " out of "  + ' ' * (10-len(str(len(rows)))) + str(len(rows))
-		#print "%s associations made -- %s " %(report, tableName)		
+		try:
+			sql = "SELECT * FROM %s" % tableName
+			dbCursor.execute(sql)
+			rows = dbCursor.fetchall()
+			
+			associationsMade = 0
+			for row in rows:
+					dbID = int(row[0])
+					if dbID in self.entityLookup:
+	#					if row[2] in self.dbIDGenes:
+	#						self.entityLookup[dbID].AddGene(self.dbIDGenes[row[2]])
+	#						print "Gene Association ", dbID, " -> ", self.dbIDGenes[row[2]]
+	#					else:
+						if row[2] in self.entityLookup:
+							self.entityLookup[dbID].AddChild(self.entityLookup[row[2]], tableName)
+							self.entityLookup[row[2]].AddParent(self.entityLookup[dbID])
+							associationsMade+=1
+			report = ' ' * (10-len(str(associationsMade))) + str(associationsMade) + " out of "  + ' ' * (10-len(str(len(rows)))) + str(len(rows))
+			#print "%s associations made -- %s " %(report, tableName)
+		except _mysql_exceptions.ProgrammingError:
+			pass
 	
 	def LoadReferencePeptideToGene(self, cursor):
 		sql = """SELECT DISTINCT a.DB_ID, c.identifier , d.name
@@ -330,7 +334,7 @@ class ReactomeLoader(bioloader.BioLoader):
 		self.LoadEWAS(c)
 		self.LoadAssociation(c, "Pathway_2_hasEvent")
 		self.LoadAssociation(c, "BlackBoxEvent_2_hasEvent")
-		self.LoadAssociation(c, "ReactionlikeEvent_2_hasMember")
+		#self.LoadAssociation(c, "ReactionlikeEvent_2_hasMember")
 		self.LoadAssociation(c, "Complex_2_hasComponent")
 		self.LoadAssociation(c, "EntitySet_2_hasMember")
 		self.LoadAssociation(c, "CatalystActivity_2_activeUnit")
