@@ -231,19 +231,19 @@ class Source(object):
 	
 	
 	def addSNPLoci(self, snpLoci):
-		# snpLoci=[ (rs,chr,pos), ... ]
+		# snpLoci=[ (rs,chr,pos,validated), ... ]
 		self._loki.testDatabaseUpdate()
 		self.prepareTableForUpdate('snp_locus')
-		sql = "INSERT OR IGNORE INTO `db`.`snp_locus` (rs,chr,pos,source_id) VALUES (?,?,?,%d)" % (self.getSourceID(),)
+		sql = "INSERT OR IGNORE INTO `db`.`snp_locus` (rs,chr,pos,validated,source_id) VALUES (?,?,?,?,%d)" % (self.getSourceID(),)
 		self._db.cursor().executemany(sql, snpLoci)
 	#addSNPLoci()
 	
 	
 	def addChromosomeSNPLoci(self, chromosome, snpLoci):
-		# snpLoci=[ (rs,pos), ... ]
+		# snpLoci=[ (rs,pos,validated), ... ]
 		self._loki.testDatabaseUpdate()
 		self.prepareTableForUpdate('snp_locus')
-		sql = "INSERT OR IGNORE INTO `db`.`snp_locus` (rs,chr,pos,source_id) VALUES (?,%d,?,%d)" % (chromosome,self.getSourceID(),)
+		sql = "INSERT OR IGNORE INTO `db`.`snp_locus` (rs,chr,pos,validated,source_id) VALUES (?,%d,?,?,%d)" % (chromosome,self.getSourceID(),)
 		self._db.cursor().executemany(sql, snpLoci)
 	#addChromosomeSNPLoci()
 	

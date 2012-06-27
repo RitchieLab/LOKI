@@ -30,7 +30,7 @@ class Source_entrez(loki_source.Source):
 		
 		# get or create the required metadata records
 		ldprofileID = self.addLDProfiles([
-			('n/a', 'no LD adjustment', None),
+			('', 'no LD adjustment', None),
 		])
 		namespaceID = self.addNamespaces([
 			('symbol',      0),
@@ -252,7 +252,7 @@ class Source_entrez(loki_source.Source):
 			# store gene regions
 			self.log("writing gene regions to the database ...")
 			numRegions = len(setRegions)
-			self.addBiopolymerLDProfileRegions(ldprofileID['n/a'], setRegions)
+			self.addBiopolymerLDProfileRegions(ldprofileID[''], setRegions)
 			self.log(" OK: %d regions\n" % (numRegions))
 			setRegions = None
 		#if gene regions header ok

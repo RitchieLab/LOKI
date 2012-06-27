@@ -7,12 +7,7 @@ import loki_db
 
 
 if __name__ == "__main__":
-	version = "LOKI version %d.%d.%d (%s)" % (
-			loki_db.Database.ver_maj,
-			loki_db.Database.ver_min,
-			loki_db.Database.ver_rev,
-			loki_db.Database.ver_date
-	)
+	version = "LOKI version %s" % (loki_db.Database.getVersionString())
 	
 	# define arguments
 	parser = argparse.ArgumentParser(

@@ -203,14 +203,13 @@ CREATE TABLE [b135_SNPContigLocusId_37_3]
 			setPos = set()
 			setNoGRCh = set()
 			setBadBuild = set()
-			setInvalid = set()
 			setBadChr = set()
 			for line in chmFile:
 				words = line.split("\t")
 				rs = words[0].strip()
 				chm = words[6].strip()
 				pos = words[11].strip()
-				valid = int(words[16])
+				valid = 1 if (int(words[16]) > 0) else 0
 				build = words[21]
 				
 				if rs != '' and chm != '' and pos != '':
@@ -220,8 +219,6 @@ CREATE TABLE [b135_SNPContigLocusId_37_3]
 						setNoGRCh.add(rs)
 					elif grcBuild and grcBuild != build:
 						setBadBuild.add(rs)
-					elif valid <= 0:
-						setInvalid.add(rs)
 					elif chm != fileChm:
 						setBadChr.add(rs)
 					else:
@@ -231,7 +228,7 @@ CREATE TABLE [b135_SNPContigLocusId_37_3]
 								grcNum = int(build[4:].split('.')[0])
 							except ValueError:
 								raise Exception("ERROR: unrecognized GRCh build format '%s'" % build)
-						setPos.add( (rs,pos) )
+						setPos.add( (rs,pos,valid) )
 				#if rs/chm/pos provided
 			#foreach line in chmFile
 			
@@ -239,16 +236,13 @@ CREATE TABLE [b135_SNPContigLocusId_37_3]
 			setSNP = set(pos[0] for pos in setPos)
 			setNoGRCh.difference_update(setSNP)
 			setBadBuild.difference_update(setSNP, setNoGRCh)
-			setInvalid.difference_update(setSNP, setNoGRCh, setBadBuild)
-			setBadChr.difference_update(setSNP, setNoGRCh, setBadBuild, setInvalid)
+			setBadChr.difference_update(setSNP, setNoGRCh, setBadBuild)
 			self.log(" OK: %d SNP positions (%d RS#s)\n" % (len(setPos),len(setSNP)))
 			self.logPush()
 			if setNoGRCh:
 				self.log("WARNING: %d SNPs not mapped to GRCh build\n" % (len(setNoGRCh)))
 			if setBadBuild:
 				self.log("WARNING: %d SNPs mapped to GRCh build other than %s\n" % (len(setBadChr),grcBuild))
-			if setInvalid:
-				self.log("WARNING: %d SNPs not validated\n" % (len(setInvalid)))
 			if setBadChr:
 				self.log("WARNING: %d SNPs on mismatching chromosome\n" % (len(setBadChr)))
 			self.logPop()
@@ -256,7 +250,7 @@ CREATE TABLE [b135_SNPContigLocusId_37_3]
 			# store data
 			self.log("writing chromosome %s SNPs to the database ..." % fileChm)
 			self.addChromosomeSNPLoci(self._loki.chr_num[fileChm], setPos)
-			setPos = setSNP = setNoGRCh = setBadBuild = setInvalid = setBadChr = None
+			setPos = setSNP = setNoGRCh = setBadBuild = setBadChr = None
 			self.log(" OK\n")
 		#foreach chromosome
 		

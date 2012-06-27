@@ -12,7 +12,7 @@ class Database(object):
 	# public class data
 	
 	
-	ver_maj,ver_min,ver_rev,ver_date = 2,-1,621,'2012-06-21'
+	ver_maj,ver_min,ver_rev,ver_dev,ver_date = 2,0,0,'a2','2012-06-27'
 	chr_list = ('1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19','20','21','22','X','Y','XY','MT')
 	chr_num = {}
 	chr_name = {}
@@ -31,12 +31,6 @@ class Database(object):
 	# private class data
 	
 	
-	_setting_defaults = {
-		'zone_size': 100000,
-		'finalized': 0,
-	} #_setting_defaults{}
-	
-	
 	_schema = {
 		'db': {
 			##################################################
@@ -50,6 +44,10 @@ class Database(object):
   value VARCHAR(256)
 )
 """,
+				'data': [
+					('zone_size','100000'),
+					('finalized','0'),
+				],
 				'index': {}
 			}, #.db.setting
 			
@@ -154,6 +152,7 @@ class Database(object):
   rs INTEGER NOT NULL,
   chr TINYINT NOT NULL,
   pos BIGINT NOT NULL,
+  validated TINYINT NOT NULL,
   source_id TINYINT NOT NULL,
   PRIMARY KEY (rs,chr,pos)
 )
@@ -430,6 +429,12 @@ class Database(object):
 	
 	
 	@classmethod
+	def getVersionString(cls):
+		return "%d.%d.%d%s%s (%s)" % (cls.ver_maj, cls.ver_min, cls.ver_rev, ("-" if cls.ver_dev else ""), (cls.ver_dev or ""), cls.ver_date)
+	#getVersionString()
+	
+	
+	@classmethod
 	def getDatabaseDriverName(cls):
 		return "SQLite"
 	#getDatabaseDriverName()
@@ -600,11 +605,9 @@ class Database(object):
 			with self._db:
 				if self._dbNew:
 					self.createDatabaseObjects(None, 'db')
-					for setting in self._setting_defaults:
-						self.setDatabaseSetting(setting, self._setting_defaults[setting])
 					ok = True
 				else:
-					ok = self.auditDatabaseObjects(None, 'db') and self.auditDatabaseSettings()
+					ok = self.auditDatabaseObjects(None, 'db')
 			if ok:
 				if not quiet:
 					self.logPop("... OK\n")
@@ -651,6 +654,9 @@ class Database(object):
 		for tblName in (tblList or schema.keys()):
 			if doTables:
 				dbc.execute("CREATE %sTABLE IF NOT EXISTS `%s`.`%s` %s" % (dbType, dbName, tblName, schema[tblName]['table']))
+				if 'data' in schema[tblName] and schema[tblName]['data']:
+					sql = "INSERT OR IGNORE INTO `%s`.`%s` VALUES (%s)" % (dbName, tblName, ("?,"*len(schema[tblName]['data'][0]))[:-1])
+					dbc.executemany(sql, schema[tblName]['data'])
 			if doIndecies:
 				for idxName in (idxList or schema[tblName]['index'].keys()):
 					if idxName not in schema[tblName]['index']:
@@ -733,7 +739,9 @@ class Database(object):
 			if doTables:
 				if tblName in current:
 					if current[tblName]['table'].rstrip() == ("CREATE TABLE `%s` %s" % (tblName, schema[tblName]['table'].rstrip())):
-						pass
+						if 'data' in schema[tblName] and schema[tblName]['data']:
+							sql = "INSERT OR IGNORE INTO `%s`.`%s` VALUES (%s)" % (dbName, tblName, ("?,"*len(schema[tblName]['data'][0]))[:-1])
+							dbc.executemany(sql, schema[tblName]['data'])
 					elif doRepair and tblEmpty[tblName]:
 						self.log("WARNING: table '%s' schema mismatch -- repairing ..." % tblName)
 						self.dropDatabaseTables(schema, dbName, tblName)
@@ -786,27 +794,6 @@ class Database(object):
 		return ok
 	#auditDatabaseObjects()
 	
-	
-	def auditDatabaseSettings(self, doRepair=True):
-		dbc = self._db.cursor()
-		ok = True
-		for setting in self._setting_defaults:
-			value = None
-			for row in dbc.execute("SELECT value FROM `db`.`setting` WHERE setting = ?", (setting,)):
-				value = row[0]
-			if value == None:
-				if doRepair:
-					value = self._setting_defaults[setting]
-					self.log("WARNING: database setting '%s' is missing -- setting to default '%s' ..." % (setting,value))
-					self.setDatabaseSetting(setting, value)
-					self.log(" OK\n")
-				else:
-					self.log("ERROR: database setting '%s' is missing\n" % (setting,))
-					ok = False
-		#foreach setting
-		return ok
-	#auditDatabaseSettings()
-	
 		
 	def defragmentDatabase(self):
 		# unfortunately sqlite's VACUUM doesn't work on attached databases,
@@ -838,9 +825,10 @@ class Database(object):
 	
 	
 	def getDatabaseSetting(self, setting):
-		value = self._setting_defaults[setting] if setting in self._setting_defaults else None
-		for row in self._db.cursor().execute("SELECT value FROM `db`.`setting` WHERE setting = ?", (setting,)):
-			value = row[0]
+		value = None
+		if self._dbFile:
+			for row in self._db.cursor().execute("SELECT value FROM `db`.`setting` WHERE setting = ?", (setting,)):
+				value = row[0]
 		return value
 	#getDatabaseSetting()
 	
@@ -892,6 +880,8 @@ class Database(object):
 	
 	
 	def getLDProfileIDs(self, ldprofiles):
+		if not self._dbFile:
+			return { l:None for l in ldprofiles }
 		sql = "SELECT i.ldprofile, l.ldprofile_id FROM (SELECT ? AS ldprofile) AS i LEFT JOIN `db`.`ldprofile` AS l ON l.ldprofile = LOWER(i.ldprofile)"
 		return { row[0]:row[1] for row in self._db.cursor().executemany(sql, itertools.izip(ldprofiles)) }
 	#getLDProfileIDs()
@@ -903,6 +893,8 @@ class Database(object):
 	
 	
 	def getNamespaceIDs(self, namespaces):
+		if not self._dbFile:
+			return { n:None for n in namespaces }
 		sql = "SELECT i.namespace, n.namespace_id FROM (SELECT ? AS namespace) AS i LEFT JOIN `db`.`namespace` AS n ON n.namespace = LOWER(i.namespace)"
 		return { row[0]:row[1] for row in self._db.cursor().executemany(sql, itertools.izip(namespaces)) }
 	#getNamespaceIDs()
@@ -914,6 +906,8 @@ class Database(object):
 	
 	
 	def getRelationshipIDs(self, relationships):
+		if not self._dbFile:
+			return { r:None for r in relationships }
 		sql = "SELECT i.relationship, r.relationship_id FROM (SELECT ? AS relationship) AS i LEFT JOIN `db`.`relationship` AS r ON r.relationship = LOWER(i.relationship)"
 		return { row[0]:row[1] for row in self._db.cursor().executemany(sql, itertools.izip(relationships)) }
 	#getRelationshipIDs()
@@ -925,6 +919,8 @@ class Database(object):
 	
 	
 	def getRoleIDs(self, roles):
+		if not self._dbFile:
+			return { r:None for r in roles }
 		sql = "SELECT i.role, role_id FROM (SELECT ? AS role) AS i LEFT JOIN `db`.`role` AS r ON r.role = LOWER(i.role)"
 		return { row[0]:row[1] for row in self._db.cursor().executemany(sql, itertools.izip(roles)) }
 	#getRoleIDs()
@@ -936,6 +932,8 @@ class Database(object):
 	
 	
 	def getSourceIDs(self, sources):
+		if not self._dbFile:
+			return { s:None for s in sources }
 		sql = "SELECT i.source, s.source_id FROM (SELECT ? AS source) AS i LEFT JOIN `db`.`source` AS s ON s.source = LOWER(i.source)"
 		return { row[0]:row[1] for row in self._db.cursor().executemany(sql, itertools.izip(sources)) }
 	#getSourceIDs()
@@ -947,6 +945,8 @@ class Database(object):
 	
 	
 	def getTypeIDs(self, types):
+		if not self._dbFile:
+			return { t:None for t in types }
 		sql = "SELECT i.type, t.type_id FROM (SELECT ? AS type) AS i LEFT JOIN `db`.`type` AS t ON t.type = LOWER(i.type)"
 		return { row[0]:row[1] for row in self._db.cursor().executemany(sql, itertools.izip(types)) }
 	#getTypeIDs()
@@ -978,15 +978,18 @@ LEFT JOIN `db`.`snp_merge` AS sm USING (rsMerged)
 	#generateCurrentRSesByRS()
 	
 	
-	def generateSNPLociByRS(self, rses, minMatch=1, maxMatch=1, tally=None):
+	def generateSNPLociByRS(self, rses, minMatch=1, maxMatch=1, validated=None, tally=None):
 		# rses=[ rs, ... ]
 		# tally=dict()
 		# yield:[ (rs,chr,pos), ... ]
 		sql = """
 SELECT i.rs, sl.chr, sl.pos
 FROM (SELECT ? AS rs) AS i
-LEFT JOIN `db`.`snp_locus` AS sl USING (rs)
+LEFT JOIN `db`.`snp_locus` AS sl
+  ON sl.rs = i.rs
 """
+		if validated != None:
+			sql += "  AND sl.validated = %d" % (1 if validated else 0)
 		key = matches = None
 		numNull = numAmbig = numMatch = 0
 		for row in itertools.chain(self._db.cursor().executemany(sql, itertools.izip(rses)), [(None,None,None)]):

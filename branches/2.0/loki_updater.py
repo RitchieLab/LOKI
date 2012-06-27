@@ -173,8 +173,8 @@ class Updater(object):
 		self.prepareTableForQuery('snp_locus')
 		self.prepareTableForQuery('snp_merge')
 		self._db.cursor().execute("""
-INSERT OR IGNORE INTO `db`.`snp_locus` (rs, chr, pos, source_id)
-SELECT sm.rsCurrent, sl.chr, sl.pos, sl.source_id
+INSERT OR IGNORE INTO `db`.`snp_locus` (rs, chr, pos, validated, source_id)
+SELECT sm.rsCurrent, sl.chr, sl.pos, sl.validated, sl.source_id
 FROM `db`.`snp_locus` AS sl
 JOIN `db`.`snp_merge` AS sm
   ON sm.rsMerged = sl.rs

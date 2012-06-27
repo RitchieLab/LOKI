@@ -62,8 +62,8 @@ class Source_ecrbase(loki_source.Source):
 		# Add a type of "ecr_group"
 		ecr_group_typeid = self.addType("ecr_group")
 		
-		# Make sure the 'n/a' ldprofile exists
-		ecr_ldprofile_id = self.addLDProfile('n/a', 'no LD adjustment', None)
+		# Make sure the "" ldprofile exists
+		ecr_ldprofile_id = self.addLDProfile('', 'no LD adjustment', None)
 		
 		for species, fn_list in fn_by_species.iteritems():
 			
