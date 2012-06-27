@@ -435,6 +435,32 @@ class Database(object):
 	
 	
 	@classmethod
+	def checkMinimumVersion(cls, major=None, minor=None, revision=None, development=None):
+		if (major == None) or (cls.ver_maj > major):
+			return True
+		if cls.ver_maj < major:
+			return False
+		
+		if (minor == None) or (cls.ver_min > minor):
+			return True
+		if cls.ver_min < minor:
+			return False
+		
+		if (revision == None) or (cls.ver_rev > revision):
+			return True
+		if cls.ver_rev < revision:
+			return False
+		
+		if (development == None) or (not cls.ver_dev) or (cls.ver_dev > development):
+			return True
+		if cls.ver_dev < development:
+			return False
+		
+		return True
+	#checkMinimumVersion()
+	
+	
+	@classmethod
 	def getDatabaseDriverName(cls):
 		return "SQLite"
 	#getDatabaseDriverName()
