@@ -645,10 +645,11 @@ class Source(object):
 		remTime = {}
 		locSize = {}
 		locTime = {}
-		for locPath in remFiles:
-			remDirs.add(remFiles[locPath][0:remFiles[locPath].rfind('/')])
-			remSize[locPath] = None
-			remTime[locPath] = None
+		for (locPath, remFile) in remFiles.iteritems():
+			remDirs.add(remFile[0:remFile.rfind('/')])
+			
+			remSize[remFile] = None
+			remTime[remFile] = None
 			locSize[locPath] = None
 			locTime[locPath] = None
 			if os.path.exists(locPath):
@@ -658,10 +659,11 @@ class Source(object):
 		
 		# define FTP directory list parser
 		now = datetime.datetime.now()
-		def ftpDirCB(line):
+		def ftpDirCB(rem_dir, line):
 			words = line.split()
-			if len(words) >= 9 and words[8] in remFiles:
-				remSize[words[8]] = long(words[4])
+			remFn = rem_dir + "/" + words[8]
+			if len(words) >= 9 and remFn in remSize:
+				remSize[remFn] = long(words[4])
 				timestamp = ' '.join(words[5:8])
 				try:
 					time = datetime.datetime.strptime(timestamp,'%b %d %Y')
@@ -678,7 +680,7 @@ class Source(object):
 							(time.year == now.year and time.month == now.month and time.day > now.day)
 					):
 						time = time.replace(year=now.year-1)
-				remTime[words[8]] = time
+				remTime[remFn] = time
 		
 		# connect to source server
 		self.log("connecting to FTP server %s ..." % remHost)
@@ -689,23 +691,23 @@ class Source(object):
 		# check remote file sizes and times
 		self.log("identifying changed files ...")
 		for remDir in remDirs:
-			ftp.dir(remDir, ftpDirCB)
+			ftp.dir(remDir, lambda x: ftpDirCB(remDir, x))
 		self.log(" OK\n")
 		
 		# download files as needed
 		self.logPush("downloading changed files ...\n")
 		for locPath in sorted(remFiles.keys()):
-			if remSize[locPath] == locSize[locPath] and remTime[locPath] <= locTime[locPath]:
+			if remSize[remFiles[locPath]] == locSize[locPath] and remTime[remFiles[locPath]] <= locTime[locPath]:
 				self.log("%s: up to date\n" % locPath)
 			else:
 				self.log("%s: downloading ..." % locPath)
 				#TODO: download to temp file, then rename?
 				with open(locPath, 'wb') as locFile:
-					ftp.cwd(remFiles[locPath][0:remFiles[locPath].rfind('/')])
-					ftp.retrbinary('RETR '+locPath, locFile.write)
+					#ftp.cwd(remFiles[locPath][0:remFiles[locPath].rfind('/')])
+					ftp.retrbinary('RETR '+remFiles[locPath], locFile.write)
 				#TODO: verify file size and retry a few times if necessary
 				self.log(" OK\n")
-			modTime = time.mktime(remTime[locPath].timetuple())
+			modTime = time.mktime(remTime[remFiles[locPath]].timetuple())
 			os.utime(locPath, (modTime,modTime))
 		
 		# disconnect from source server
