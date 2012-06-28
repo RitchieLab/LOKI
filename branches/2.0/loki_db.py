@@ -12,7 +12,7 @@ class Database(object):
 	# public class data
 	
 	
-	ver_maj,ver_min,ver_rev,ver_dev,ver_date = 2,0,0,'a2','2012-06-27'
+	ver_maj,ver_min,ver_rev,ver_dev,ver_date = 2,0,0,'a3','2012-06-28'
 	chr_list = ('1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19','20','21','22','X','Y','XY','MT')
 	chr_num = {}
 	chr_name = {}
@@ -865,20 +865,28 @@ class Database(object):
 	#setDatabaseSetting()
 	
 	
-	def listSourceModules(self):
+	def getSourceModules(self):
 		if not self._updater:
 			import loki_updater
 			self._updater = loki_updater.Updater(self)
-		return self._updater.listSourceModules()
-	#listSourceModules()
+		return self._updater.getSourceModules()
+	#getSourceModules()
 	
 	
-	def updateDatabase(self, sources, cacheOnly=False):
+	def getSourceModuleOptions(self, sources=None):
+		if not self._updater:
+			import loki_updater
+			self._updater = loki_updater.Updater(self)
+		return self._updater.getSourceModuleOptions(sources)
+	#getSourceModuleOptions()
+	
+	
+	def updateDatabase(self, sources=None, sourceOptions=None, cacheOnly=False):
 		self.testDatabaseUpdate()
 		if not self._updater:
 			import loki_updater
 			self._updater = loki_updater.Updater(self)
-		return self._updater.updateDatabase(sources, cacheOnly)
+		return self._updater.updateDatabase(sources, sourceOptions, cacheOnly)
 	#updateDatabase()
 	
 	

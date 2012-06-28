@@ -82,20 +82,16 @@ class Updater(object):
 	#findSourceModules()
 	
 	
-	def listSourceModules(self):
+	def getSourceModules(self):
 		self.findSourceModules()
 		return self._sourceLoaders.keys()
-	#listSourceModules()
+	#getSourceModules()
 	
 	
-	def updateDatabase(self, sources, cacheOnly=False):
-		self._loki.testDatabaseUpdate()
-		
-		# load and instantiate all requested sources
+	def loadSourceModules(self, sources=None):
 		self.findSourceModules()
-		sources = sources or self.listSourceModules()
 		srcSet = set()
-		for srcName in set(sources):
+		for srcName in (set(sources) if sources else self._sourceLoaders.keys()):
 			if srcName not in self._sourceObjects:
 				if srcName not in self._sourceClasses:
 					if srcName not in self._sourceLoaders:
@@ -113,16 +109,46 @@ class Updater(object):
 			#if module not instantiated
 			srcSet.add(srcName)
 		#foreach source
-		
-		# update from all requested sources
+		return srcSet
+	#loadSourceModules()
+	
+	
+	def getSourceModuleOptions(self, sources=None):
+		srcSet = self.loadSourceModules(sources)
+		return { srcName : self._sourceObjects[srcName].getOptions() for srcName in srcSet }
+	#getSourceModuleOptions()
+	
+	
+	def updateDatabase(self, sources=None, sourceOptions=None, cacheOnly=False):
+		self._loki.testDatabaseUpdate()
 		if self._updating:
 			raise Exception('_updating set before updateDatabase()')
+		
+		srcSet = self.loadSourceModules(sources)
+		srcOpts = sourceOptions or {}
+		for srcName in srcOpts.keys():
+			if srcName not in srcSet:
+				self.log("WARNING: not updating from source '%s' for which options were supplied\n" % srcName)
+		
 		self._updating = True
 		self._tablesUpdated = set()
 		self._tablesDeindexed = set()
 		with self._db:
 			iwd = os.getcwd()
-			for srcName in srcSet:
+			for srcName in sorted(srcSet):
+				# validate options, if any
+				options = srcOpts.get(srcName)
+				if options:
+					self.logPush("validating %s options ...\n" % srcName)
+					msg = self._sourceObjects[srcName].validateOptions(options)
+					if msg != True:
+						ok = False
+						self.log("ERROR: %s\n" % msg)
+						self.logPop()
+						continue
+					for opt,val in options.iteritems():
+						self.log("%s = %s\n" % (opt,val))
+					self.logPop("... OK\n")
 				# switch to cache directory
 				path = os.path.join('loki_cache', srcName)
 				if not os.path.exists(path):
@@ -131,11 +157,11 @@ class Updater(object):
 				# download files into a local cache
 				if not cacheOnly:
 					self.logPush("downloading %s data ...\n" % srcName)
-					self._sourceObjects[srcName].download()
+					self._sourceObjects[srcName].download(options)
 					self.logPop("... OK\n")
 				# process new files
 				self.logPush("processing %s data ...\n" % srcName)
-				self._sourceObjects[srcName].update()
+				self._sourceObjects[srcName].update(options)
 				os.chdir(iwd)
 				self._sourceObjects[srcName].setSourceUpdated()
 				self.logPop("... OK\n")

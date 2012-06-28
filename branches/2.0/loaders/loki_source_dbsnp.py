@@ -25,13 +25,33 @@ class Source_dbsnp(loki_source.Source):
 	# source interface
 	
 	
-	def download(self):
+	def getOptions(self):
+		return {
+			'snp-loci': '[all|valid]  --  store all or only validated SNP loci (default: all)'
+		}
+	#getOptions()
+	
+	
+	def validateOptions(self, options):
+		for o,v in options.iteritems():
+			if o == 'snp-loci':
+				v = v.strip().lower()
+				if v not in ('all','valid'):
+					return "snp-loci must be 'all' or 'valid'"
+				options[o] = v
+			else:
+				return "unknown option '%s'" % o
+		return True
+	#validateOptions()
+	
+	
+	def download(self, options):
 		# download the latest source files
 		self.downloadFilesFromFTP(self._remHost, self._remFiles)
 	#download()
 	
 	
-	def update(self):
+	def update(self, options):
 		# clear out all old data from this source
 		self.log("deleting old records from the database ...")
 		self.deleteAll()
@@ -169,6 +189,7 @@ CREATE TABLE [b135_SNPContigLocusId_37_3]
 		self.logPush()
 		if setOrphan:
 			self.log("WARNING: %d roles (%d codes) unrecognized\n" % (numOrphan,len(setOrphan)))
+		setOrphan = None
 		self.logPop()
 		
 		# write any remaining records
@@ -201,8 +222,9 @@ CREATE TABLE [b135_SNPContigLocusId_37_3]
 			
 			# process lines
 			setPos = set()
-			setNoGRCh = set()
 			setBadBuild = set()
+			setBadVers = set()
+			setBadValid = set()
 			setBadChr = set()
 			for line in chmFile:
 				words = line.split("\t")
@@ -216,9 +238,11 @@ CREATE TABLE [b135_SNPContigLocusId_37_3]
 					rs = long(rs)
 					pos = long(pos)
 					if not build.startswith("GRCh"):
-						setNoGRCh.add(rs)
-					elif grcBuild and grcBuild != build:
 						setBadBuild.add(rs)
+					elif grcBuild and grcBuild != build:
+						setBadVers.add(rs)
+					elif (not valid) and (options.get('snp-loci') == 'valid'):
+						setBadValid.add(rs)
 					elif chm != fileChm:
 						setBadChr.add(rs)
 					else:
@@ -234,15 +258,22 @@ CREATE TABLE [b135_SNPContigLocusId_37_3]
 			
 			# print results
 			setSNP = set(pos[0] for pos in setPos)
-			setNoGRCh.difference_update(setSNP)
-			setBadBuild.difference_update(setSNP, setNoGRCh)
-			setBadChr.difference_update(setSNP, setNoGRCh, setBadBuild)
+			#setBadBuild.difference_update(setSNP)
+			#setBadVers.difference_update(setSNP, setBadBuild)
+			#setBadValid.difference_update(setSNP, setBadBuild, setBadVers)
+			#setBadChr.difference_update(setSNP, setBadBuild, setBadVers, setBadValid)
+			setBadChr.difference_update(setSNP)
+			setBadValid.difference_update(setSNP, setBadChr)
+			setBadVers.difference_update(setSNP, setBadChr, setBadValid)
+			setBadBuild.difference_update(setSNP, setBadChr, setBadValid, setBadVers)
 			self.log(" OK: %d SNP positions (%d RS#s)\n" % (len(setPos),len(setSNP)))
 			self.logPush()
-			if setNoGRCh:
-				self.log("WARNING: %d SNPs not mapped to GRCh build\n" % (len(setNoGRCh)))
 			if setBadBuild:
-				self.log("WARNING: %d SNPs mapped to GRCh build other than %s\n" % (len(setBadChr),grcBuild))
+				self.log("WARNING: %d SNPs not mapped to GRCh build\n" % (len(setBadBuild)))
+			if setBadVers:
+				self.log("WARNING: %d SNPs mapped to GRCh build version other than %s\n" % (len(setBadVers),grcBuild))
+			if setBadValid:
+				self.log("WARNING: %d SNPs not validated\n" % (len(setBadValid)))
 			if setBadChr:
 				self.log("WARNING: %d SNPs on mismatching chromosome\n" % (len(setBadChr)))
 			self.logPop()
@@ -250,7 +281,7 @@ CREATE TABLE [b135_SNPContigLocusId_37_3]
 			# store data
 			self.log("writing chromosome %s SNPs to the database ..." % fileChm)
 			self.addChromosomeSNPLoci(self._loki.chr_num[fileChm], setPos)
-			setPos = setSNP = setNoGRCh = setBadBuild = setBadChr = None
+			setPos = setSNP = setBadBuild = setBadVers = setBadValid = setBadChr = None
 			self.log(" OK\n")
 		#foreach chromosome
 		

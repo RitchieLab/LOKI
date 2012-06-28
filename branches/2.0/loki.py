@@ -20,18 +20,21 @@ if __name__ == "__main__":
 				loki_db.Database.getDatabaseInterfaceName(), loki_db.Database.getDatabaseInterfaceVersion()
 			)
 	)
-	parser.add_argument('-l', '--list-sources', action='store_true',
-			help="list all available update sources"
+	parser.add_argument('-l', '--list-source', type=str, metavar='source', nargs='*', action='append', default=None,
+			help="list options for the specified source loaders, or if none or '+' are specified, list all available sources"
 	)
 	parser.add_argument('-k', '--knowledge', type=str, metavar='file', action='store', default=None,
 			help="the knowledge database file to use"
 	)
 	parser.add_argument('-u', '--update', type=str, metavar='source', nargs='*', action='append', default=None,
-			help="update the knowledge database file by downloading and processing new data from the specified sources; "
-			+"if no sources are specified, or if '+' is specified, then use all available sources"
+			help="update the knowledge database file by downloading and processing new data from the specified sources, "
+			+"or if none or '+' are specified, from all available sources"
 	)
 	parser.add_argument('-U', '--update-except', type=str, metavar='source', nargs='*', action='append', default=None,
-			help="update the knowledge database file by downloading and processing new data from all known sources EXCEPT those specified"
+			help="update the knowledge database file by downloading and processing new data from all available sources EXCEPT those specified"
+	)
+	parser.add_argument('-o', '--option', type=str, metavar=('source','optionstring'), nargs=2, action='append', default=None,
+			help="additional option(s) to pass to the specified source loader module, in the format 'option=value[,option2=value2[,...]]'"
 	)
 	parser.add_argument('-f', '--finalize', action='store_true',
 			help="finalize the knowledge database file"
@@ -60,30 +63,55 @@ if __name__ == "__main__":
 	db.setVerbose(args.verbose)
 	db.attachDatabaseFile(args.knowledge)
 	
-	# list source options?
-	if args.list_sources:
-		print "available source loaders:"
-		for src in sorted(db.listSourceModules()):
-			print "  %s" % src
+	# list sources?
+	if args.list_source != None:
+		srcSet = set()
+		for srcList in args.list_source:
+			srcSet |= set(srcList)
+		if (not srcSet) or ('+' in srcSet):
+			print "available source loaders:"
+			srcSet = set()
+		else:
+			print "source loader options:"
+		moduleOptions = db.getSourceModuleOptions(srcSet)
+		for srcName in sorted(moduleOptions.keys()):
+			print "  %s" % srcName
+			if moduleOptions[srcName]:
+				for srcOption in sorted(moduleOptions[srcName].keys()):
+					print "    %s = %s" % (srcOption,moduleOptions[srcName][srcOption])
+			elif srcSet:
+				print "    <no options>"
+	
+	# pass options?
+	userOptions = {}
+	if args.option != None:
+		for optList in args.option:
+			srcName = optList[0]
+			if srcName not in userOptions:
+				userOptions[srcName] = {}
+			for optString in optList[1].split(','):
+				opt,val = optString.split('=',1)
+				userOptions[srcName][opt] = val
+	userOptions = userOptions or None
 	
 	# parse requested update sources
-	updateSet = None
+	srcSet = None
 	if args.update != None:
-		updateSet = set()
-		for updateList in args.update:
-			updateSet |= set(updateList)
-	updateExcept = None
+		srcSet = set()
+		for srcList in args.update:
+			srcSet |= set(srcList)
+	notSet = None
 	if args.update_except != None:
-		updateExcept = set()
-		for exceptList in args.update_except:
-			updateExcept |= set(exceptList)
+		notSet = set()
+		for srcList in args.update_except:
+			notSet |= set(srcList)
 	
 	# update?
-	if (updateSet != None) or (updateExcept != None):
-		if updateSet and '+' in updateSet:
-			updateSet = set()
-		updateSet = (updateSet or set(db.listSourceModules())) - (updateExcept or set())
-		db.updateDatabase(updateSet, args.cache_only)
+	if (srcSet != None) or (notSet != None):
+		if srcSet and '+' in srcSet:
+			srcSet = set()
+		srcSet = (srcSet or set(db.getSourceModules())) - (notSet or set())
+		db.updateDatabase(srcSet, userOptions, args.cache_only)
 	
 	# finalize?
 	if args.finalize:

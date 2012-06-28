@@ -33,12 +33,22 @@ class Source(object):
 	# source interface
 	
 	
-	def download(self):
+	def getOptions(self):
+		return None
+	#getOptions()
+	
+	
+	def validateOptions(self, options):
+		return True
+	#validateOptions()
+	
+	
+	def download(self, options):
 		raise Exception("invalid LOKI Source plugin: download() not implemented")
 	#download()
 	
 	
-	def update(self):
+	def update(self, options):
 		raise Exception("invalid LOKI Source plugin: update() not implemented")
 	#update()
 	
