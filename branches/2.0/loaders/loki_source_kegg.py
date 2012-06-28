@@ -7,12 +7,12 @@ import loki_source
 class Source_kegg(loki_source.Source):
 	
 	
-	def download(self):
+	def download(self, options):
 		pass
 	#download()
 	
 	
-	def update(self):
+	def update(self, options):
 		# clear out all old data from this source
 		self.log("deleting old records from the database ...")
 		self.deleteAll()

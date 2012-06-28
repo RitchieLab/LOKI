@@ -6,7 +6,7 @@ import loki_source
 class Source_pfam(loki_source.Source):
 	
 	
-	def download(self):
+	def download(self, options):
 		# download the latest source files
 		self.downloadFilesFromFTP('ftp.sanger.ac.uk', {
 			'pfamA.txt.gz':    '/pub/databases/Pfam/current_release/database_files/pfamA.txt.gz',
@@ -15,7 +15,7 @@ class Source_pfam(loki_source.Source):
 	#download()
 	
 	
-	def update(self):
+	def update(self, options):
 		# clear out all old data from this source
 		self.log("deleting old records from the database ...")
 		self.deleteAll()

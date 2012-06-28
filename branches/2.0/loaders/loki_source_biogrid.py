@@ -7,7 +7,7 @@ import loki_source
 class Source_biogrid(loki_source.Source):
 	
 	
-	def download(self):
+	def download(self, options):
 		# download the latest source files
 		self.downloadFilesFromHTTP('thebiogrid.org', {
 			'BIOGRID-ORGANISM-LATEST.tab2.zip': '/downloads/archives/Latest%20Release/BIOGRID-ORGANISM-LATEST.tab2.zip',
@@ -15,7 +15,7 @@ class Source_biogrid(loki_source.Source):
 	#download()
 	
 	
-	def update(self):
+	def update(self, options):
 		# clear out all old data from this source
 		self.log("deleting old records from the database ...")
 		self.deleteAll()

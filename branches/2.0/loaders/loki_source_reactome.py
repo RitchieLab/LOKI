@@ -7,7 +7,7 @@ import loki_source
 class Source_reactome(loki_source.Source):
 	
 	
-	def download(self):
+	def download(self, options):
 		# download the latest source files
 		self.downloadFilesFromHTTP('www.reactome.org', {
 			'homo_sapiens.interactions.txt.gz': '/download/current/homo_sapiens.interactions.txt.gz',
@@ -18,7 +18,7 @@ class Source_reactome(loki_source.Source):
 	#download()
 	
 	
-	def update(self):
+	def update(self, options):
 		# clear out all old data from this source
 		self.log("deleting old records from the database ...")
 		self.deleteAll()

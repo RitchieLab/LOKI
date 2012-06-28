@@ -25,7 +25,8 @@ class Source_dbsnp(loki_source.Source):
 	# source interface
 	
 	
-	def getOptions(self):
+	@classmethod
+	def getOptions(cls):
 		return {
 			'snp-loci': '[all|valid]  --  store all or only validated SNP loci (default: all)'
 		}

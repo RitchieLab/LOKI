@@ -6,7 +6,7 @@ import loki_source
 class Source_mint(loki_source.Source):
 	
 	
-	def download(self):
+	def download(self, options):
 		# download the latest source files
 		self.downloadFilesFromFTP('mint.bio.uniroma2.it', {
 			'2012-02-06-mint-human.txt': '/pub/release/txt/current/2012-02-06-mint-human.txt', #TODO: wildcard filenames
@@ -14,7 +14,7 @@ class Source_mint(loki_source.Source):
 	#download()
 	
 	
-	def update(self):
+	def update(self, options):
 		# clear out all old data from this source
 		self.log("deleting old records from the database ...")
 		self.deleteAll()

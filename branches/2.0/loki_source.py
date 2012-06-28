@@ -33,12 +33,15 @@ class Source(object):
 	# source interface
 	
 	
-	def getOptions(self):
+	@classmethod
+	def getOptions(cls):
 		return None
 	#getOptions()
 	
 	
 	def validateOptions(self, options):
+		for o in options:
+			return "unexpected option '%s'" % o
 		return True
 	#validateOptions()
 	

@@ -34,13 +34,13 @@ class Source_ecrbase(loki_source.Source):
 		"coreEcrs.Tetradon.txt.gz" : "/get_file.cgi?name=ecrbase::ECR/coreEcrs.hg18tetNig1.txt.gz",
 	}
 	
-	def download(self):
+	def download(self, options):
 		"""
 		Download the ECRBase files
 		"""
 		self.downloadFilesFromHTTP(self._remHost, self._remFiles)
 		
-	def update(self):
+	def update(self, options):
 		"""
 		Update based on the downloaded files
 		"""	

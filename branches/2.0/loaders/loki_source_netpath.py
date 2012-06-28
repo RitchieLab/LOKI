@@ -7,7 +7,7 @@ import loki_source
 class Source_netpath(loki_source.Source):
 	
 	
-	def download(self):
+	def download(self, options):
 		# download the latest source files
 		self.downloadFilesFromHTTP('www.netpath.org', {
 			'NetPath_GeneReg_TSV1.zip': '/data/batch/NetPath_GeneReg_TSV1.zip', #Last-Modified: Sat, 03 Sep 2011 10:07:03 GMT
@@ -16,7 +16,7 @@ class Source_netpath(loki_source.Source):
 	#download()
 	
 	
-	def update(self):
+	def update(self, options):
 		# clear out all old data from this source
 		self.log("deleting old records from the database ...")
 		self.deleteAll()

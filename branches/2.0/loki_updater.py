@@ -92,21 +92,18 @@ class Updater(object):
 		self.findSourceModules()
 		srcSet = set()
 		for srcName in (set(sources) if sources else self._sourceLoaders.keys()):
-			if srcName not in self._sourceObjects:
-				if srcName not in self._sourceClasses:
-					if srcName not in self._sourceLoaders:
-						self.log("WARNING: unknown source '%s'\n" % srcName)
-						continue
-					#if module not available
-					srcModule = self._sourceLoaders[srcName].load_module('loki_source_%s' % srcName)
-					srcClass = getattr(srcModule, 'Source_%s' % srcName)
-					if not issubclass(srcClass, loki_source.Source):
-						self.log("WARNING: invalid module for source '%s'\n" % srcName)
-						continue
-					self._sourceClasses[srcName] = srcClass
-				#if module class not loaded
-				self._sourceObjects[srcName] = self._sourceClasses[srcName](self._loki)
-			#if module not instantiated
+			if srcName not in self._sourceClasses:
+				if srcName not in self._sourceLoaders:
+					self.log("WARNING: unknown source '%s'\n" % srcName)
+					continue
+				#if module not available
+				srcModule = self._sourceLoaders[srcName].load_module('loki_source_%s' % srcName)
+				srcClass = getattr(srcModule, 'Source_%s' % srcName)
+				if not issubclass(srcClass, loki_source.Source):
+					self.log("WARNING: invalid module for source '%s'\n" % srcName)
+					continue
+				self._sourceClasses[srcName] = srcClass
+			#if module class not loaded
 			srcSet.add(srcName)
 		#foreach source
 		return srcSet
@@ -115,8 +112,23 @@ class Updater(object):
 	
 	def getSourceModuleOptions(self, sources=None):
 		srcSet = self.loadSourceModules(sources)
-		return { srcName : self._sourceObjects[srcName].getOptions() for srcName in srcSet }
+		return { srcName : self._sourceClasses[srcName].getOptions() for srcName in srcSet }
 	#getSourceModuleOptions()
+	
+	
+	def attachSourceModules(self, sources=None):
+		sources = self.loadSourceModules(sources)
+		srcSet = set()
+		for srcName in sources:
+			if srcName not in self._sourceObjects:
+				if srcName not in self._sourceClasses:
+					raise Exception("loadSourceModules() reported false positive for '%s'" % srcName)
+				self._sourceObjects[srcName] = self._sourceClasses[srcName](self._loki)
+			#if module not instantiated
+			srcSet.add(srcName)
+		#foreach source
+		return srcSet
+	#attachSourceModules()
 	
 	
 	def updateDatabase(self, sources=None, sourceOptions=None, cacheOnly=False):
@@ -124,7 +136,7 @@ class Updater(object):
 		if self._updating:
 			raise Exception('_updating set before updateDatabase()')
 		
-		srcSet = self.loadSourceModules(sources)
+		srcSet = self.attachSourceModules(sources)
 		srcOpts = sourceOptions or {}
 		for srcName in srcOpts.keys():
 			if srcName not in srcSet:

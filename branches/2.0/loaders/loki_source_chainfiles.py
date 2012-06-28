@@ -9,7 +9,7 @@ class Source_chainfiles(loki_source.Source):
 	A loader that loads all of the chainfiles into LOKI
 	"""
 	
-	def download(self):
+	def download(self, options):
 		"""
 		Download all of the chain files
 		"""
@@ -19,7 +19,7 @@ class Source_chainfiles(loki_source.Source):
 			 "hg18.chain.gz" : "/goldenPath/hg18/liftOver/hg18ToHg19.over.chain.gz"})
 	#download()
 		
-	def update(self):
+	def update(self, options):
 		"""
 		Parse all of the chain files and insert them into the database
 		"""	
