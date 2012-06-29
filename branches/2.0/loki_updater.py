@@ -149,7 +149,7 @@ class Updater(object):
 			iwd = os.getcwd()
 			for srcName in sorted(srcSet):
 				# validate options, if any
-				options = srcOpts.get(srcName)
+				options = srcOpts.get(srcName, {})
 				if options:
 					self.logPush("validating %s options ...\n" % srcName)
 					msg = self._sourceObjects[srcName].validateOptions(options)
