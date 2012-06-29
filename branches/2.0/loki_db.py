@@ -682,7 +682,11 @@ class Database(object):
 				dbc.execute("CREATE %sTABLE IF NOT EXISTS `%s`.`%s` %s" % (dbType, dbName, tblName, schema[tblName]['table']))
 				if 'data' in schema[tblName] and schema[tblName]['data']:
 					sql = "INSERT OR IGNORE INTO `%s`.`%s` VALUES (%s)" % (dbName, tblName, ("?,"*len(schema[tblName]['data'][0]))[:-1])
-					dbc.executemany(sql, schema[tblName]['data'])
+					# TODO: change how 'data' is defined so it can be tested without having to try inserting
+					try:
+						dbc.executemany(sql, schema[tblName]['data'])
+					except apsw.ReadOnlyError:
+						pass
 			if doIndecies:
 				for idxName in (idxList or schema[tblName]['index'].keys()):
 					if idxName not in schema[tblName]['index']:
@@ -767,7 +771,11 @@ class Database(object):
 					if current[tblName]['table'].rstrip() == ("CREATE TABLE `%s` %s" % (tblName, schema[tblName]['table'].rstrip())):
 						if 'data' in schema[tblName] and schema[tblName]['data']:
 							sql = "INSERT OR IGNORE INTO `%s`.`%s` VALUES (%s)" % (dbName, tblName, ("?,"*len(schema[tblName]['data'][0]))[:-1])
-							dbc.executemany(sql, schema[tblName]['data'])
+							# TODO: change how 'data' is defined so it can be tested without having to try inserting
+							try:
+								dbc.executemany(sql, schema[tblName]['data'])
+							except apsw.ReadOnlyError:
+								pass
 					elif doRepair and tblEmpty[tblName]:
 						self.log("WARNING: table '%s' schema mismatch -- repairing ..." % tblName)
 						self.dropDatabaseTables(schema, dbName, tblName)
