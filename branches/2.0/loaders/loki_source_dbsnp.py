@@ -28,7 +28,7 @@ class Source_dbsnp(loki_source.Source):
 	@classmethod
 	def getOptions(cls):
 		return {
-			'snp-loci': '[all|valid]  --  store all or only validated SNP loci (default: all)'
+			'snp-loci': '[all|validated]  --  store all or only validated SNP loci (default: all)'
 		}
 	#getOptions()
 	
@@ -37,8 +37,12 @@ class Source_dbsnp(loki_source.Source):
 		for o,v in options.iteritems():
 			if o == 'snp-loci':
 				v = v.strip().lower()
-				if v not in ('all','valid'):
-					return "snp-loci must be 'all' or 'valid'"
+				if 'all'.startswith(v):
+					v = 'all'
+				elif 'validated'.startswith(v):
+					v = 'validated'
+				else:
+					return "snp-loci must be 'all' or 'validated'"
 				options[o] = v
 			else:
 				return "unknown option '%s'" % o
@@ -202,6 +206,7 @@ CREATE TABLE [b135_SNPContigLocusId_37_3]
 		
 		# process chromosome report files
 		grcBuild = grcNum = None
+		snpLociValid = (options.get('snp-loci') == 'validated')
 		for fileChm in self._chmList:
 			self.log("processing chromosome %s SNPs ..." % fileChm)
 			chmFile = self.zfile('chr_%s.txt.gz' % fileChm)
@@ -242,7 +247,7 @@ CREATE TABLE [b135_SNPContigLocusId_37_3]
 						setBadBuild.add(rs)
 					elif grcBuild and grcBuild != build:
 						setBadVers.add(rs)
-					elif (not valid) and (options.get('snp-loci') == 'valid'):
+					elif snpLociValid and not valid:
 						setBadValid.add(rs)
 					elif chm != fileChm:
 						setBadChr.add(rs)
@@ -259,15 +264,11 @@ CREATE TABLE [b135_SNPContigLocusId_37_3]
 			
 			# print results
 			setSNP = set(pos[0] for pos in setPos)
-			#setBadBuild.difference_update(setSNP)
-			#setBadVers.difference_update(setSNP, setBadBuild)
-			#setBadValid.difference_update(setSNP, setBadBuild, setBadVers)
-			#setBadChr.difference_update(setSNP, setBadBuild, setBadVers, setBadValid)
 			setBadChr.difference_update(setSNP)
 			setBadValid.difference_update(setSNP, setBadChr)
 			setBadVers.difference_update(setSNP, setBadChr, setBadValid)
 			setBadBuild.difference_update(setSNP, setBadChr, setBadValid, setBadVers)
-			self.log(" OK: %d SNP positions (%d RS#s)\n" % (len(setPos),len(setSNP)))
+			self.log(" OK: %d SNPs, %d loci\n" % (len(setSNP),len(setPos)))
 			self.logPush()
 			if setBadBuild:
 				self.log("WARNING: %d SNPs not mapped to GRCh build\n" % (len(setBadBuild)))

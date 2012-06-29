@@ -115,9 +115,18 @@ class Source(object):
 	def addLDProfiles(self, ldprofiles):
 		# ldprofiles=[ (ldprofile,comment,description), ... ]
 		self._loki.testDatabaseUpdate()
-		ldprofiles = list(ldprofiles)
-		self._db.cursor().executemany("INSERT OR IGNORE INTO `db`.`ldprofile` (ldprofile,comment,description) VALUES (LOWER(?),?,?)", ldprofiles)
-		return self._loki.getLDProfileIDs(l[0] for l in ldprofiles)
+		dbc = self._db.cursor()
+		ret = {}
+		# use ABORT to avoid wasting autoincrements on existing rows,
+		# and execute() to avoid bailing out of executemany() due to ABORT
+		for l in ldprofiles:
+			try:
+				dbc.execute("INSERT OR ABORT INTO `db`.`ldprofile` (ldprofile,comment,description) VALUES (LOWER(?),?,?); SELECT LAST_INSERT_ROWID()", l)
+			except apsw.ConstraintError:
+				dbc.execute("SELECT ldprofile_id FROM `db`.`ldprofile` WHERE ldprofile = LOWER(?)", l[0:1])
+			for row in dbc:
+				ret[l[0]] = row[0]
+		return ret
 	#addLDProfiles()
 	
 	
@@ -129,9 +138,18 @@ class Source(object):
 	def addNamespaces(self, namespaces):
 		# namespaces=[ (namespace,polygenic), ... ]
 		self._loki.testDatabaseUpdate()
-		namespaces = list(namespaces)
-		self._db.cursor().executemany("INSERT OR IGNORE INTO `db`.`namespace` (namespace,polygenic) VALUES (LOWER(?),?)", namespaces)
-		return self._loki.getNamespaceIDs(n[0] for n in namespaces)
+		dbc = self._db.cursor()
+		ret = {}
+		# use ABORT to avoid wasting autoincrements on existing rows,
+		# and execute() to avoid bailing out of executemany() due to ABORT
+		for n in namespaces:
+			try:
+				dbc.execute("INSERT OR ABORT INTO `db`.`namespace` (namespace,polygenic) VALUES (LOWER(?),?); SELECT LAST_INSERT_ROWID()", n)
+			except apsw.ConstraintError:
+				dbc.execute("SELECT namespace_id FROM `db`.`namespace` WHERE namespace = LOWER(?)", n[0:1])
+			for row in dbc:
+				ret[n[0]] = row[0]
+		return ret
 	#addNamespaces()
 	
 	
@@ -143,9 +161,18 @@ class Source(object):
 	def addRelationships(self, relationships):
 		# relationships=[ (relationship,), ... ]
 		self._loki.testDatabaseUpdate()
-		relationships = list(relationships)
-		self._db.cursor().executemany("INSERT OR IGNORE INTO `db`.`relationship` (relationship) VALUES (LOWER(?))", relationships)
-		return self._loki.getRelationshipIDs(r[0] for r in relationships)
+		dbc = self._db.cursor()
+		ret = {}
+		# use ABORT to avoid wasting autoincrements on existing rows,
+		# and execute() to avoid bailing out of executemany() due to ABORT
+		for r in relationships:
+			try:
+				dbc.execute("INSERT OR ABORT INTO `db`.`relationship` (relationship) VALUES (LOWER(?)); SELECT LAST_INSERT_ROWID()", r)
+			except apsw.ConstraintError:
+				dbc.execute("SELECT relationship_id FROM `db`.`relationship` WHERE relationship = LOWER(?)", r[0:1])
+			for row in dbc:
+				ret[r[0]] = row[0]
+		return ret
 	#addRelationships()
 	
 	
@@ -157,9 +184,18 @@ class Source(object):
 	def addRoles(self, roles):
 		# roles=[ (role,description,coding,exon), ... ]
 		self._loki.testDatabaseUpdate()
-		roles = list(roles)
-		self._db.cursor().executemany("INSERT OR IGNORE INTO `db`.`role` (role,description,coding,exon) VALUES (LOWER(?),?,?,?)", roles)
-		return self._loki.getRoleIDs(r[0] for r in roles)
+		dbc = self._db.cursor()
+		ret = {}
+		# use ABORT to avoid wasting autoincrements on existing rows,
+		# and execute() to avoid bailing out of executemany() due to ABORT
+		for r in roles:
+			try:
+				dbc.execute("INSERT OR ABORT INTO `db`.`role` (role,description,coding,exon) VALUES (LOWER(?),?,?,?); SELECT LAST_INSERT_ROWID()", r)
+			except apsw.ConstraintError:
+				dbc.execute("SELECT role_id FROM `db`.`role` WHERE role = LOWER(?)", r[0:1])
+			for row in dbc:
+				ret[r[0]] = row[0]
+		return ret
 	#addRoles()
 	
 	
@@ -171,9 +207,18 @@ class Source(object):
 	def addSources(self, sources):
 		# sources=[ (source,), ... ]
 		self._loki.testDatabaseUpdate()
-		sources = list(sources)
-		self._db.cursor().executemany("INSERT OR IGNORE INTO `db`.`source` (source) VALUES (LOWER(?))", sources)
-		return self._loki.getSourceIDs(s[0] for s in sources)
+		dbc = self._db.cursor()
+		ret = {}
+		# use ABORT to avoid wasting autoincrements on existing rows,
+		# and execute() to avoid bailing out of executemany() due to ABORT
+		for s in sources:
+			try:
+				dbc.execute("INSERT OR ABORT INTO `db`.`source` (source) VALUES (LOWER(?)); SELECT LAST_INSERT_ROWID()", s)
+			except apsw.ConstraintError:
+				dbc.execute("SELECT source_id FROM `db`.`source` WHERE source = LOWER(?)", s[0:1])
+			for row in dbc:
+				ret[s[0]] = row[0]
+		return ret
 	#addSources()
 	
 		
@@ -185,9 +230,18 @@ class Source(object):
 	def addTypes(self, types):
 		# types=[ (type,), ... ]
 		self._loki.testDatabaseUpdate()
-		types = list(types)
-		self._db.cursor().executemany("INSERT OR IGNORE INTO `db`.`type` (type) VALUES (LOWER(?))", types)
-		return self._loki.getTypeIDs(t[0] for t in types)
+		dbc = self._db.cursor()
+		ret = {}
+		# use ABORT to avoid wasting autoincrements on existing rows,
+		# and execute() to avoid bailing out of executemany() due to ABORT
+		for t in types:
+			try:
+				dbc.execute("INSERT OR ABORT INTO `db`.`type` (type) VALUES (LOWER(?)); SELECT LAST_INSERT_ROWID()", t)
+			except apsw.ConstraintError:
+				dbc.execute("SELECT type_id FROM `db`.`type` WHERE type = LOWER(?)", t[0:1])
+			for row in dbc:
+				ret[t[0]] = row[0]
+		return ret
 	#addTypes()
 	
 	

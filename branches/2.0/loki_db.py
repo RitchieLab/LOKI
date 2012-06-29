@@ -12,7 +12,7 @@ class Database(object):
 	# public class data
 	
 	
-	ver_maj,ver_min,ver_rev,ver_dev,ver_date = 2,0,0,'a3','2012-06-28'
+	ver_maj,ver_min,ver_rev,ver_dev,ver_date = 2,0,0,'a4','2012-06-29'
 	chr_list = ('1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19','20','21','22','X','Y','XY','MT')
 	chr_num = {}
 	chr_name = {}
@@ -917,7 +917,9 @@ class Database(object):
 		if not self._dbFile:
 			return { l:None for l in ldprofiles }
 		sql = "SELECT i.ldprofile, l.ldprofile_id FROM (SELECT ? AS ldprofile) AS i LEFT JOIN `db`.`ldprofile` AS l ON l.ldprofile = LOWER(i.ldprofile)"
-		return { row[0]:row[1] for row in self._db.cursor().executemany(sql, itertools.izip(ldprofiles)) }
+		with self._db:
+			ret = { row[0]:row[1] for row in self._db.cursor().executemany(sql, itertools.izip(ldprofiles)) }
+		return ret
 	#getLDProfileIDs()
 	
 	
@@ -930,7 +932,9 @@ class Database(object):
 		if not self._dbFile:
 			return { n:None for n in namespaces }
 		sql = "SELECT i.namespace, n.namespace_id FROM (SELECT ? AS namespace) AS i LEFT JOIN `db`.`namespace` AS n ON n.namespace = LOWER(i.namespace)"
-		return { row[0]:row[1] for row in self._db.cursor().executemany(sql, itertools.izip(namespaces)) }
+		with self._db:
+			ret = { row[0]:row[1] for row in self._db.cursor().executemany(sql, itertools.izip(namespaces)) }
+		return ret
 	#getNamespaceIDs()
 	
 	
@@ -943,7 +947,9 @@ class Database(object):
 		if not self._dbFile:
 			return { r:None for r in relationships }
 		sql = "SELECT i.relationship, r.relationship_id FROM (SELECT ? AS relationship) AS i LEFT JOIN `db`.`relationship` AS r ON r.relationship = LOWER(i.relationship)"
-		return { row[0]:row[1] for row in self._db.cursor().executemany(sql, itertools.izip(relationships)) }
+		with self._db:
+			ret = { row[0]:row[1] for row in self._db.cursor().executemany(sql, itertools.izip(relationships)) }
+		return ret
 	#getRelationshipIDs()
 	
 	
@@ -956,7 +962,9 @@ class Database(object):
 		if not self._dbFile:
 			return { r:None for r in roles }
 		sql = "SELECT i.role, role_id FROM (SELECT ? AS role) AS i LEFT JOIN `db`.`role` AS r ON r.role = LOWER(i.role)"
-		return { row[0]:row[1] for row in self._db.cursor().executemany(sql, itertools.izip(roles)) }
+		with self._db:
+			ret = { row[0]:row[1] for row in self._db.cursor().executemany(sql, itertools.izip(roles)) }
+		return ret
 	#getRoleIDs()
 	
 	
@@ -969,7 +977,9 @@ class Database(object):
 		if not self._dbFile:
 			return { s:None for s in sources }
 		sql = "SELECT i.source, s.source_id FROM (SELECT ? AS source) AS i LEFT JOIN `db`.`source` AS s ON s.source = LOWER(i.source)"
-		return { row[0]:row[1] for row in self._db.cursor().executemany(sql, itertools.izip(sources)) }
+		with self._db:
+			ret = { row[0]:row[1] for row in self._db.cursor().executemany(sql, itertools.izip(sources)) }
+		return ret
 	#getSourceIDs()
 	
 	
@@ -982,7 +992,9 @@ class Database(object):
 		if not self._dbFile:
 			return { t:None for t in types }
 		sql = "SELECT i.type, t.type_id FROM (SELECT ? AS type) AS i LEFT JOIN `db`.`type` AS t ON t.type = LOWER(i.type)"
-		return { row[0]:row[1] for row in self._db.cursor().executemany(sql, itertools.izip(types)) }
+		with self._db:
+			ret = { row[0]:row[1] for row in self._db.cursor().executemany(sql, itertools.izip(types)) }
+		return ret
 	#getTypeIDs()
 	
 	
@@ -1000,12 +1012,13 @@ FROM (SELECT ? AS rsMerged) AS i
 LEFT JOIN `db`.`snp_merge` AS sm USING (rsMerged)
 """
 		numMerge = numMatch = 0
-		for row in self._db.cursor().executemany(sql, itertools.izip(rses)):
-			if row[1] != row[0]:
-				numMerge += 1
-			else:
-				numMatch += 1
-			yield row
+		with self._db:
+			for row in self._db.cursor().executemany(sql, itertools.izip(rses)):
+				if row[1] != row[0]:
+					numMerge += 1
+				else:
+					numMatch += 1
+				yield row
 		if tally != None:
 			tally['merge'] = numMerge
 			tally['match'] = numMatch
@@ -1026,26 +1039,27 @@ LEFT JOIN `db`.`snp_locus` AS sl
 			sql += "  AND sl.validated = %d" % (1 if validated else 0)
 		key = matches = None
 		numNull = numAmbig = numMatch = 0
-		for row in itertools.chain(self._db.cursor().executemany(sql, itertools.izip(rses)), [(None,None,None)]):
-			if key != row[0]:
-				if key:
-					if tally != None:
-						if not matches:
-							numNull += 1
-						elif len(matches) > 1:
-							numAmbig += 1
-						else:
-							numMatch += 1
-					if (minMatch or 0) < 1 and not matches:
-						yield (key,None,None)
-					elif (minMatch or 0) <= len(matches) <= (maxMatch or len(matches)):
-						for match in matches:
-							yield match
-				key = row[0]
-				matches = set()
-			if row[1] and row[2]:
-				matches.add(row)
-		#foreach row
+		with self._db:
+			for row in itertools.chain(self._db.cursor().executemany(sql, itertools.izip(rses)), [(None,None,None)]):
+				if key != row[0]:
+					if key:
+						if tally != None:
+							if not matches:
+								numNull += 1
+							elif len(matches) > 1:
+								numAmbig += 1
+							else:
+								numMatch += 1
+						if (minMatch or 0) < 1 and not matches:
+							yield (key,None,None)
+						elif (minMatch or 0) <= len(matches) <= (maxMatch or len(matches)):
+							for match in matches:
+								yield match
+					key = row[0]
+					matches = set()
+				if row[1] and row[2]:
+					matches.add(row)
+			#foreach row
 		if tally != None:
 			tally['null'] = numNull
 			tally['ambig'] = numAmbig
@@ -1107,26 +1121,27 @@ LEFT JOIN `db`.`biopolymer` AS b
 		
 		key = matches = None
 		numNull = numAmbig = numMatch = 0
-		for row in itertools.chain(self._db.cursor().executemany(sql, itertools.izip(names)), [(None,None)]):
-			if key != row[0]:
-				if key:
-					if tally != None:
-						if not matches:
-							numNull += 1
-						elif len(matches) > 1:
-							numAmbig += 1
-						else:
-							numMatch += 1
-					if minMatch < 1 and not matches:
-						yield (key,None)
-					elif (minMatch or 0) <= len(matches) <= (maxMatch or len(matches)):
-						for match in matches:
-							yield match
-				key = row[0]
-				matches = set()
-			if row[1]:
-				matches.add(row)
-		#foreach row
+		with self._db:
+			for row in itertools.chain(self._db.cursor().executemany(sql, itertools.izip(names)), [(None,None)]):
+				if key != row[0]:
+					if key:
+						if tally != None:
+							if not matches:
+								numNull += 1
+							elif len(matches) > 1:
+								numAmbig += 1
+							else:
+								numMatch += 1
+						if minMatch < 1 and not matches:
+							yield (key,None)
+						elif (minMatch or 0) <= len(matches) <= (maxMatch or len(matches)):
+							for match in matches:
+								yield match
+					key = row[0]
+					matches = set()
+				if row[1]:
+					matches.add(row)
+			#foreach row
 		if tally != None:
 			tally['null'] = numNull
 			tally['ambig'] = numAmbig
@@ -1134,15 +1149,15 @@ LEFT JOIN `db`.`biopolymer` AS b
 	#generateBiopolymerIDsByName()
 	
 	
-	def getBiopolymerNameStats(self, namespaceID=None, typeID=None):
+	def generateBiopolymerNameStats(self, namespaceID=None, typeID=None):
 		sql = """
 SELECT
-  COUNT(1) AS `total`,
-  SUM(CASE WHEN names = 1 THEN 1 ELSE 0 END) AS `unique`,
-  SUM(CASE WHEN names > 1 AND matches = 1 THEN 1 ELSE 0 END) AS `redundant`,
-  SUM(CASE WHEN names > 1 AND matches > 1 THEN 1 ELSE 0 END) AS `ambiguous`
+  `namespace`,
+  COUNT() AS `names`,
+  SUM(CASE WHEN matches = 1 THEN 1 ELSE 0 END) AS `unique`,
+  SUM(CASE WHEN matches > 1 THEN 1 ELSE 0 END) AS `ambiguous`
 FROM (
-  SELECT name, COUNT() AS names, COUNT(DISTINCT bn.biopolymer_id) AS matches
+  SELECT bn.namespace_id, bn.name, COUNT(DISTINCT bn.biopolymer_id) AS matches
   FROM `db`.`biopolymer_name` AS bn
 """
 		
@@ -1158,12 +1173,15 @@ FROM (
 """ % namespaceID
 		
 		sql += """
-  GROUP BY bn.name
+  GROUP BY bn.namespace_id, bn.name
+)
+JOIN `db`.`namespace` AS n USING (namespace_id)
+GROUP BY namespace_id
 """
+		
 		for row in self._db.cursor().execute(sql):
-			ret = { 'total':row[0], 'unique':row[1], 'redundant':row[2], 'ambiguous':row[3] }
-		return ret
-	#getBiopolymerNameStats()
+			yield row
+	#generateBiopolymerNameStats()
 	
 	
 	##################################################
@@ -1220,31 +1238,67 @@ LEFT JOIN `db`.`group` AS g
 		
 		key = matches = None
 		numNull = numAmbig = numMatch = 0
-		for row in itertools.chain(self._db.cursor().executemany(sql, itertools.izip(names)), [(None,None)]):
-			if key != row[0]:
-				if key:
-					if tally != None:
-						if not matches:
-							numNull += 1
-						elif len(matches) > 1:
-							numAmbig += 1
-						else:
-							numMatch += 1
-					if minMatch < 1 and not matches:
-						yield (key,None)
-					elif (minMatch or 0) <= len(matches) <= (maxMatch or len(matches)):
-						for match in matches:
-							yield match
-				key = row[0]
-				matches = set()
-			if row[1]:
-				matches.add(row)
-		#foreach row
+		with self._db:
+			for row in itertools.chain(self._db.cursor().executemany(sql, itertools.izip(names)), [(None,None)]):
+				if key != row[0]:
+					if key:
+						if tally != None:
+							if not matches:
+								numNull += 1
+							elif len(matches) > 1:
+								numAmbig += 1
+							else:
+								numMatch += 1
+						if minMatch < 1 and not matches:
+							yield (key,None)
+						elif (minMatch or 0) <= len(matches) <= (maxMatch or len(matches)):
+							for match in matches:
+								yield match
+					key = row[0]
+					matches = set()
+				if row[1]:
+					matches.add(row)
+			#foreach row
 		if tally != None:
 			tally['null'] = numNull
 			tally['ambig'] = numAmbig
 			tally['match'] = numMatch
 	#generateGroupIDsByName()
+	
+	
+	def generateGroupNameStats(self, namespaceID=None, typeID=None):
+		sql = """
+SELECT
+  `namespace`,
+  COUNT() AS `names`,
+  SUM(CASE WHEN matches = 1 THEN 1 ELSE 0 END) AS `unique`,
+  SUM(CASE WHEN matches > 1 THEN 1 ELSE 0 END) AS `ambiguous`
+FROM (
+  SELECT gn.namespace_id, gn.name, COUNT(DISTINCT gn.group_id) AS matches
+  FROM `db`.`group_name` AS gn
+"""
+		
+		if typeID:
+			sql += """
+  JOIN `db`.`group` AS g
+    ON g.group_id = gn.group_id AND g.type_id = %d
+""" % typeID
+		
+		if namespaceID:
+			sql += """
+  WHERE gn.namespace_id = %d
+""" % namespaceID
+		
+		sql += """
+  GROUP BY gn.namespace_id, gn.name
+)
+JOIN `db`.`namespace` AS n USING (namespace_id)
+GROUP BY namespace_id
+"""
+		
+		for row in self._db.cursor().execute(sql):
+			yield row
+	#generateGroupNameStats()
 	
 	
 #Database

@@ -144,10 +144,12 @@ class Source_entrez(loki_source.Source):
 		# process gene regions
 		self.log("processing gene regions ...")
 		setRegions = set()
+		setGenes = set()
 		setOrphan = set()
-		setNoNC = set()
-		setNoGRC = set()
-		setMismatch = set()
+		setBadBuild = set()
+		setBadVers = set()
+		setBadNC = set()
+		setBadChr = set()
 		refseqBIDs = dict()
 		grcBuild = grcNum = None
 		regionFile = self.zfile('gene2refseq.gz') #TODO:context manager,iterator
@@ -166,25 +168,24 @@ class Source_entrez(loki_source.Source):
 					genAcc = words[7].rsplit('.',1)[0] if words[7] != "-" else None
 					posMin = long(words[9]) if words[9] != "-" else None
 					posMax = long(words[10]) if words[10] != "-" else None
-					build = words[12].rstrip() if len(words) > 12 and words[12] != "-" else None
+					build = words[12].rstrip() if (len(words) > 12 and words[12] != "-") else None
 					
-					if entrezID in entrezBID:
+					if entrezID not in entrezBID:
+						setOrphan.add(entrezID)
+					else:
 						if posMin and posMax:
 							# refseq accession types: http://www.ncbi.nlm.nih.gov/RefSeq/key.html
 							# NC_ is the "complete genomic" accession, with positions relative to the whole chromosome;
 							# NT_ for example has positions relative to the read fragment, which is no use to us
-							if not (genAcc and genAcc.startswith('NC_')):
-								setNoNC.add(entrezID)
-							elif not (build and build.startswith("Reference ") and build.endswith(" Primary Assembly")):
-								setNoGRC.add(entrezID)
+							if not (build and build.startswith("Reference GRCh") and build.endswith(" Primary Assembly")):
+								setBadBuild.add(entrezID)
+							elif grcBuild and grcBuild != build:
+								setBadVers.add(entrezID)
+							elif not (genAcc and genAcc.startswith('NC_')):
+								setBadNC.add(entrezID)
 							else:
-								# TODO: is there some better way to load these mappings?
-								# in theory they ought not to change, but hardcoding them is unfortunate
-								if genAcc == 'NC_000023':
-									chm = 'X'
-								elif genAcc == 'NC_000024':
-									chm = 'Y'
-								elif genAcc == 'NC_012920':
+								# TODO: avoid hardcoding this mapping
+								if genAcc == 'NC_012920':
 									chm = 'MT'
 								else:
 									chm = genAcc[3:].lstrip('0')
@@ -201,10 +202,11 @@ class Source_entrez(loki_source.Source):
 								#100313884 8 -> 2
 								#100418703 Y -> X
 								#100507426 Y -> X
-								if chm not in self._loki.chr_num:
-									setMismatch.add(entrezID)
-								elif (entrezID in entrezChm) and (chm not in entrezChm[entrezID].split('|')):
-									setMismatch.add(entrezID)
+								if (chm not in self._loki.chr_num) or (chm not in self._loki.chr_name):
+									setBadChr.add(entrezID)
+								elif (entrezID in entrezChm) and (self._loki.chr_name[chm] not in entrezChm[entrezID].split('|')):
+									print "%s %s -> %s" % (entrezID,entrezChm[entrezID],self._loki.chr_name[chm])
+									setBadChr.add(entrezID)
 								else:
 									if not grcBuild:
 										grcBuild = build
@@ -213,6 +215,7 @@ class Source_entrez(loki_source.Source):
 										except ValueError:
 											raise Exception("ERROR: unrecognized GRCh build format '%s'" % build)
 									setRegions.add( (entrezBID[entrezID],self._loki.chr_num[chm],posMin,posMax) )
+									setGenes.add(entrezID)
 							#if genAcc is NC_
 						# if posMin and posMax
 						
@@ -224,16 +227,15 @@ class Source_entrez(loki_source.Source):
 								refseqBIDs[proAcc] = set()
 							refseqBIDs[proAcc].add(entrezBID[entrezID])
 						# don't store genAcc as an alias, there's only one per chromosome
-					else:
-						setOrphan.add(entrezID)
 					#if entrezID in entrezBID
 				#if taxonomy is 9606 (human)
 			#foreach line in regionFile
 			
 			# print stats
-			setGenes = set(region[0] for region in setRegions)
-			setNoNC -= setGenes
-			setMismatch -= setGenes
+			setBadChr.difference_update(setGenes)
+			setBadNC.difference_update(setGenes, setBadChr)
+			setBadVers.difference_update(setGenes, setBadChr, setBadNC)
+			setBadBuild.difference_update(setGenes, setBadChr, setBadNC, setBadVers)
 			numRegions = len(setRegions)
 			numGenes = len(setGenes)
 			numNames0 = numNames
@@ -242,12 +244,16 @@ class Source_entrez(loki_source.Source):
 			self.logPush()
 			if setOrphan:
 				self.log("WARNING: %d genes not defined\n" % (len(setOrphan)))
-			if setNoNC:
-				self.log("WARNING: %d genes not mapped to whole chromosome\n" % (len(setNoNC)))
-			if setMismatch:
-				self.log("WARNING: %d genes on mismatching chromosome\n" % (len(setMismatch)))
+			if setBadBuild:
+				self.log("WARNING: %d genes not mapped to GRCh build\n" % (len(setBadBuild)))
+			if setBadVers:
+				self.log("WARNING: %d genes mapped to GRCh build version other than %s\n" % (len(setBadVers),grcBuild[10:-17]))
+			if setBadNC:
+				self.log("WARNING: %d genes not mapped to whole chromosome\n" % (len(setBadNC)))
+			if setBadChr:
+				self.log("WARNING: %d genes on mismatching chromosome\n" % (len(setBadChr)))
 			self.logPop()
-			entrezChm = setOrphan = setNoNC = setMismatch = setGenes = None
+			entrezChm = setGenes = setOrphan = setBadBuild = setBadVers = setBadNC = setBadChr = None
 			
 			# store gene regions
 			self.log("writing gene regions to the database ...")
