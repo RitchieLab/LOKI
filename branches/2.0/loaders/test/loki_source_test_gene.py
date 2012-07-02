@@ -13,6 +13,10 @@ class Source_test_gene (loki_source.Source):
 		Create some genes (and a test population)
 		"""
 		
+		self.log("deleting old records from the database ...")
+		self.deleteAll()
+		self.log(" OK\n")
+		
 		namespaceID = self.addNamespaces([
 			('symbol',      0),
 			('entrez_gid',  0),
@@ -24,8 +28,11 @@ class Source_test_gene (loki_source.Source):
 			('gene',),
 		])
 		
+		# Set the zone size to 9
+		self._loki.setDatabaseSetting("zone_size", "9")
+		
 		self.log("Creating LD Profiles ...")
-		ld_ids = addBiopolymerLDProfileRegions([('', 'no LD adjustment', None), ('PLUS5', 'Add 5 to all boundaries', 'Adding 5')])
+		ld_ids = self.addLDProfiles([('', 'no LD adjustment', None), ('PLUS5', 'Add 5 to all boundaries', 'Adding 5')])
 		self.log("OK\n")
 		
 		self.log("Creating Regions ...")
@@ -44,6 +51,6 @@ class Source_test_gene (loki_source.Source):
 		gene_bounds[5] = (30,50)
 		gene_bounds[6] = (10, 20)
 		
-		addBiopolymerLDProfileRegions(ld_ids[''],((b_ids[r],1+(r==5),gene_bounds[r+1][0],gene_bounds[r+1][1])for r in range(6)))
-		addBiopolymerLDProfileRegions(ld_ids['PLUS5'],((b_ids[r],1+(r==5),gene_bounds[r+1][0]+5,gene_bounds[r+1][1]+5)for r in range(6)))
+		self.addBiopolymerLDProfileRegions(ld_ids[''],((b_ids[r],1+(r==5),gene_bounds[r+1][0],gene_bounds[r+1][1])for r in range(6)))
+		self.addBiopolymerLDProfileRegions(ld_ids['PLUS5'],((b_ids[r],1+(r==5),gene_bounds[r+1][0]+5,gene_bounds[r+1][1]+5)for r in range(6)))
 		self.log("OK\n")

@@ -22,10 +22,12 @@ class Source_test_snp(loki_source.Source):
 		
 		# Add some roles
 		self.log("Creating Roles ...")
-		role_list = self.addRoles([
+		role_list = [
 			("Exon", "Test Exon", 1, 1), 
 			("Regulatory", "Test Regulatory", 0, 1), 
-			("Intron", "Test Intron", 0, 0)])
+			("Intron", "Test Intron", 0, 0)]
+		role_ids = self.addRoles(role_list)
+			
 		self.log("OK\n")
 			
 		chr_snp = {1 : [r+1 for r in range(11)], 
@@ -36,13 +38,13 @@ class Source_test_snp(loki_source.Source):
 			
 		# Add some snp merges: 1XX -> XX on chr 1 only
 		self.log("Creating SNP Merge Records ...")
-		self.addSNPMerge(zip((r+100 for r in chr_snp[1]), chr_snp[1]))
+		self.addSNPMerges(zip((r+100 for r in chr_snp[1]), chr_snp[1]))
 		self.log("OK\n")
 		
 		# Add some role data
 		self.log("Creating SNP Roles ...")
 		for snp, v in snp_gene.iteritems():
-			self.addSNPEntrezRoles(((snp, g, role_list[(snp+g)%3]) for g in v))
+			self.addSNPEntrezRoles(((snp, g, role_ids[role_list[(snp+g)%3][0]]) for g in v))
 		self.log("OK\n")
 		
 		# Add some SNPs
