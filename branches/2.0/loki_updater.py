@@ -15,8 +15,9 @@ class Updater(object):
 	# constructor
 	
 	
-	def __init__(self, lokidb):
+	def __init__(self, lokidb, is_test=False):
 		assert(isinstance(lokidb, loki_db.Database))
+		self._is_test = is_test
 		self._loki = lokidb
 		self._db = lokidb._db
 		self._sourceLoaders = None
@@ -76,7 +77,10 @@ class Updater(object):
 	def findSourceModules(self):
 		if self._sourceLoaders == None:
 			self._sourceLoaders = {}
-			for srcImporter,srcModuleName,_ in pkgutil.iter_modules(loaders.__path__):
+			loader_path = loaders.__path__
+			if self._is_test:
+				loader_path = [os.path.join(l, "test") for l in loaders.__path__]
+			for srcImporter,srcModuleName,_ in pkgutil.iter_modules(loader_path):
 				if srcModuleName.startswith('loki_source_'):
 					self._sourceLoaders[srcModuleName[12:]] = srcImporter.find_module(srcModuleName)
 	#findSourceModules()

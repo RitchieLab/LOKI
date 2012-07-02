@@ -488,8 +488,10 @@ class Database(object):
 	# constructor
 	
 	
-	def __init__(self, dbFile=None, cacheLimit=1024*1024*1024): # default 1GB cache
+	def __init__(self, dbFile=None, cacheLimit=1024*1024*1024, testing=False, updating=False): # default 1GB cache
 		# initialize instance properties
+		self._is_test = testing
+		self._updating = updating
 		self._verbose = False
 		self._logger = None
 		self._logFile = sys.stderr
@@ -532,7 +534,14 @@ class Database(object):
 	
 	##################################################
 	# logging
-	
+	def _checkTesting(self):
+		now_test = self.getDatabaseSetting("testing")
+		if now_test is None or bool(int(now_test)) == bool(self._is_test):
+			self.setDatabaseSetting("testing", bool(self._is_test))
+			return True
+		else:
+			return False
+	# setTesting(is_test)
 	
 	def getVerbose(self):
 		return self._verbose
@@ -628,12 +637,21 @@ class Database(object):
 			dbc.execute("PRAGMA db.synchronous = OFF")
 			
 			# establish or audit database schema
+			err_msg = ""
 			with self._db:
 				if self._dbNew:
 					self.createDatabaseObjects(None, 'db')
 					ok = True
 				else:
 					ok = self.auditDatabaseObjects(None, 'db')
+					if not ok:
+						err_msg = "Audit of database failed"
+				
+				if ok and self._updating:
+					ok = self._checkTesting()
+					if not ok:
+						err_msg = "Testing settings do not match loaded database"
+			
 			if ok:
 				if not quiet:
 					self.logPop("... OK\n")
@@ -642,7 +660,8 @@ class Database(object):
 				self._dbNew = None
 				dbc.execute("DETACH DATABASE `db`")
 				if not quiet:
-					self.logPop("... ERROR\n")
+					self.logPop("... ERROR (" + err_msg + ")\n")
+					
 		#if new dbFile
 	#attachDatabaseFile()
 	
@@ -876,7 +895,7 @@ class Database(object):
 	def getSourceModules(self):
 		if not self._updater:
 			import loki_updater
-			self._updater = loki_updater.Updater(self)
+			self._updater = loki_updater.Updater(self, self._is_test)
 		return self._updater.getSourceModules()
 	#getSourceModules()
 	
@@ -884,7 +903,7 @@ class Database(object):
 	def getSourceModuleOptions(self, sources=None):
 		if not self._updater:
 			import loki_updater
-			self._updater = loki_updater.Updater(self)
+			self._updater = loki_updater.Updater(self, self._is_test)
 		return self._updater.getSourceModuleOptions(sources)
 	#getSourceModuleOptions()
 	
@@ -893,7 +912,7 @@ class Database(object):
 		self.testDatabaseUpdate()
 		if not self._updater:
 			import loki_updater
-			self._updater = loki_updater.Updater(self)
+			self._updater = loki_updater.Updater(self, self._is_test)
 		return self._updater.updateDatabase(sources, sourceOptions, cacheOnly)
 	#updateDatabase()
 	

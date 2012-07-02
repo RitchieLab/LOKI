@@ -45,7 +45,9 @@ if __name__ == "__main__":
 	parser.add_argument('-v', '--verbose', action='store_true',
 			help="print warnings and log messages"
 	)
-	
+	parser.add_argument('-t', '--test-data', action='store_true',
+			help="Load testing data only"
+	)
 	# if no arguments, print usage and exit
 	if len(sys.argv) < 2:
 		print version
@@ -57,12 +59,12 @@ if __name__ == "__main__":
 	
 	# parse arguments
 	args = parser.parse_args()
-	
+		
 	# instantiate database and load knowledge file, if any
-	db = loki_db.Database()
+	db = loki_db.Database(testing=args.test_data, updating=((args.update != None) or (args.update_except != None)))
 	db.setVerbose(args.verbose)
 	db.attachDatabaseFile(args.knowledge)
-	
+		
 	# list sources?
 	if args.list_source != None:
 		srcSet = set()
