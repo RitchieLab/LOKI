@@ -43,8 +43,8 @@ class Source_ucsc_ecr(loki_source.Source):
 		# Add a type of "ecr_group"
 		ecr_group_typeid = self.addType("ecr_group")
 		
-		# Make sure the 'n/a' ldprofile exists
-		ecr_ldprofile_id = self.addLDProfile('n/a', 'no LD adjustment', None)
+		# Make sure the '' ldprofile exists
+		ecr_ldprofile_id = self.addLDProfile('', 'no LD adjustment', None)
 		
 		
 		
