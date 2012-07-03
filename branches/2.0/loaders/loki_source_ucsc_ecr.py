@@ -95,7 +95,7 @@ class Source_ucsc_ecr(loki_source.Source):
 				
 				self.log("OK (%d regions found in %d bands)\n" % (num_regions, curr_band - 1))
 			
-			self.addGroupRelationships(((ecr_id, c, rel_id) for c in chr_grp_ids))
+			self.addGroupRelationships(((ecr_gid, c, rel_id) for c in chr_grp_ids))
 			
 			self.logPop("... OK\n")
 
