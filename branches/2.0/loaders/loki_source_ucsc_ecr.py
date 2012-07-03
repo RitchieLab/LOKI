@@ -46,7 +46,8 @@ class Source_ucsc_ecr(loki_source.Source):
 		# Make sure the '' ldprofile exists
 		ecr_ldprofile_id = self.addLDProfile('', 'no LD adjustment', None)
 		
-		
+		# Add a containment relationship
+		rel_id = self.addRelationship("contains")			
 		
 		for sp in self._comparisons:
 			self.logPush("processing ECRs for " + sp + " ...")
@@ -56,26 +57,45 @@ class Source_ucsc_ecr(loki_source.Source):
 			# Add the group for this species (or comparison)
 			ecr_gid = self.addTypedGroups(ecr_group_typeid, [(label, desc)])[0]
 			self.addGroupNamespacedNames(ecr_ns, [(ecr_gid, label)])
-						
+			
+			chr_grp_ids = []
 			for ch in self._chr_list + ("MT",):
 				ch_id = self._loki.chr_num[ch]
 				self.log("processing Chromosome " + ch + " ...")
 				f = self.zfile(sp + ".chr" + ch + ".phastCons.txt.gz")
-				regions = [r for r in self.getRegions(f)]
-											
-				# Add the region itself
-				reg_ids = self.addTypedBiopolymers(ecr_typeid, ((self.getRegionName(sp, ch, r), '') for r in regions))
-				# Add the name of the region
-				self.addBiopolymerNamespacedNames(ecr_ns, zip(reg_ids, (self.getRegionName(sp, ch, r) for r in regions)))
-				# Add the region Boundaries
-				# This gives a generator that yields [(region_id, (chrom_id, start, stop)) ... ]
-				region_bound_gen = zip(((i,) for i in reg_ids), ((ch_id, r[0], r[1]) for r in regions))
-				self.addBiopolymerLDProfileRegions(ecr_ldprofile_id, (tuple(itertools.chain(*c)) for c in region_bound_gen))			
-
-				#Add the region to the group
-				self.addGroupBiopolymers(((ecr_gid, r_id) for r_id in reg_ids))
+				curr_band = 1
+				num_regions = 0
+				desc = "ECRs for " + sp + " on Chromosome " + ch
+				chr_grp_ids.append(self.addTypedGroups(ecr_group_typeid, [("ecr_%s_chr%s" % (sp, ch), desc)])[0])
+				band_gids = [];
+				for regions in self.getRegions(f):
+					label = "ecr_%s_chr%s_band%d" % (sp, ch, curr_band)
+					desc = "ECRs for " + sp + " on Chromosome " + ch + ", Band %d" % (curr_band,)
+					num_regions += len(regions)
+					
+					if regions:
+						band_gids.append(self.addTypedGroups(ecr_group_typeid, [(label, desc)])[0])
+																
+					# Add the region itself
+					reg_ids = self.addTypedBiopolymers(ecr_typeid, ((self.getRegionName(sp, ch, r), '') for r in regions))
+					# Add the name of the region
+					self.addBiopolymerNamespacedNames(ecr_ns, zip(reg_ids, (self.getRegionName(sp, ch, r) for r in regions)))
+					# Add the region Boundaries
+					# This gives a generator that yields [(region_id, (chrom_id, start, stop)) ... ]
+					region_bound_gen = zip(((i,) for i in reg_ids), ((ch_id, r[0], r[1]) for r in regions))
+					self.addBiopolymerLDProfileRegions(ecr_ldprofile_id, (tuple(itertools.chain(*c)) for c in region_bound_gen))			
+	
+					if regions:
+						#Add the region to the group
+						self.addGroupBiopolymers(((band_gids[-1], r_id) for r_id in reg_ids))
+						
+					curr_band += 1
+					
+				self.addGroupRelationships(((chr_grp_ids[-1], b, rel_id) for b in band_gids))
 				
-				self.log("OK (" + str(len(regions)) + " regions found)\n")
+				self.log("OK (%d regions found in %d bands)\n" % (num_regions, curr_band - 1))
+			
+			self.addGroupRelationships(((ecr_id, c, rel_id) for c in chr_grp_ids))
 			
 			self.logPop("... OK\n")
 
@@ -101,7 +121,7 @@ class Source_ucsc_ecr(loki_source.Source):
 		step = 1
 		
 		line = f.next()
-		
+		curr_band = []
 		
 		for l in f:
 			try:
@@ -110,7 +130,7 @@ class Source_ucsc_ecr(loki_source.Source):
 					#If this is the 1st time we crossed the threshold, start the counters
 					if curr_gap != 0 and running_sum / float(n_pos) < self._min_pct:
 						if curr_end- curr_start >= self._min_sz:
-							yield (curr_start, curr_end)
+							curr_band.append((curr_start, curr_end))
 						
 						# Restart the region tracking
 						running_sum = 0
@@ -134,7 +154,7 @@ class Source_ucsc_ecr(loki_source.Source):
 					else:
 						# If it's big enough, add it (we ran off the end of the gap)
 						if curr_end - curr_start > self._min_sz:
-							yield (curr_start, curr_end)
+							curr_band.append((curr_start, curr_end))
 						n_pos = 0
 						curr_start = 0
 						curr_end = 0
@@ -151,8 +171,10 @@ class Source_ucsc_ecr(loki_source.Source):
 				if int(d['start']) != curr_pos or int(d['step']) != step:
 					
 					if curr_end - curr_start > self._min_sz and running_sum / float(n_pos) >= self._min_pct and curr_gap < self._max_gap:
-						yield (curr_start, curr_end)
-	
+						curr_band.append((curr_start, curr_end))
+					
+					yield curr_band
+					curr_band = []	
 	
 					running_sum = 0
 					n_pos = 0
@@ -165,16 +187,6 @@ class Source_ucsc_ecr(loki_source.Source):
 		
 		# Check on the last region...
 		if curr_end - curr_start > self._min_sz and running_sum / float(n_pos) >= self._min_pct and curr_gap < self._max_gap:
-			 yield (curr_start, curr_end)
-						
-
-				
-				
-				
-				
-				
-			
+			 curr_band.append((curr_start, curr_end))
 		
-		
-	
-	
+		yield curr_band
