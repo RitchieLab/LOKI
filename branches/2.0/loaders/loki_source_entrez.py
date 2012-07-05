@@ -205,7 +205,7 @@ class Source_entrez(loki_source.Source):
 								if (chm not in self._loki.chr_num) or (chm not in self._loki.chr_name):
 									setBadChr.add(entrezID)
 								elif (entrezID in entrezChm) and (self._loki.chr_name[chm] not in entrezChm[entrezID].split('|')):
-									print "%s %s -> %s" % (entrezID,entrezChm[entrezID],self._loki.chr_name[chm])
+									#print "%s %s -> %s" % (entrezID,entrezChm[entrezID],self._loki.chr_name[chm])
 									setBadChr.add(entrezID)
 								else:
 									if not grcBuild:
