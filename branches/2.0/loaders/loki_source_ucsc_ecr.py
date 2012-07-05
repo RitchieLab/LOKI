@@ -15,6 +15,34 @@ class Source_ucsc_ecr(loki_source.Source):
 	_min_pct = 0.7
 	_max_gap = 50
 	
+	@classmethod
+	def getOptions(cls):
+		return {
+			'size': 'An integer defining the minimum length of an ECR (default: 100)',
+			'identity' : 'A float defining the minimum identity of an ECR (default: 0.7)',
+			'gap' : 'An integer defining the maximum gap length below the identity threshold (default: 50)'
+		}
+	#getOptions()
+	
+	
+	def validateOptions(self, options):
+		"""
+		Validate the options
+		"""
+		for o,v in options.iteritems():
+			try:
+				if o == 'size':
+					self._min_sz = int(v)
+				elif o == 'identity':
+					self._min_pct = float(v)
+				elif o == 'gap':
+					self._max_gap = int(v)
+				else:
+					return "unknown option '%s'" % o
+			except ValueError:
+				return "Cannot parse '%s' parameter value - given '%s'" % (o,v)
+		
+		return True
 	
 	def download(self, options):
 		"""

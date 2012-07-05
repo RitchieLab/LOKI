@@ -26,6 +26,9 @@ class Database(object):
 		chr_name['%s' % cnum] = cname
 		chr_name[cname] = cname
 	
+	# Alias 'M' and 'MT'
+	chr_num['M'] = chr_num['MT']
+	chr_name['M'] = chr_name['MT']
 	
 	##################################################
 	# private class data
