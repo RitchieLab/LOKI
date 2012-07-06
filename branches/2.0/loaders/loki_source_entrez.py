@@ -191,15 +191,8 @@ class Source_entrez(loki_source.Source):
 									chm = genAcc[3:].lstrip('0')
 								# TODO: we're ignoring any gene region with an ambiguous chromosome
 								# (gene_info says one thing, gene2refseq says another); is that right?
-								#6066 17 -> 7
-								#6090 7 -> 12
-								#693127 7 -> 14
-								#693128 6 -> 20
 								#100293744 X -> Y
-								#100302287 17 -> 8
 								#100302657 3 -> 15
-								#100313773 16 -> 18
-								#100313884 8 -> 2
 								#100418703 Y -> X
 								#100507426 Y -> X
 								if (chm not in self._loki.chr_num) or (chm not in self._loki.chr_name):
