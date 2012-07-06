@@ -158,16 +158,22 @@ class Source_oreganno(loki_source.Source):
 			gid = oreg_gids[i]
 			gene_key = oreg_genes[i]
 			gene_member = set()
+			tfbs_member = {}
 			member_num = 2
 			for oreg_id in oreganno_groups[gene_key]:
 				member_num += 1
 				group_membership.append((gid, member_num, oreganno_types.get(oreg_id, 0), ns, oreg_id))
 				for external_nsid, external_val in oreg_gene.get(oreg_id,{}).iteritems():
 					gene_member.add((gid, 1, typeids['gene'], external_nsid, external_val))
+					
+				member_num += 1
 				for external_nsid, external_val in oreg_tfbs.get(oreg_id,{}).iteritems():
-					gene_member.add((gid, 1, typeids['gene'], external_nsid, external_val))
+					tfbs_member.setdefault(external_nsid,{})[external_val] = member_num
 				
 			group_membership.extend(gene_member)
+			for ext_ns, d in tfbs_member.iteritems():
+				for sym, mn in d.iteritems():
+					group_membership.append((gid, mn, typeids['gene'], ext_ns, sym))
 		
 		self.addGroupMemberNames(group_membership)
 	
