@@ -262,7 +262,8 @@ class ReactomeLoader(bioloader.BioLoader):
 							associationsMade+=1
 			report = ' ' * (10-len(str(associationsMade))) + str(associationsMade) + " out of "  + ' ' * (10-len(str(len(rows)))) + str(len(rows))
 			#print "%s associations made -- %s " %(report, tableName)
-		except _mysql_exceptions.ProgrammingError:
+		except:
+			print "Warning: encountered unspecified error"
 			pass
 	
 	def LoadReferencePeptideToGene(self, cursor):
