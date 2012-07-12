@@ -50,5 +50,5 @@ class Source_test_snp(loki_source.Source):
 		# Add some SNPs
 		self.log("Creating SNPs ...")
 		for chr in chr_snp:
-			self.addChromosomeSNPLoci(chr, ((r, r*7, r%4!=0) for r in chr_snp[chr]))
+			self.addChromosomeSNPLoci(chr, ((r, r*7 - (chr-1)*20*7, r%4!=0) for r in chr_snp[chr]))
 		self.log("OK\n")
