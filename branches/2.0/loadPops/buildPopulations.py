@@ -227,16 +227,19 @@ if __name__ == "__main__":
 	exe_error = False
 	null_f = file(os.devnull, 'w')
 	try:
+		opts.ldspline = os.path.abspath(opts.ldspline)
 		subprocess.call(opts.ldspline, stdout=null_f, stderr=subprocess.STDOUT)
 	except OSError, e:
 		print "Error: could not find ldspline executable"
 		exe_error = True
 	try:
+		opts.poploader = os.path.abspath(opts.poploader)
 		subprocess.call(opts.poploader, stdout=null_f, stderr=subprocess.STDOUT)
 	except OSError, e:
 		print "Error: could not find pop_loader executable"
 		exe_error = True
 	try:
+		opts.liftover = os.path.abspath(opts.liftover)
 		subprocess.call(opts.liftover, stdout=null_f, stderr=subprocess.STDOUT)
 	except OSError, e:
 		print "Error: could not find liftOver executable"
