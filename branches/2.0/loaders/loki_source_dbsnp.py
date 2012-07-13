@@ -10,12 +10,12 @@ class Source_dbsnp(loki_source.Source):
 	# private class data
 	
 	
-	_chmList = ('1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19','20','21','22','X','Y','MT')
+	_chmList = ('1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19','20','21','22','X','Y','PAR','MT')
 	_remHost = 'ftp.ncbi.nih.gov'
 	_remFiles = {
-		'RsMergeArch.bcp.gz':                '/snp/organisms/human_9606/database/organism_data/RsMergeArch.bcp.gz',
-		'SnpFunctionCode.bcp.gz':            '/snp/organisms/human_9606/database/shared_data/SnpFunctionCode.bcp.gz',
-		'b135_SNPContigLocusId_37_3.bcp.gz': '/snp/organisms/human_9606/database/organism_data/b135_SNPContigLocusId_37_3.bcp.gz',
+		'RsMergeArch.bcp.gz'           : '/snp/organisms/human_9606/database/organism_data/RsMergeArch.bcp.gz',
+		'SnpFunctionCode.bcp.gz'       : '/snp/organisms/human_9606/database/shared_data/SnpFunctionCode.bcp.gz',
+		'b137_SNPContigLocusId.bcp.gz' : '/snp/organisms/human_9606/database/organism_data/b137_SNPContigLocusId.bcp.gz', #TODO: latest
 	}
 	for chm in _chmList:
 		_remFiles['chr_%s.txt.gz' % chm] = '/snp/organisms/human_9606/chr_rpts/chr_%s.txt.gz' % chm
@@ -129,36 +129,36 @@ CREATE TABLE [SnpFunctionCode]
 		
 		# process SNP roles
 		""" /* from human_9606_table.sql.gz */
-CREATE TABLE [b135_SNPContigLocusId_37_3]
+CREATE TABLE [b137_SNPContigLocusId]
 (
-[snp_id] [int] NOT NULL ,
-[contig_acc] [varchar](32) NULL ,
+[snp_id] [int] NULL ,
+[contig_acc] [varchar](32) NOT NULL ,
 [contig_ver] [tinyint] NULL ,
 [asn_from] [int] NULL ,
 [asn_to] [int] NULL ,
 [locus_id] [int] NULL ,
-[locus_symbol] [varchar](128) NULL ,
+[locus_symbol] [varchar](64) NULL ,
 [mrna_acc] [varchar](32) NOT NULL ,
 [mrna_ver] [smallint] NOT NULL ,
 [protein_acc] [varchar](32) NULL ,
 [protein_ver] [smallint] NULL ,
-[fxn_class] [int] NOT NULL ,
+[fxn_class] [int] NULL ,
 [reading_frame] [int] NULL ,
-[allele] [varchar](256) NULL ,
-[residue] [varchar](1024) NULL ,
+[allele] [varchar](255) NULL ,
+[residue] [varchar](1000) NULL ,
 [aa_position] [int] NULL ,
 [build_id] [varchar](4) NOT NULL ,
 [ctg_id] [int] NULL ,
 [mrna_start] [int] NULL ,
 [mrna_stop] [int] NULL ,
-[codon] [varchar](1024) NULL ,
+[codon] [varchar](1000) NULL ,
 [protRes] [char](3) NULL ,
 [contig_gi] [int] NULL ,
-[mrna_gi] [int] NOT NULL ,
+[mrna_gi] [int] NULL ,
 [mrna_orien] [tinyint] NULL ,
-[cp_mrna_ver] [smallint] NULL ,
+[cp_mrna_ver] [int] NULL ,
 [cp_mrna_gi] [int] NULL ,
-[verComp] [varchar](7) NULL
+[verComp] [int] NULL
 )
 """
 		self.log("processing SNP roles ...")
@@ -166,7 +166,7 @@ CREATE TABLE [b135_SNPContigLocusId_37_3]
 		numRole = 0
 		setOrphan = set()
 		numOrphan = 0
-		funcFile = self.zfile('b135_SNPContigLocusId_37_3.bcp.gz')
+		funcFile = self.zfile('b137_SNPContigLocusId.bcp.gz')
 		for line in funcFile:
 			words = line.split("\t")
 			rs = long(words[0])
@@ -227,7 +227,8 @@ CREATE TABLE [b135_SNPContigLocusId_37_3]
 				raise Exception("ERROR: unrecognized file subheader '%s'" % header3)
 			
 			# process lines
-			setPos = set()
+			setSNP = set()
+			setChrPos = dict()
 			setBadBuild = set()
 			setBadVers = set()
 			setBadValid = set()
@@ -249,7 +250,9 @@ CREATE TABLE [b135_SNPContigLocusId_37_3]
 						setBadVers.add(rs)
 					elif snpLociValid and not valid:
 						setBadValid.add(rs)
-					elif chm != fileChm:
+					elif (fileChm != 'PAR') and (chm != fileChm):
+						setBadChr.add(rs)
+					elif (fileChm == 'PAR') and (chm != 'X') and (chm != 'Y'):
 						setBadChr.add(rs)
 					else:
 						if not grcBuild:
@@ -258,17 +261,19 @@ CREATE TABLE [b135_SNPContigLocusId_37_3]
 								grcNum = int(build[4:].split('.')[0])
 							except ValueError:
 								raise Exception("ERROR: unrecognized GRCh build format '%s'" % build)
-						setPos.add( (rs,pos,valid) )
+						if chm not in setChrPos:
+							setChrPos[chm] = set()
+						setSNP.add(rs)
+						setChrPos[chm].add( (rs,pos,valid) )
 				#if rs/chm/pos provided
 			#foreach line in chmFile
 			
 			# print results
-			setSNP = set(pos[0] for pos in setPos)
 			setBadChr.difference_update(setSNP)
 			setBadValid.difference_update(setSNP, setBadChr)
 			setBadVers.difference_update(setSNP, setBadChr, setBadValid)
 			setBadBuild.difference_update(setSNP, setBadChr, setBadValid, setBadVers)
-			self.log(" OK: %d SNPs, %d loci\n" % (len(setSNP),len(setPos)))
+			self.log(" OK: %d SNPs, %d loci\n" % (len(setSNP),sum(len(setChrPos[chm]) for chm in setChrPos)))
 			self.logPush()
 			if setBadBuild:
 				self.log("WARNING: %d SNPs not mapped to GRCh build\n" % (len(setBadBuild)))
@@ -282,8 +287,9 @@ CREATE TABLE [b135_SNPContigLocusId_37_3]
 			
 			# store data
 			self.log("writing chromosome %s SNPs to the database ..." % fileChm)
-			self.addChromosomeSNPLoci(self._loki.chr_num[fileChm], setPos)
-			setPos = setSNP = setBadBuild = setBadVers = setBadValid = setBadChr = None
+			for chm in setChrPos:
+				self.addChromosomeSNPLoci(self._loki.chr_num[chm], setChrPos[chm])
+			setSNP = setChrPos = setSNP = setBadBuild = setBadVers = setBadValid = setBadChr = None
 			self.log(" OK\n")
 		#foreach chromosome
 		
