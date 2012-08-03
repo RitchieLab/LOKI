@@ -12,7 +12,7 @@ class Database(object):
 	# public class data
 	
 	
-	ver_maj,ver_min,ver_rev,ver_dev,ver_date = 2,0,0,'a4','2012-06-29'
+	ver_maj,ver_min,ver_rev,ver_dev,ver_date = 2,0,0,'a5','2012-08-03'
 	chr_list = ('1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19','20','21','22','X','Y','XY','MT')
 	chr_num = {}
 	chr_name = {}
@@ -211,7 +211,8 @@ class Database(object):
 )
 """,
 				'index': {
-					'biopolymer__type_label': '(type_id,label)',
+					'biopolymer__type': '(type_id)',
+					'biopolymer__label_type': '(label,type_id)',
 				}
 			}, #.db.biopolymer
 			
@@ -298,7 +299,8 @@ class Database(object):
 )
 """,
 				'index': {
-					'group__type_label': '(type_id,label)',
+					'group__type': '(type_id)',
+					'group__label_type': '(label,type_id)',
 				}
 			}, #.db.group
 			
