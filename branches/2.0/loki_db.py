@@ -12,7 +12,7 @@ class Database(object):
 	# public class data
 	
 	
-	ver_maj,ver_min,ver_rev,ver_dev,ver_date = 2,0,0,'a5','2012-08-03'
+	ver_maj,ver_min,ver_rev,ver_dev,ver_date = 2,0,0,'a6','2012-08-17'
 	chr_list = ('1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19','20','21','22','X','Y','XY','MT')
 	chr_num = {}
 	chr_name = {}
@@ -29,6 +29,7 @@ class Database(object):
 	# Alias 'M' and 'MT'
 	chr_num['M'] = chr_num['MT']
 	chr_name['M'] = chr_name['MT']
+	
 	
 	##################################################
 	# private class data
@@ -493,7 +494,7 @@ class Database(object):
 	# constructor
 	
 	
-	def __init__(self, dbFile=None, cacheLimit=1024*1024*1024, testing=False, updating=False): # default 1GB cache
+	def __init__(self, dbFile=None, testing=False, updating=False):
 		# initialize instance properties
 		self._is_test = testing
 		self._updating = updating
@@ -507,18 +508,7 @@ class Database(object):
 		self._dbNew = None
 		self._updater = None
 		
-		dbc = self._db.cursor()
-		# linux VFS doesn't usually report actual disk cluster size, so sqlite
-		# ends up using 1KB pages; 4KB is probably better
-		dbc.execute("PRAGMA page_size = %d" % (4*1024))
-		# negative cache_size means the limit is in kilobytes
-		dbc.execute("PRAGMA cache_size = -%d" % (cacheLimit / 1024))
-		# for typical read-only usage, synchronization behavior is moot anyway,
-		# and while updating we're not that worried about a power failure
-		# corrupting the database file since the user could just start the
-		# update over from the beginning; so, we'll take the performance gain
-		dbc.execute("PRAGMA synchronous = OFF")
-		
+		self.configureDatabase()
 		self.attachDatabaseFile(dbFile)
 	#__init__()
 	
@@ -539,6 +529,7 @@ class Database(object):
 	
 	##################################################
 	# logging
+	
 	def _checkTesting(self):
 		now_test = self.getDatabaseSetting("testing")
 		if now_test is None or bool(int(now_test)) == bool(self._is_test):
@@ -610,14 +601,49 @@ class Database(object):
 	# database management
 	
 	
-	def attachDatabaseFile(self, dbFile, cacheLimit=1024*1024*1024, readOnly=False, quiet=False):
-		dbc = self._db.cursor()
+	def configureDatabase(self, db=None, pageSize=4096, cacheSize=-65536, sync='OFF'):
+		cursor = self._db.cursor()
+		db = ("%s." % db) if db else None
+		
+		# linux VFS doesn't usually report actual disk cluster size,
+		# so sqlite ends up using 1KB pages by default
+		cursor.execute("PRAGMA %spage_size = %d" % (db,pageSize))
+		
+		# cache_size is pages if positive, kilobytes if negative
+		cursor.execute("PRAGMA %scache_size = %d" % (db,cacheSize))
+		
+		# for typical read-only usage, synchronization behavior is moot anyway,
+		# and while updating we're not that worried about a power failure
+		# corrupting the database file since the user could just start the
+		# update over from the beginning; so, we'll take the performance gain
+		cursor.execute("PRAGMA %ssynchronous = %s" % (db,sync))
+	#configureDatabase()
+	
+		
+	def attachTempDatabase(self, db):
+		cursor = self._db.cursor()
+		
+		# detach the current db, if any
+		try:
+			cursor.execute("DETACH DATABASE `%s`" % db)
+		except apsw.SQLError as e:
+			if not str(e).startswith('SQLError: no such database: '):
+				raise e
+		
+		# attach a new temp db
+		cursor.execute("ATTACH DATABASE '' AS `%s`" % db)
+		self.configureDatabase(db)
+	#attachTempDatabase()
+	
+		
+	def attachDatabaseFile(self, dbFile, readOnly=False, quiet=False):
+		cursor = self._db.cursor()
 		
 		# detach the current db file, if any
 		if self._dbFile and not quiet:
 			self.log("unloading knowledge database file '%s' ..." % self._dbFile)
 		try:
-			dbc.execute("DETACH DATABASE `db`")
+			cursor.execute("DETACH DATABASE `db`")
 		except apsw.SQLError as e:
 			if not str(e).startswith('SQLError: no such database: '):
 				raise e
@@ -632,14 +658,10 @@ class Database(object):
 		if dbFile:
 			if not quiet:
 				self.logPush("loading knowledge database file '%s' ..." % dbFile)
-			dbc.execute("ATTACH DATABASE ? AS `db`", (dbFile,))
+			cursor.execute("ATTACH DATABASE ? AS `db`", (dbFile,))
+			self.configureDatabase('db')
 			self._dbFile = dbFile
-			self._dbNew = (0 == max(row[0] for row in dbc.execute("SELECT COUNT(1) FROM `db`.`sqlite_master`")))
-			
-			# configure the newly attached database just like in __init__()
-			dbc.execute("PRAGMA db.page_size = 4096")
-			dbc.execute("PRAGMA db.cache_size = -%d" % (cacheLimit / 1024))
-			dbc.execute("PRAGMA db.synchronous = OFF")
+			self._dbNew = (0 == max(row[0] for row in cursor.execute("SELECT COUNT(1) FROM `db`.`sqlite_master`")))
 			
 			# establish or audit database schema
 			err_msg = ""
@@ -663,10 +685,9 @@ class Database(object):
 			else:
 				self._dbFile = None
 				self._dbNew = None
-				dbc.execute("DETACH DATABASE `db`")
+				cursor.execute("DETACH DATABASE `db`")
 				if not quiet:
 					self.logPop("... ERROR (" + err_msg + ")\n")
-					
 		#if new dbFile
 	#attachDatabaseFile()
 	
@@ -694,7 +715,7 @@ class Database(object):
 	
 	
 	def createDatabaseObjects(self, schema, dbName, tblList=None, doTables=True, idxList=None, doIndecies=True):
-		dbc = self._db.cursor()
+		cursor = self._db.cursor()
 		schema = schema or self._schema[dbName]
 		dbType = "TEMP " if (dbName == "temp") else ""
 		if tblList and isinstance(tblList, str):
@@ -703,24 +724,24 @@ class Database(object):
 			idxList = (idxList,)
 		for tblName in (tblList or schema.keys()):
 			if doTables:
-				dbc.execute("CREATE %sTABLE IF NOT EXISTS `%s`.`%s` %s" % (dbType, dbName, tblName, schema[tblName]['table']))
+				cursor.execute("CREATE %sTABLE IF NOT EXISTS `%s`.`%s` %s" % (dbType, dbName, tblName, schema[tblName]['table']))
 				if 'data' in schema[tblName] and schema[tblName]['data']:
 					sql = "INSERT OR IGNORE INTO `%s`.`%s` VALUES (%s)" % (dbName, tblName, ("?,"*len(schema[tblName]['data'][0]))[:-1])
 					# TODO: change how 'data' is defined so it can be tested without having to try inserting
 					try:
-						dbc.executemany(sql, schema[tblName]['data'])
+						cursor.executemany(sql, schema[tblName]['data'])
 					except apsw.ReadOnlyError:
 						pass
 			if doIndecies:
 				for idxName in (idxList or schema[tblName]['index'].keys()):
 					if idxName not in schema[tblName]['index']:
 						raise Exception("ERROR: no definition for index '%s' on table '%s'" % (idxName,tblName))
-					dbc.execute("CREATE INDEX IF NOT EXISTS `%s`.`%s` ON `%s` %s" % (dbName, idxName, tblName, schema[tblName]['index'][idxName]))
+					cursor.execute("CREATE INDEX IF NOT EXISTS `%s`.`%s` ON `%s` %s" % (dbName, idxName, tblName, schema[tblName]['index'][idxName]))
 				#foreach idxName in idxList
-				dbc.execute("ANALYZE `%s`.`%s`" % (dbName,tblName))
+				cursor.execute("ANALYZE `%s`.`%s`" % (dbName,tblName))
 		#foreach tblName in tblList
 		if doIndecies:
-			dbc.execute("ANALYZE `%s`.`sqlite_master`" % (dbName,))
+			cursor.execute("ANALYZE `%s`.`sqlite_master`" % (dbName,))
 	#createDatabaseObjects()
 	
 	
@@ -735,7 +756,7 @@ class Database(object):
 	
 	
 	def dropDatabaseObjects(self, schema, dbName, tblList=None, doTables=True, idxList=None, doIndecies=True):
-		dbc = self._db.cursor()
+		cursor = self._db.cursor()
 		schema = schema or self._schema[dbName]
 		if tblList and isinstance(tblList, str):
 			tblList = (tblList,)
@@ -745,10 +766,10 @@ class Database(object):
 			if doTables:
 				if dbName == 'db':
 					self.testDatabaseUpdate()
-				dbc.execute("DROP TABLE IF EXISTS `%s`.`%s`" % (dbName, tblName))
+				cursor.execute("DROP TABLE IF EXISTS `%s`.`%s`" % (dbName, tblName))
 			elif doIndecies:
 				for idxName in (idxList or schema[tblName]['index'].keys()):
-					dbc.execute("DROP INDEX IF EXISTS `%s`.`%s`" % (dbName, idxName))
+					cursor.execute("DROP INDEX IF EXISTS `%s`.`%s`" % (dbName, idxName))
 				#foreach idxName in idxList
 		#foreach tblName in tblList
 	#dropDatabaseObjects()
@@ -766,10 +787,10 @@ class Database(object):
 	
 	def auditDatabaseObjects(self, schema, dbName, tblList=None, doTables=True, idxList=None, doIndecies=True, doRepair=True):
 		# fetch current schema
-		dbc = self._db.cursor()
+		cursor = self._db.cursor()
 		current = dict()
 		dbMaster = "`sqlite_temp_master`" if (dbName == "temp") else ("`%s`.`sqlite_master`" % dbName)
-		for row in dbc.execute("SELECT tbl_name,type,name,sql FROM %s WHERE type IN ('table','index')" % dbMaster):
+		for row in cursor.execute("SELECT tbl_name,type,name,sql FROM %s WHERE type IN ('table','index')" % dbMaster):
 			tblName,objType,idxName,objDef = row
 			if tblName not in current:
 				current[tblName] = {'table':None, 'index':{}}
@@ -780,7 +801,7 @@ class Database(object):
 		tblEmpty = dict()
 		for tblName in current:
 			tblEmpty[tblName] = True
-			for row in dbc.execute("SELECT 1 FROM `%s`.`%s` LIMIT 1" % (dbName,tblName)):
+			for row in cursor.execute("SELECT 1 FROM `%s`.`%s` LIMIT 1" % (dbName,tblName)):
 				tblEmpty[tblName] = False
 		# audit requested objects
 		schema = schema or self._schema[dbName]
@@ -797,7 +818,7 @@ class Database(object):
 							sql = "INSERT OR IGNORE INTO `%s`.`%s` VALUES (%s)" % (dbName, tblName, ("?,"*len(schema[tblName]['data'][0]))[:-1])
 							# TODO: change how 'data' is defined so it can be tested without having to try inserting
 							try:
-								dbc.executemany(sql, schema[tblName]['data'])
+								cursor.executemany(sql, schema[tblName]['data'])
 							except apsw.ReadOnlyError:
 								pass
 					elif doRepair and tblEmpty[tblName]:
@@ -1043,17 +1064,20 @@ SELECT i.rsMerged, COALESCE(sm.rsCurrent, i.rsMerged) AS rsCurrent
 FROM (SELECT ? AS rsMerged) AS i
 LEFT JOIN `db`.`snp_merge` AS sm USING (rsMerged)
 """
-		numMerge = numMatch = 0
 		with self._db:
-			for row in self._db.cursor().executemany(sql, itertools.izip(rses)):
-				if row[1] != row[0]:
-					numMerge += 1
-				else:
-					numMatch += 1
-				yield row
-		if tally != None:
-			tally['merge'] = numMerge
-			tally['match'] = numMatch
+			if tally != None:
+				numMerge = numMatch = 0
+				for row in self._db.cursor().executemany(sql, itertools.izip(rses)):
+					if row[1] != row[0]:
+						numMerge += 1
+					else:
+						numMatch += 1
+					yield row
+				tally['merge'] = numMerge
+				tally['match'] = numMatch
+			else:
+				for row in self._db.cursor().executemany(sql, itertools.izip(rses)):
+					yield row
 	#generateCurrentRSesByRS()
 	
 	
