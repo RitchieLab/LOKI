@@ -82,15 +82,14 @@ class Source_go(loki_source.Source):
 				elif tag == 'alt_id':
 					pass #TODO
 				elif tag == 'def':
+					curDef = val
 					if val.startswith('"'):
+						curDef = ''
 						words = val.split('"')
-						w = 1
-						while w < len(words):
+						for w in xrange(1,len(words)):
+							curDef += words[w]
 							if not reTrailingEscape.search(words[w]):
 								break
-							words[0] += words[w]
-							w += 1
-					curDef = words[0]
 				elif tag == 'is_anonymous':
 					curAnon = (val.lower().split()[0] == 'true')
 				elif tag == 'is_obsolete':
