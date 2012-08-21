@@ -25,6 +25,7 @@ class Source_pharmgkb(loki_source.Source):
 		# get or create the required metadata records
 		namespaceID = self.addNamespaces([
 			('pharmgkb_id',  0),
+			('pathway',      0),
 			('pharmgkb_gid', 0),
 			('symbol',       0),
 			('entrez_gid',   0),
@@ -71,7 +72,7 @@ class Source_pharmgkb(loki_source.Source):
 						self.log("unrecognized file header in '%s': %s\n" % (info.filename,header))
 						return False
 					for line in geneFile:
-						words = line.split("\t")
+						words = line.decode('latin-1').split("\t")
 						pgkbID = words[0]
 						entrezID = words[1]
 						ensemblID = words[2]
@@ -87,17 +88,21 @@ class Source_pharmgkb(loki_source.Source):
 						if symbol:
 							setNames.add( (namespaceID['symbol'],symbol,pgkbID) )
 						for alias in aliases:
-							setNames.add( (namespaceID['symbol'],unicode(alias.strip('" '),errors='ignore'),pgkbID) )
+							#line.decode('latin-1') should handle this above
+							#setNames.add( (namespaceID['symbol'],unicode(alias.strip('" '),errors='ignore'),pgkbID) )
+							setNames.add( (namespaceID['symbol'],alias.strip('" '),pgkbID) )
 						for xref in xrefs:
 							try:
 								xrefDB,xrefID = xref.split(':',1)
 								if xrefDB in xrefNS:
 									for ns in xrefNS[xrefDB]:
-										try:
-											xrefID.encode('ascii')
-											setNames.add( (namespaceID[ns],xrefID.decode('utf8').encode('ascii'),pgkbID) )
-										except:
-											self.log("Cannot encode gene alias")
+										setNames.add( (namespaceID[ns],xrefID,pgkbID) )
+										#line.decode('latin-1') should handle this above
+										#try:
+										#	xrefID.encode('ascii')
+										#	setNames.add( (namespaceID[ns],xrefID.decode('utf8').encode('ascii'),pgkbID) )
+										#except:
+										#	self.log("Cannot encode gene alias")
 							except ValueError:
 								pass
 					#foreach line in geneFile
@@ -135,14 +140,18 @@ class Source_pharmgkb(loki_source.Source):
 					pathFile = pathZip.open(info,'r')
 					curPath = None
 					for line in pathFile:
-						line = line.rstrip("\r\n")
+						line = line.decode('latin-1').rstrip("\r\n")
 						if line == "" and lastline == "":
 							curPath = None
 						elif curPath == None:
 							words = line.split(':')
 							if len(words) >= 2:
 								curPath = words[0].strip()
-								pathDesc[curPath] = words[1].strip()
+								desc = words[1].split('-',1)
+								desc.append('')
+								#line.decode('latin-1') should handle this above
+								#pathDesc[curPath] = (unicode(desc[0].strip(),errors='ignore'),unicode(desc[1].strip(),errors='ignore'))
+								pathDesc[curPath] = (desc[0].strip(),desc[1].strip())
 						elif curPath == False:
 							pass
 						else:
@@ -169,13 +178,14 @@ class Source_pharmgkb(loki_source.Source):
 		# store pathways
 		self.log("writing pathways to the database ...")
 		listPath = pathDesc.keys()
-		listGID = self.addTypedGroups(typeID['pathway'], ((path,unicode(pathDesc[path],errors='ignore')) for path in listPath))
+		listGID = self.addTypedGroups(typeID['pathway'], (pathDesc[path] for path in listPath))
 		pathGID = dict(zip(listPath,listGID))
 		self.log(" OK\n")
 		
 		# store pathway names
 		self.log("writing pathway names to the database ...")
 		self.addGroupNamespacedNames(namespaceID['pharmgkb_id'], ((pathGID[path],path) for path in listPath))
+		self.addGroupNamespacedNames(namespaceID['pathway'], ((pathGID[path],pathDesc[path][0]) for path in listPath))
 		self.log(" OK\n")
 		
 		# store gene associations
