@@ -9,7 +9,7 @@ class Source_mint(loki_source.Source):
 	def download(self, options):
 		# download the latest source files
 		self.downloadFilesFromFTP('mint.bio.uniroma2.it', {
-			'2012-02-06-mint-human.txt': '/pub/release/txt/current/2012-02-06-mint-human.txt', #TODO: wildcard filenames
+			'2012-08-01-mint-human.txt': '/pub/release/txt/current/2012-08-01-mint-human.txt', #TODO: wildcard filenames
 		})
 	#download()
 	
@@ -36,7 +36,7 @@ class Source_mint(loki_source.Source):
 		
 		# process interation groups
 		self.log("processing interaction groups ...")
-		setMint = set()
+		mintDesc = dict()
 		nsAssoc = {
 			'symbol':      set(),
 			'entrez_gid':  set(),
@@ -47,7 +47,7 @@ class Source_mint(loki_source.Source):
 		numAssoc = numID = 0
 		with open('2012-02-06-mint-human.txt','rU') as assocFile:
 			header = assocFile.next().rstrip()
-			if header != "ID interactors A (baits)	ID interactors B (preys)	Alt. ID interactors A (baits)	Alt. ID interactors B (preys)	Alias(es) interactors A (baits)	Alias(es) interactors B (preys)	Interaction detection method(s)	Publication 1st author(s)	Publication Identifier(s)	Taxid interactors A (baits)	Taxid interactors B (preys)	Interaction type(s)	Source database(s)	Interaction identifier(s)	Confidence value(s)	expansion	biological roles A (baits)	biological role B	experimental roles A (baits)	experimental roles B (preys)	interactor types A (baits)	interactor types B (preys)	xrefs A (baits)	xrefs B (preys)	xrefs Interaction	Annotations A (baits)	Annotations B (preys)	Interaction Annotations	Host organism taxid	parameters Interaction	dataset	Caution Interaction	binding sites A (baits)	binding sites B (preys)	ptms A (baits)	ptms B (preys)	mutations A (baits)	mutations B (preys)	negative	inference	curation depth":
+			if not header.startswith("ID interactors A (baits)\tID interactors B (preys)\tAlt. ID interactors A (baits)\tAlt. ID interactors B (preys)\tAlias(es) interactors A (baits)\tAlias(es) interactors B (preys)\tInteraction detection method(s)\tPublication 1st author(s)\tPublication Identifier(s)\tTaxid interactors A (baits)\tTaxid interactors B (preys)\tInteraction type(s)\tSource database(s)\tInteraction identifier(s)\t"): #Confidence value(s)\texpansion\tbiological roles A (baits)\tbiological role B\texperimental roles A (baits)\texperimental roles B (preys)\tinteractor types A (baits)\tinteractor types B (preys)\txrefs A (baits)\txrefs B (preys)\txrefs Interaction\tAnnotations A (baits)\tAnnotations B (preys)\tInteraction Annotations\tHost organism taxid\tparameters Interaction\tdataset\tCaution Interaction\tbinding sites A (baits)\tbinding sites B (preys)\tptms A (baits)\tptms B (preys)\tmutations A (baits)\tmutations B (preys)\tnegative\tinference\tcuration depth":
 				self.log(" ERROR\n")
 				self.log("unrecognized file header: %s\n" % header)
 				return False
@@ -64,6 +64,7 @@ class Source_mint(loki_source.Source):
 				genes.extend(words[1].split(';'))
 				aliases = words[4].split(';')
 				aliases.extend(words[5].split(';'))
+				method = words[6]
 				taxes = words[9].split(';')
 				taxes.extend(words[10].split(';'))
 				labels = words[13].split('|')
@@ -75,7 +76,7 @@ class Source_mint(loki_source.Source):
 						mint = label
 						break
 				mint = mint or "MINT-unlabeled-%d" % l
-				setMint.add(mint)
+				mintDesc[mint] = method
 				
 				# identify interacting genes/proteins
 				for n in xrange(0,len(taxes)):
@@ -107,8 +108,8 @@ class Source_mint(loki_source.Source):
 		
 		# store interaction groups
 		self.log("writing interaction groups to the database ...")
-		listMint = list(setMint)
-		listGID = self.addTypedGroups(typeID['interaction'], ((mint,None) for mint in listMint))
+		listMint = mintDesc.keys()
+		listGID = self.addTypedGroups(typeID['interaction'], ((mint,mintDesc[mint]) for mint in listMint))
 		mintGID = dict(zip(listMint,listGID))
 		self.log(" OK\n")
 		
