@@ -56,7 +56,7 @@ class liftOver(object):
 			for row in self._db._db.cursor().execute(
 			"SELECT chain.chain_id, chain_data.old_start, chain_data.old_end, chain_data.new_start, is_fwd, new_chr " +
 			"FROM chain INNER JOIN chain_data ON chain.chain_id = chain_data.chain_id " +
-			"WHERE old_assembly=? AND old_chr=? AND chain.old_end>=? AND chain.old_start<=? AND chain_data.old_end>=? AND chain_data.old_start<=? " +
+			"WHERE old_assembly=? AND old_chr=? AND chain.old_end>=? AND chain.old_start<? AND chain_data.old_end>=? AND chain_data.old_start<? " +
 			"ORDER BY score DESC",
 			(self._assy, chrom, start, end, start, end)):
 				yield row
@@ -65,14 +65,14 @@ class liftOver(object):
 				# if the region overlaps the chain...
 				if start <= c[2] and end >= c[1]:
 					data = self._cached_data[chrom][c]
-					idx = bisect.bisect(data, (start, 0, 0))
+					idx = bisect.bisect(data, (start, sys.maxint, sys.maxint))
 					if idx:
 						idx = idx-1
 
 					if idx < len(data) - 1 and start == data[idx + 1]:
 						idx = idx + 1
 					
-					while idx < len(data) and data[idx][0] <= end:
+					while idx < len(data) and data[idx][0] < end:
 						yield (c[-1], data[idx][0], data[idx][1], data[idx][2], c[4], c[5])
 						idx = idx + 1
 					
