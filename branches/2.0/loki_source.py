@@ -6,6 +6,7 @@ import ftplib
 import httplib
 import itertools
 import os
+import sys
 import time
 import zlib
 
@@ -43,13 +44,13 @@ class Source(object):
 		if len(rev) > 2:
 			version = 'r%s' % rev[1:2]
 		else:
-			stat = stat or os.stat(__file__)
+			stat = stat or os.stat(sys.modules[cls.__module__].__file__)
 			version = '%s' % (stat.st_size,)
 		
 		if len(date) > 3:
 			version += ' (%s %s)' % date[1:3]
 		else:
-			stat = stat or os.stat(__file__)
+			stat = stat or os.stat(sys.modules[cls.__module__].__file__)
 			version += datetime.datetime.utcfromtimestamp(stat.st_mtime).strftime(' (%Y-%m-%d)' if (len(rev) > 2) else ' (%Y-%m-%d %H:%M:%S)')
 		
 		return version
