@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 
+import collections
+import os
+import re
 import loki_source
 
 
@@ -11,18 +14,36 @@ class Source_dbsnp(loki_source.Source):
 	
 	
 	_chmList = ('1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19','20','21','22','X','Y','PAR','MT')
-	_remHost = 'ftp.ncbi.nih.gov'
-	_remFiles = {
-		'RsMergeArch.bcp.gz'           : '/snp/organisms/human_9606/database/organism_data/RsMergeArch.bcp.gz',
-		'SnpFunctionCode.bcp.gz'       : '/snp/organisms/human_9606/database/shared_data/SnpFunctionCode.bcp.gz',
-		'b137_SNPContigLocusId.bcp.gz' : '/snp/organisms/human_9606/database/organism_data/b137_SNPContigLocusId.bcp.gz', #TODO: latest
-	}
-	for chm in _chmList:
-		_remFiles['chr_%s.txt.gz' % chm] = '/snp/organisms/human_9606/chr_rpts/chr_%s.txt.gz' % chm
+	
+	
+	##################################################
+	# private class data
+	
+	
+	def _identifyLatestSNPContig(self, filenames):
+		reFile = re.compile('^b([0-9]+)_SNPContigLocusId(.*)\.bcp\.gz$', re.IGNORECASE)
+		bestbuild = 0
+		bestfile = None
+		for filename in filenames:
+			match = reFile.match(filename)
+			if match:
+				filebuild = int(match.group(1))
+				if filebuild > bestbuild:
+					bestbuild = filebuild
+					bestfile = filename
+		#foreach file in path
+		return bestfile
+	#_identifyLatestSNPContig()
 	
 	
 	##################################################
 	# source interface
+	
+	
+	@classmethod
+	def getVersionString(cls):
+		return '2.0a1 (2012-08-30)'
+	#getVersionString()
 	
 	
 	@classmethod
@@ -51,8 +72,26 @@ class Source_dbsnp(loki_source.Source):
 	
 	
 	def download(self, options):
+		# define a callback to identify the latest SNPContigLocusId file
+		def remFilesCallback(ftp):
+			remFiles = {
+				'RsMergeArch.bcp.gz'           : '/snp/organisms/human_9606/database/organism_data/RsMergeArch.bcp.gz',
+				'SnpFunctionCode.bcp.gz'       : '/snp/organisms/human_9606/database/shared_data/SnpFunctionCode.bcp.gz',
+			}
+			for chm in self._chmList:
+				remFiles['chr_%s.txt.gz' % chm] = '/snp/organisms/human_9606/chr_rpts/chr_%s.txt.gz' % chm
+			
+			path = '/snp/organisms/human_9606/database/organism_data'
+			ftp.cwd(path)
+			bestfile = self._identifyLatestSNPContig(ftp.nlst())
+			if bestfile:
+				remFiles[bestfile] = '%s/%s' % (path,bestfile)
+			
+			return remFiles
+		#remFilesCallback
+		
 		# download the latest source files
-		self.downloadFilesFromFTP(self._remHost, self._remFiles)
+		self.downloadFilesFromFTP('ftp.ncbi.nih.gov', remFilesCallback)
 	#download()
 	
 	
@@ -166,7 +205,7 @@ CREATE TABLE [b137_SNPContigLocusId]
 		numRole = 0
 		setOrphan = set()
 		numOrphan = 0
-		funcFile = self.zfile('b137_SNPContigLocusId.bcp.gz')
+		funcFile = self.zfile(self._identifyLatestSNPContig(os.listdir('.')))
 		for line in funcFile:
 			words = line.split("\t")
 			rs = long(words[0])
@@ -205,7 +244,7 @@ CREATE TABLE [b137_SNPContigLocusId]
 		listRole = None
 		
 		# process chromosome report files
-		grcBuild = grcNum = None
+		grcBuild = None
 		snpLociValid = (options.get('snp-loci') == 'validated')
 		for fileChm in self._chmList:
 			self.log("processing chromosome %s SNPs ..." % fileChm)
@@ -227,8 +266,9 @@ CREATE TABLE [b137_SNPContigLocusId]
 				raise Exception("ERROR: unrecognized file subheader '%s'" % header3)
 			
 			# process lines
+			reBuild = re.compile('GRCh([0-9]+)')
 			setSNP = set()
-			setChrPos = dict()
+			setChrPos = collections.defaultdict(set)
 			setBadBuild = set()
 			setBadVers = set()
 			setBadValid = set()
@@ -239,14 +279,14 @@ CREATE TABLE [b137_SNPContigLocusId]
 				chm = words[6].strip()
 				pos = words[11].strip()
 				valid = 1 if (int(words[16]) > 0) else 0
-				build = words[21]
+				build = reBuild.search(words[21])
 				
 				if rs != '' and chm != '' and pos != '':
 					rs = long(rs)
 					pos = long(pos)
-					if not build.startswith("GRCh"):
+					if not build:
 						setBadBuild.add(rs)
-					elif grcBuild and grcBuild != build:
+					elif grcBuild and grcBuild != build.group(1):
 						setBadVers.add(rs)
 					elif snpLociValid and not valid:
 						setBadValid.add(rs)
@@ -256,13 +296,7 @@ CREATE TABLE [b137_SNPContigLocusId]
 						setBadChr.add(rs)
 					else:
 						if not grcBuild:
-							grcBuild = build
-							try:
-								grcNum = int(build[4:].split('.')[0])
-							except ValueError:
-								raise Exception("ERROR: unrecognized GRCh build format '%s'" % build)
-						if chm not in setChrPos:
-							setChrPos[chm] = set()
+							grcBuild = build.group(1)
 						setSNP.add(rs)
 						setChrPos[chm].add( (rs,pos,valid) )
 				#if rs/chm/pos provided
@@ -276,7 +310,7 @@ CREATE TABLE [b137_SNPContigLocusId]
 			self.log(" OK: %d SNPs, %d loci\n" % (len(setSNP),sum(len(setChrPos[chm]) for chm in setChrPos)))
 			self.logPush()
 			if setBadBuild:
-				self.log("WARNING: %d SNPs not mapped to GRCh build\n" % (len(setBadBuild)))
+				self.log("WARNING: %d SNPs not mapped to any GRCh build\n" % (len(setBadBuild)))
 			if setBadVers:
 				self.log("WARNING: %d SNPs mapped to GRCh build version other than %s\n" % (len(setBadVers),grcBuild))
 			if setBadValid:
@@ -294,7 +328,7 @@ CREATE TABLE [b137_SNPContigLocusId]
 		#foreach chromosome
 		
 		# store source metadata
-		self.setSourceBuild(grcNum)
+		self.setSourceBuilds(grcBuild, None)
 	#update()
 	
 #Source_dbsnp
