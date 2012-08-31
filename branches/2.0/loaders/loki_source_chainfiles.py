@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 
 import itertools
+import os
+import re
 import loki_source
 
 
@@ -9,39 +11,61 @@ class Source_chainfiles(loki_source.Source):
 	A loader that loads all of the chainfiles into LOKI
 	"""
 	
+	
+	##################################################
+	# private class data
+	
+	
+	_reDir = re.compile('^hg[0-9]+$', re.IGNORECASE)
+	_reFile = re.compile('^hg([0-9]+)tohg([0-9]+)\.over\.chain\.gz$', re.IGNORECASE)
+	
+	
+	##################################################
+	# source interface
+	
+	
+	@classmethod
+	def getVersionString(cls):
+		return '2.0a1 (2012-08-30)'
+	#getVersionString()
+	
+	
 	def download(self, options):
-		"""
-		Download all of the chain files
-		"""
-		self.downloadFilesFromFTP("hgdownload.cse.ucsc.edu",
-			{"hg16.chain.gz" : "/goldenPath/hg16/liftOver/hg16ToHg19.over.chain.gz",
-			 "hg17.chain.gz" : "/goldenPath/hg17/liftOver/hg17ToHg19.over.chain.gz",
-			 "hg18.chain.gz" : "/goldenPath/hg18/liftOver/hg18ToHg19.over.chain.gz"})
-	#download()
+		# define a callback to search for all available hgX liftover chain files
+		def remFilesCallback(ftp):
+			remFiles = {}
+			ftp.cwd('/goldenPath')
+			dirs = [ d for d in ftp.nlst() if self._reDir.match(d) ]
+			for d in dirs:
+				ftp.cwd('/goldenPath/%s/liftOver' % d)
+				files = [ f for f in ftp.nlst() if self._reFile.match(f) ]
+				for f in files:
+					remFiles[f] = '/goldenPath/%s/liftOver/%s' % (d,f)
+			
+			return remFiles
+		#remFilesCallback
 		
+		self.downloadFilesFromFTP("hgdownload.cse.ucsc.edu", remFilesCallback)
+	#download()
+	
+	
 	def update(self, options):
 		"""
 		Parse all of the chain files and insert them into the database
 		"""	
 		
+		# clear out all old data from this source
+		self.log("deleting old records from the database ...")
+		self.deleteAll()
+		self.log(" OK\n")
 		
-		# First, let's create the "build->assembly" table
-		build_translation = [('36.1',18),('36',18),('35',17),('34',16),
-			('b36',18),('b35',17),('b34',16)]		
-		self.addBuildTrans(build_translation)
-		
-		# Drop tables and recreate them
-		self.log("Dropping old chain data ...")
-		self._loki.dropDatabaseTables(None,'db',('chain','chain_data'))
-		self._loki.createDatabaseTables(None,'db',('chain','chain_data'))
-		self.log("OK\n")
-		
-		assy_file = {16 : "hg16.chain.gz",
-					 17 : "hg17.chain.gz",
-					 18 : "hg18.chain.gz"}
-		
-		for (assy, fn) in assy_file.iteritems():
-			self.log("Parsing Chains for build " + str(assy) + " ...")
+		for fn in os.listdir('.'):
+			match = self._reFile.match(fn)
+			if not match:
+				continue
+			old_ucschg = int(match.group(1))
+			new_ucschg = int(match.group(2))
+			self.log("parsing chains for hg%d -> hg%d ..." % (old_ucschg,new_ucschg))
 			f = self.zfile(fn)
 			
 			is_hdr = True
@@ -67,7 +91,7 @@ class Source_chainfiles(loki_source.Source):
 					curr_data = []
 					is_hdr = True
 			
-			hdr_ids = self.addChains(assy, chain_hdrs)
+			hdr_ids = self.addChains(old_ucschg, new_ucschg, chain_hdrs)
 			
 			# Now, I want to take my list of IDs and my list of list of 
 			# tuples and convert them into a list of tuples suitable for
@@ -78,7 +102,7 @@ class Source_chainfiles(loki_source.Source):
 			self.addChainData(chain_data_itr)
 			
 			self.log("OK\n")
-		# for (assy, fn) in assy_file.iteritems()
+		# for fn in dir
 		
 	#update()
 	
