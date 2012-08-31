@@ -7,6 +7,12 @@ import loki_source
 class Source_biogrid(loki_source.Source):
 	
 	
+	@classmethod
+	def getVersionString(cls):
+		return '2.0a1 (2012-08-30)'
+	#getVersionString()
+	
+	
 	def download(self, options):
 		# download the latest source files
 		self.downloadFilesFromHTTP('thebiogrid.org', {
@@ -92,7 +98,7 @@ class Source_biogrid(loki_source.Source):
 		# store interaction groups
 		self.log("writing interaction pairs to the database ...")
 		listPair = pairLabels.keys()
-		listGID = self.addTypedGroups(typeID['interaction'], ((min(pairLabels[pair]),None) for pair in listPair))
+		listGID = self.addTypedGroups(typeID['interaction'], (("biogrid:%s" % min(pairLabels[pair]),None) for pair in listPair))
 		pairGID = dict(zip(listPair,listGID))
 		self.log(" OK\n")
 		
