@@ -1,9 +1,17 @@
 #!/usr/bin/env python
 
+import collections
+import re
 import loki_source
 
 
 class Source_entrez(loki_source.Source):
+	
+	
+	@classmethod
+	def getVersionString(cls):
+		return '2.0a1 (2012-08-30)'
+	#getVersionString()
 	
 	
 	def download(self, options):
@@ -143,15 +151,14 @@ class Source_entrez(loki_source.Source):
 		
 		# process gene regions
 		self.log("processing gene regions ...")
-		setRegions = set()
-		setGenes = set()
+		reBuild = re.compile('GRCh([0-9]+)')
+		buildGenes = collections.defaultdict(set)
+		buildRegions = collections.defaultdict(set)
 		setOrphan = set()
-		setBadBuild = set()
-		setBadVers = set()
 		setBadNC = set()
+		setBadBuild = set()
 		setBadChr = set()
-		refseqBIDs = dict()
-		grcBuild = grcNum = None
+		refseqBIDs = collections.defaultdict(set)
 		regionFile = self.zfile('gene2refseq.gz') #TODO:context manager,iterator
 		header = regionFile.next().rstrip()
 		if header != "#Format: tax_id GeneID status RNA_nucleotide_accession.version RNA_nucleotide_gi protein_accession.version protein_gi genomic_nucleotide_accession.version genomic_nucleotide_gi start_position_on_the_genomic_accession end_position_on_the_genomic_accession orientation assembly (tab is used as a separator, pound sign - start of a comment)":
@@ -159,101 +166,103 @@ class Source_entrez(loki_source.Source):
 			self.log("%s\n" % header)
 		else:
 			for line in regionFile:
-				# quickly filter out all non-9606 (human) taxonomies before taking the time to split()
-				if line.startswith("9606\t"):
-					words = line.split("\t")
-					entrezID = int(words[1])
-					rnaAcc = words[3].rsplit('.',1)[0] if words[3] != "-" else None
-					proAcc = words[5].rsplit('.',1)[0] if words[5] != "-" else None
-					genAcc = words[7].rsplit('.',1)[0] if words[7] != "-" else None
-					posMin = long(words[9]) if words[9] != "-" else None
-					posMax = long(words[10]) if words[10] != "-" else None
-					build = words[12].rstrip() if (len(words) > 12 and words[12] != "-") else None
-					
-					if entrezID not in entrezBID:
-						setOrphan.add(entrezID)
-					else:
-						if posMin and posMax:
-							# refseq accession types: http://www.ncbi.nlm.nih.gov/RefSeq/key.html
-							# NC_ is the "complete genomic" accession, with positions relative to the whole chromosome;
-							# NT_ for example has positions relative to the read fragment, which is no use to us
-							if not (build and build.startswith("Reference GRCh") and build.endswith(" Primary Assembly")):
-								setBadBuild.add(entrezID)
-							elif grcBuild and grcBuild != build:
-								setBadVers.add(entrezID)
-							elif not (genAcc and genAcc.startswith('NC_')):
-								setBadNC.add(entrezID)
-							else:
-								# TODO: avoid hardcoding this mapping
-								if genAcc == 'NC_012920':
-									chm = 'MT'
-								else:
-									chm = genAcc[3:].lstrip('0')
-								# TODO: we're ignoring any gene region with an ambiguous chromosome
-								# (gene_info says one thing, gene2refseq says another); is that right?
-								#100293744 X -> Y
-								#100302657 3 -> 15
-								#100418703 Y -> X
-								#100507426 Y -> X
-								if (chm not in self._loki.chr_num) or (chm not in self._loki.chr_name):
-									setBadChr.add(entrezID)
-								elif (entrezID in entrezChm) and (self._loki.chr_name[chm] not in entrezChm[entrezID].split('|')):
-									#print "%s %s -> %s" % (entrezID,entrezChm[entrezID],self._loki.chr_name[chm])
-									setBadChr.add(entrezID)
-								else:
-									if not grcBuild:
-										grcBuild = build
-										try:
-											grcNum = int(build.split(' ')[1][4:].split('.')[0])
-										except ValueError:
-											raise Exception("ERROR: unrecognized GRCh build format '%s'" % build)
-									setRegions.add( (entrezBID[entrezID],self._loki.chr_num[chm],posMin,posMax) )
-									setGenes.add(entrezID)
-							#if genAcc is NC_
-						# if posMin and posMax
-						
-						if rnaAcc:
-							nsNames['refseq_gid'].add( (entrezBID[entrezID],rnaAcc) )
-						if proAcc:
-							nsNames['refseq_pid'].add( (entrezBID[entrezID],proAcc) )
-							if proAcc not in refseqBIDs:
-								refseqBIDs[proAcc] = set()
-							refseqBIDs[proAcc].add(entrezBID[entrezID])
-						# don't store genAcc as an alias, there's only one per chromosome
-					#if entrezID in entrezBID
-				#if taxonomy is 9606 (human)
+				# skip non-9606 (human) taxonomies before taking the time to split()
+				if not line.startswith("9606\t"):
+					continue
+				
+				# grab relevant columns
+				words = line.split("\t")
+				entrezID = int(words[1])
+				rnaAcc = words[3].rsplit('.',1)[0] if words[3] != "-" else None
+				proAcc = words[5].rsplit('.',1)[0] if words[5] != "-" else None
+				genAcc = words[7].rsplit('.',1)[0] if words[7] != "-" else None
+				posMin = long(words[9]) if words[9] != "-" else None
+				posMax = long(words[10]) if words[10] != "-" else None
+				build = reBuild.search(words[12].rstrip() if (len(words) > 12 and words[12] != "-") else '')
+				
+				# skip unrecognized IDs
+				if entrezID not in entrezBID:
+					setOrphan.add(entrezID)
+					continue
+				
+				# store rna and protein sequence RefSeq IDs
+				# (don't store genAcc, there's only one per chromosome)
+				if rnaAcc:
+					nsNames['refseq_gid'].add( (entrezBID[entrezID],rnaAcc) )
+				if proAcc:
+					nsNames['refseq_pid'].add( (entrezBID[entrezID],proAcc) )
+					refseqBIDs[proAcc].add(entrezBID[entrezID])
+				
+				# skip non-whole-chromosome regions
+				# (refseq accession types: http://www.ncbi.nlm.nih.gov/RefSeq/key.html)
+				if not (genAcc and genAcc.startswith('NC_')):
+					setBadNC.add(entrezID)
+					continue
+				elif not build:
+					setBadBuild.add(entrezID)
+					continue
+				
+				# skip chromosome mismatches
+				if genAcc in ('NC_001807','NC_012920'): #TODO: avoid hardcoding this mapping
+					chm = self._loki.chr_num.get('MT')
+				else:
+					chm = self._loki.chr_num.get(genAcc[3:].lstrip('0'))
+				if not chm:
+					setBadChr.add(entrezID)
+					continue
+				elif (entrezID in entrezChm) and (self._loki.chr_name[chm] not in entrezChm[entrezID].split('|')):
+					# TODO: we're ignoring any gene region with an ambiguous chromosome
+					# (gene_info says one thing, gene2refseq says another); is that right?
+					#print "%s %s -> %s" % (entrezID,entrezChm[entrezID],self._loki.chr_name[chm])
+					#100293744 X -> Y
+					#100302657 3 -> 15
+					#100418703 Y -> X
+					#100507426 Y -> X
+					setBadChr.add(entrezID)
+					continue
+				
+				# store the region by build version number, so we can pick the majority build later
+				buildGenes[build.group(1)].add(entrezID)
+				buildRegions[build.group(1)].add( (entrezBID[entrezID],chm,posMin,posMax) )
 			#foreach line in regionFile
 			
+			# identify majority build version
+			grcBuild = max(buildRegions, key=lambda build: len(buildRegions[build]))
+			setBadVers = set()
+			for build,genes in buildGenes.iteritems():
+				if build != grcBuild:
+					setBadVers.update(genes)
+			
 			# print stats
-			setBadChr.difference_update(setGenes)
-			setBadNC.difference_update(setGenes, setBadChr)
-			setBadVers.difference_update(setGenes, setBadChr, setBadNC)
-			setBadBuild.difference_update(setGenes, setBadChr, setBadNC, setBadVers)
-			numRegions = len(setRegions)
-			numGenes = len(setGenes)
+			setBadVers.difference_update(buildGenes[build])
+			setBadChr.difference_update(buildGenes[build], setBadVers)
+			setBadBuild.difference_update(buildGenes[build], setBadVers, setBadChr)
+			setBadNC.difference_update(buildGenes[build], setBadVers, setBadChr, setBadNC)
+			numRegions = len(buildRegions[grcBuild])
+			numGenes = len(buildGenes[grcBuild])
 			numNames0 = numNames
 			numNames = sum(len(nsNames[ns]) for ns in nsNames)
 			self.log(" OK: %d regions (%d genes), %d identifiers\n" % (numRegions,numGenes,numNames-numNames0))
 			self.logPush()
 			if setOrphan:
-				self.log("WARNING: %d genes not defined\n" % (len(setOrphan)))
-			if setBadBuild:
-				self.log("WARNING: %d genes not mapped to GRCh build\n" % (len(setBadBuild)))
-			if setBadVers:
-				self.log("WARNING: %d genes mapped to GRCh build version other than %s\n" % (len(setBadVers),grcBuild[10:-17]))
+				self.log("WARNING: %d regions for undefnied EntrezIDs\n" % (len(setOrphan)))
 			if setBadNC:
 				self.log("WARNING: %d genes not mapped to whole chromosome\n" % (len(setBadNC)))
+			if setBadBuild:
+				self.log("WARNING: %d genes not mapped to any GRCh build\n" % (len(setBadBuild)))
+			if setBadVers:
+				self.log("WARNING: %d genes mapped to GRCh build version other than %s\n" % (len(setBadVers),grcBuild))
 			if setBadChr:
 				self.log("WARNING: %d genes on mismatching chromosome\n" % (len(setBadChr)))
 			self.logPop()
-			entrezChm = setGenes = setOrphan = setBadBuild = setBadVers = setBadNC = setBadChr = None
+			entrezChm = setOrphan = setBadNC = setBadBuild = setBadChr = setBadVers = buildGenes = None
 			
 			# store gene regions
 			self.log("writing gene regions to the database ...")
-			numRegions = len(setRegions)
-			self.addBiopolymerLDProfileRegions(ldprofileID[''], setRegions)
+			numRegions = len(buildRegions[grcBuild])
+			self.addBiopolymerLDProfileRegions(ldprofileID[''], buildRegions[grcBuild])
 			self.log(" OK: %d regions\n" % (numRegions))
-			setRegions = None
+			buildRegions = None
 		#if gene regions header ok
 		
 		# process historical gene names
@@ -506,7 +515,7 @@ class Source_entrez(loki_source.Source):
 		nsNameNames = None
 		
 		# store source metadata
-		self.setSourceBuild(grcNum)
+		self.setSourceBuilds(grcBuild, None)
 	#update()
 	
 #Source_entrez
