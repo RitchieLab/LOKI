@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import hashlib
 import os
 import pkgutil
 
@@ -114,6 +115,12 @@ class Updater(object):
 	#loadSourceModules()
 	
 	
+	def getSourceModuleVersions(self, sources=None):
+		srcSet = self.loadSourceModules(sources)
+		return { srcName : self._sourceClasses[srcName].getVersionString() for srcName in srcSet }
+	#getSourceModuleVersions()
+	
+	
 	def getSourceModuleOptions(self, sources=None):
 		srcSet = self.loadSourceModules(sources)
 		return { srcName : self._sourceClasses[srcName].getOptions() for srcName in srcSet }
@@ -140,23 +147,28 @@ class Updater(object):
 		if self._updating:
 			raise Exception('_updating set before updateDatabase()')
 		
+		# check for extraneous options
 		srcSet = self.attachSourceModules(sources)
 		srcOpts = sourceOptions or {}
 		for srcName in srcOpts.keys():
 			if srcName not in srcSet:
 				self.log("WARNING: not updating from source '%s' for which options were supplied\n" % srcName)
 		
+		# update all specified sources
+		iwd = os.path.abspath(os.getcwd())
 		self._updating = True
 		self._tablesUpdated = set()
 		self._tablesDeindexed = set()
 		with self._db:
-			iwd = os.getcwd()
 			for srcName in sorted(srcSet):
+				srcObj = self._sourceObjects[srcName]
+				srcID = srcObj.getSourceID()
+				
 				# validate options, if any
 				options = srcOpts.get(srcName, {})
 				if options:
 					self.logPush("validating %s options ...\n" % srcName)
-					msg = self._sourceObjects[srcName].validateOptions(options)
+					msg = srcObj.validateOptions(options)
 					if msg != True:
 						ok = False
 						self.log("ERROR: %s\n" % msg)
@@ -165,22 +177,44 @@ class Updater(object):
 					for opt,val in options.iteritems():
 						self.log("%s = %s\n" % (opt,val))
 					self.logPop("... OK\n")
-				# switch to cache directory
-				path = os.path.join('loki_cache', srcName)
+				
+				# switch to cache subdirectory for this source
+				path = os.path.join(iwd, srcName)
 				if not os.path.exists(path):
 					os.makedirs(path)
 				os.chdir(path)
+				
 				# download files into a local cache
 				if not cacheOnly:
 					self.logPush("downloading %s data ...\n" % srcName)
-					self._sourceObjects[srcName].download(options)
+					srcObj.download(options)
 					self.logPop("... OK\n")
+				
 				# process new files
 				self.logPush("processing %s data ...\n" % srcName)
-				self._sourceObjects[srcName].update(options)
-				os.chdir(iwd)
-				self._sourceObjects[srcName].setSourceUpdated()
+				srcObj.update(options)
 				self.logPop("... OK\n")
+				
+				# store source update metadata
+				# all timestamps are assumed to be in UTC, but if a source
+				# provides file timestamps with no TZ (like via FTP) we use them
+				# as-is and assume they're supposed to be UTC
+				self.log("storing %s update logs ..." % srcName)
+				cursor = self._db.cursor()
+				sql = "UPDATE `db`.`source` SET updated = DATETIME('now'), version = ? WHERE source_id = ?"
+				cursor.execute(sql, (srcObj.getVersionString(), srcID))
+				cursor.execute("DELETE FROM `db`.`source_file` WHERE source_id = ?", (srcID,))
+				sql = "INSERT INTO `db`.`source_file` (source_id, filename, size, modified, md5) VALUES (%d,?,?,DATETIME(?,'unixepoch'),?)" % srcID
+				for filename in os.listdir('.'):
+					stat = os.stat(filename)
+					md5 = hashlib.md5()
+					with open(filename,'rb') as f:
+						chunk = f.read(8*1024*1024)
+						while chunk:
+							md5.update(chunk)
+							chunk = f.read(8*1024*1024)
+					cursor.execute(sql, (filename, stat.st_size, stat.st_mtime, md5.hexdigest()))
+				self.log(" OK\n")
 			#foreach source
 			
 			# post-process as needed
@@ -194,6 +228,7 @@ class Updater(object):
 				self.resolveSNPBiopolymerRoles()
 			if 'biopolymer_name' in self._tablesUpdated or 'group_member_name' in self._tablesUpdated:
 				self.resolveGroupMembers()
+			# TODO: liftover snp_locus and biopolymer_region
 			if 'biopolymer_region' in self._tablesUpdated:
 				self.updateBiopolymerZones()
 			
@@ -206,6 +241,7 @@ class Updater(object):
 		self._updating = False
 		self._tablesUpdated = None
 		self._tablesDeindexed = None
+		os.chdir(iwd)
 	#updateDatabase()
 	
 	
