@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import sys
 import bisect
 
@@ -6,11 +8,12 @@ class liftOver(object):
 	A class to do your heavy lifting for you
 	"""
 	
-	def __init__(self, db, assembly, cached=False):
+	def __init__(self, db, old_ucschg, new_ucschg, cached=False):
 		# db is a loki_db.Database object
 		self._db = db
+		self._old_ucschg = old_ucschg
+		self._new_ucschg = new_ucschg
 		self._cached = cached
-		self._assy = assembly
 		self._minFrac = 0.95
 		if self._cached:
 			self._cached_data = {}
@@ -25,9 +28,9 @@ class liftOver(object):
 			"chain.old_end, chain.new_start, is_fwd, new_chr, " + 
 			"chain_data.old_start, chain_data.old_end, chain_data.new_start " + 
 			"FROM db.chain INNER JOIN db.chain_data USING (chain_id) " +
-			"WHERE old_assembly=? " + 
+			"WHERE old_ucschg=? AND new_ucschg=?" + 
 			"ORDER BY old_chr, score DESC, chain_data.old_start",
-			(self._assy, )):
+			(self._old_ucschg,self._new_ucschg)):
 				
 			chain = (row[2], row[3], row[4], row[5], row[6], row[7], row[0])
 			chr = row[1]
@@ -56,9 +59,9 @@ class liftOver(object):
 			for row in self._db._db.cursor().execute(
 			"SELECT chain.chain_id, chain_data.old_start, chain_data.old_end, chain_data.new_start, is_fwd, new_chr " +
 			"FROM chain INNER JOIN chain_data ON chain.chain_id = chain_data.chain_id " +
-			"WHERE old_assembly=? AND old_chr=? AND chain.old_end>=? AND chain.old_start<? AND chain_data.old_end>=? AND chain_data.old_start<? " +
+			"WHERE old_ucschg=? AND new_ucschg=? AND old_chr=? AND chain.old_end>=? AND chain.old_start<? AND chain_data.old_end>=? AND chain_data.old_start<? " +
 			"ORDER BY score DESC",
-			(self._assy, chrom, start, end, start, end)):
+			(self._old_ucschg, self._new_ucschg, chrom, start, end, start, end)):
 				yield row
 		else:
 			for c in self._cached_keys.get(chrom, []):
@@ -94,7 +97,7 @@ class liftOver(object):
 			end = start + 1	
 		
 		ch_list = self._findChains(chrom, start, end)
-
+		
 		# This will be a tuple of (start, end) of the mapped region
 		# If the function returns "None", then it was unable to map
 		# the region into the new assembly
@@ -106,7 +109,6 @@ class liftOver(object):
 		first_seg = None
 		end_seg = None
 		for seg in ch_list:
-					
 			if curr_chain is None:
 				curr_chain = seg[0]
 				first_seg = seg
@@ -128,8 +130,8 @@ class liftOver(object):
 			mapped_reg = self._mapRegion((start, end), first_seg, end_seg, total_mapped_sz)
 		
 		if mapped_reg and not is_region:
-			mapped_reg = (mapped_reg[0], mapped_reg[0])
-			
+			mapped_reg = (mapped_reg[0], mapped_reg[1], mapped_reg[1]) #bug?
+		
 		return mapped_reg
 		
 				
@@ -144,10 +146,10 @@ class liftOver(object):
 		# The front and end differences are the distances from the
 		# beginning of the segment.
 		
-		# The front difference should be >=0 and <= size of 1st segment
+		# The front difference should be >= 0 and <= size of 1st segment
 		front_diff = max(0, min(region[0] - first_seg[1], first_seg[2] - first_seg[1]))
-		# The end different should be similar, but w/ last
 		
+		# The end difference should be similar, but w/ last
 		end_diff = max(0, min(region[1] - end_seg[1], end_seg[2] - end_seg[1]))
 		
 		# Now, if we are moving forward, we add the difference
@@ -173,7 +175,9 @@ if __name__ == "__main__":
 	import loki_db
 	db = loki_db.Database(sys.argv[2])
 	
-	lo = liftOver(db, 18, True)
+	old = int(sys.argv[5]) if (len(sys.argv) > 5) else 18
+	new = int(sys.argv[6]) if (len(sys.argv) > 6) else 19
+	lo = liftOver(db, old, new, False)
 	f = file(sys.argv[1])
 	m = file(sys.argv[3],'w')
 	u = file(sys.argv[4],'w')
