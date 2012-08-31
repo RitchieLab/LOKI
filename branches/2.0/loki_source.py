@@ -34,6 +34,29 @@ class Source(object):
 	
 	
 	@classmethod
+	def getVersionString(cls):
+		# when checked out from SVN, these $-delimited strings are magically kept updated
+		rev = '$Revision$'.split()
+		date = '$Date$'.split()
+		stat = None
+		
+		if len(rev) > 2:
+			version = 'r%s' % rev[1:2]
+		else:
+			stat = stat or os.stat(__file__)
+			version = '%s' % (stat.st_size,)
+		
+		if len(date) > 3:
+			version += ' (%s %s)' % date[1:3]
+		else:
+			stat = stat or os.stat(__file__)
+			version += datetime.datetime.utcfromtimestamp(stat.st_mtime).strftime(' (%Y-%m-%d)' if (len(rev) > 2) else ' (%Y-%m-%d %H:%M:%S)')
+		
+		return version
+	#getVersionString()
+	
+	
+	@classmethod
 	def getOptions(cls):
 		return None
 	#getOptions()
@@ -252,6 +275,7 @@ class Source(object):
 			'snp_merge', 'snp_locus', 'snp_entrez_role',
 			'biopolymer', 'biopolymer_name', 'biopolymer_name_name', 'biopolymer_region',
 			'group', 'group_name', 'group_group', 'group_biopolymer', 'group_member_name',
+			'chain', 'chain_data',
 		]
 		for table in tables:
 			dbc.execute("DELETE FROM `db`.`%s` WHERE source_id = %d" % (table,self.getSourceID()))
@@ -272,16 +296,11 @@ class Source(object):
 	#getSourceID()
 	
 	
-	def setSourceUpdated(self, timestamp='now'):
+	def setSourceBuilds(self, grch=None, ucschg=None):
 		self._loki.testDatabaseUpdate()
-		self._db.cursor().execute("UPDATE `db`.`source` SET updated = DATETIME(?) WHERE source_id = ?", (timestamp, self.getSourceID()))
-	#setSourceUpdated()
-	
-	
-	def setSourceBuild(self, build):
-		self._loki.testDatabaseUpdate()
-		self._db.cursor().execute("UPDATE `db`.`source` SET build = ? WHERE source_id = ?", (build, self.getSourceID()))
-	#setSourceBuild()
+		sql = "UPDATE `db`.`source` SET grch = ?, ucschg = ? WHERE source_id = ?"
+		self._db.cursor().execute(sql, (grch, ucschg, self.getSourceID()))
+	#setSourceBuilds()
 	
 	
 	##################################################
@@ -482,20 +501,8 @@ class Source(object):
 	# liftover data management
 	
 	
-	def addBuildTrans(self, build_pairs):
-		"""
-		Adds the build->assembly pairs into the build_assembly table
-		"""
-		self._loki.testDatabaseUpdate()
-		self.prepareTableForUpdate('build_assembly')
-		self._db.cursor().executemany(
-			"INSERT OR IGNORE INTO 'db'.'build_assembly' ('build','assembly') VALUES (?,?)",
-			(tuple(ba_pair) for ba_pair in build_pairs)
-		)
-	#addBuildTrans()
-	
-	
-	def addChains(self, assembly, chain_list):
+	def addChains(self, old_ucschg, new_ucschg, chain_list):
+		# chain_list=[ (score,old_chr,old_start,old_end,new_chr,new_start,new_end,is_forward), ... ]
 		"""
 		Adds all of the chains described in chain_list and returns the
 		ids of the added chains.  The chain_list must be an iterable
@@ -503,14 +510,9 @@ class Source(object):
 		"""
 		self._loki.testDatabaseUpdate()
 		self.prepareTableForUpdate('chain')
-		retList = []
-		for row in self._db.cursor().executemany(
-			"INSERT INTO 'db'.'chain' ('old_assembly','score','old_chr','old_start','old_end','new_chr','new_start','new_end','is_fwd') VALUES (?,?,?,?,?,?,?,?,?); SELECT last_insert_rowid()",
-			(tuple(c for c in itertools.chain((assembly,),chain)) for chain in chain_list)
-		):
-			retList.append(row[0])
-		
-		return retList;
+		sql = "INSERT INTO `db`.`chain` (score,old_ucschg,old_chr,old_start,old_end,new_ucschg,new_chr,new_start,new_end,is_fwd,source_id)"
+		sql += " VALUES (?,%d,?,?,?,%d,?,?,?,?,%d); SELECT last_insert_rowid()" % (old_ucschg,new_ucschg,self.getSourceID())
+		return [ row[0] for row in self._db.cursor().executemany(sql, chain_list) ]
 	#addChains()
 	
 	
@@ -520,10 +522,8 @@ class Source(object):
 		"""
 		self._loki.testDatabaseUpdate()
 		self.prepareTableForUpdate('chain_data')
-		self._db.cursor().executemany(
-			"INSERT INTO 'db'.'chain_data' ('chain_id','old_start','old_end','new_start') VALUES (?,?,?,?)",
-			(tuple(cd) for cd in chain_data_list)
-		)
+		sql = "INSERT INTO `db`.`chain_data` (chain_id,old_start,old_end,new_start,source_id) VALUES (?,?,?,?,%d)" % (self.getSourceID(),)
+		self._db.cursor().executemany(sql, chain_data_list)
 	#addChainData()
 	
 	
@@ -704,7 +704,19 @@ class Source(object):
 	
 	
 	def downloadFilesFromFTP(self, remHost, remFiles):
-		# remFiles={'filename.ext':'/path/on/remote/host/to/filename.ext',...}
+		# remFiles=function(ftp) or {'filename.ext':'/path/on/remote/host/to/filename.ext',...}
+		
+		# connect to source server
+		self.log("connecting to FTP server %s ..." % remHost)
+		ftp = ftplib.FTP(remHost)
+		ftp.login() # anonymous
+		self.log(" OK\n")
+		
+		# if remFiles is callable, let it identify the files it wants
+		if hasattr(remFiles, '__call__'):
+			self.log("locating current files ...")
+			remFiles = remFiles(ftp)
+			self.log(" OK\n")
 		
 		# check local file sizes and times, and identify all needed remote paths
 		remDirs = set()
@@ -725,7 +737,10 @@ class Source(object):
 				locTime[locPath] = datetime.datetime.fromtimestamp(stat.st_mtime)
 		
 		# define FTP directory list parser
-		now = datetime.datetime.now()
+		# unfortunately the FTP protocol doesn't specify an easily parse-able
+		# format, but most servers return "ls -l"-ish space-delimited columns
+		# (permissions) (?) (user) (group) (size) (month) (day) (year-or-time) (filename)
+		now = datetime.datetime.utcnow()
 		def ftpDirCB(rem_dir, line):
 			words = line.split()
 			remFn = rem_dir + "/" + words[8]
@@ -749,12 +764,6 @@ class Source(object):
 						time = time.replace(year=now.year-1)
 				remTime[remFn] = time
 		
-		# connect to source server
-		self.log("connecting to FTP server %s ..." % remHost)
-		ftp = ftplib.FTP(remHost)
-		ftp.login() # anonymous
-		self.log(" OK\n")
-		
 		# check remote file sizes and times
 		self.log("identifying changed files ...")
 		for remDir in remDirs:
@@ -774,7 +783,7 @@ class Source(object):
 					ftp.retrbinary('RETR '+remFiles[locPath], locFile.write)
 				#TODO: verify file size and retry a few times if necessary
 				self.log(" OK\n")
-			modTime = time.mktime(remTime[remFiles[locPath]].timetuple())
+			modTime = time.mktime(remTime[remFiles[locPath]].utctimetuple())
 			os.utime(locPath, (modTime,modTime))
 		
 		# disconnect from source server
@@ -824,7 +833,7 @@ class Source(object):
 				try:
 					remTime[locPath] = datetime.datetime.strptime(last_modified,'%a, %d %b %Y %H:%M:%S %Z')
 				except ValueError:
-					remTime[locPath] = datetime.datetime.now()
+					remTime[locPath] = datetime.datetime.utcnow()
 			
 			http.close()
 		self.log(" OK\n")
@@ -849,7 +858,7 @@ class Source(object):
 					http.close()
 				self.log(" OK\n")
 			if remTime[locPath]:
-				modTime = time.mktime(remTime[locPath].timetuple())
+				modTime = time.mktime(remTime[locPath].utctimetuple())
 				os.utime(locPath, (modTime,modTime))
 		self.logPop("... OK\n")
 	#downloadFilesFromHTTP()
