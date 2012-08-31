@@ -8,6 +8,13 @@ class Source_oreganno(loki_source.Source):
 	
 	_remFiles = ["oreganno.txt.gz","oregannoAttr.txt.gz", "oregannoLink.txt.gz"]
 	
+	
+	@classmethod
+	def getVersionString(cls):
+		return '2.0a1 (2012-07-06)'
+	#getVersionString()
+	
+	
 	def download(self, options):
 		"""
 		Download OregAnno from UCSC

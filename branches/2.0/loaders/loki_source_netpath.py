@@ -7,6 +7,12 @@ import loki_source
 class Source_netpath(loki_source.Source):
 	
 	
+	@classmethod
+	def getVersionString(cls):
+		return '2.0a1 (2012-08-28)'
+	#getVersionString()
+	
+	
 	def download(self, options):
 		# download the latest source files
 		self.downloadFilesFromHTTP('www.netpath.org', {

@@ -6,6 +6,12 @@ import loki_source
 class Source_pfam(loki_source.Source):
 	
 	
+	@classmethod
+	def getVersionString(cls):
+		return '2.0a1 (2012-08-15)'
+	#getVersionString()
+	
+	
 	def download(self, options):
 		# download the latest source files
 		self.downloadFilesFromFTP('ftp.sanger.ac.uk', {

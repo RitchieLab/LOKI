@@ -7,6 +7,12 @@ class Source_kegg(loki_source.Source):
 	
 	
 	@classmethod
+	def getVersionString(cls):
+		return '2.0a1 (2012-08-15)'
+	#getVersionString()
+	
+	
+	@classmethod
 	def getOptions(cls):
 		return {
 			'api': '[soap|rest]  --  use the old SOAP or the new REST access API (default: soap)'

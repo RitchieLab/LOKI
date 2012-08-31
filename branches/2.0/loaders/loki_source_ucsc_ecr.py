@@ -15,6 +15,13 @@ class Source_ucsc_ecr(loki_source.Source):
 	_min_pct = 0.7
 	_max_gap = 50
 	
+	
+	@classmethod
+	def getVersionString(cls):
+		return '2.0a1 (2012-07-06)'
+	#getVersionString()
+	
+	
 	@classmethod
 	def getOptions(cls):
 		return {
