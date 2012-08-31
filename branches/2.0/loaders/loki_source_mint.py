@@ -1,16 +1,60 @@
 #!/usr/bin/env python
 
+import datetime
+import os
+import re
 import loki_source
 
 
 class Source_mint(loki_source.Source):
 	
 	
+	##################################################
+	# private class methods
+	
+	
+	def _identifyLatestFilename(self, filenames):
+		reFile = re.compile('^([0-9]+)-([0-9]+)-([0-9]+)-mint-human.txt$', re.IGNORECASE)
+		bestdate = datetime.date.min
+		bestfile = None
+		for filename in filenames:
+			match = reFile.match(filename)
+			if match:
+				filedate = datetime.date(int(match.group(1)), int(match.group(2)), int(match.group(3)))
+				if filedate > bestdate:
+					bestdate = filedate
+					bestfile = filename
+		#foreach filename
+		return bestfile
+	#_identifyLatestFilename()
+	
+	
+	##################################################
+	# source interface
+	
+	
+	@classmethod
+	def getVersionString(cls):
+		return '2.0a1 (2012-08-30)'
+	#getVersionString()
+	
+	
 	def download(self, options):
+		# define a callback to identify the latest *-mint-human.txt file
+		def remFilesCallback(ftp):
+			remFiles = {}
+			
+			path = '/pub/release/txt/current'
+			ftp.cwd(path)
+			bestfile = self._identifyLatestFilename(ftp.nlst())
+			if bestfile:
+				remFiles[bestfile] = '%s/%s' % (path,bestfile)
+			
+			return remFiles
+		#remFilesCallback
+		
 		# download the latest source files
-		self.downloadFilesFromFTP('mint.bio.uniroma2.it', {
-			'2012-08-01-mint-human.txt': '/pub/release/txt/current/2012-08-01-mint-human.txt', #TODO: wildcard filenames
-		})
+		self.downloadFilesFromFTP('mint.bio.uniroma2.it', remFilesCallback)
 	#download()
 	
 	
@@ -45,7 +89,7 @@ class Source_mint(loki_source.Source):
 			'uniprot_pid': set(),
 		}
 		numAssoc = numID = 0
-		with open('2012-02-06-mint-human.txt','rU') as assocFile:
+		with open(self._identifyLatestFilename(os.listdir('.')),'rU') as assocFile:
 			header = assocFile.next().rstrip()
 			if not header.startswith("ID interactors A (baits)\tID interactors B (preys)\tAlt. ID interactors A (baits)\tAlt. ID interactors B (preys)\tAlias(es) interactors A (baits)\tAlias(es) interactors B (preys)\tInteraction detection method(s)\tPublication 1st author(s)\tPublication Identifier(s)\tTaxid interactors A (baits)\tTaxid interactors B (preys)\tInteraction type(s)\tSource database(s)\tInteraction identifier(s)\t"): #Confidence value(s)\texpansion\tbiological roles A (baits)\tbiological role B\texperimental roles A (baits)\texperimental roles B (preys)\tinteractor types A (baits)\tinteractor types B (preys)\txrefs A (baits)\txrefs B (preys)\txrefs Interaction\tAnnotations A (baits)\tAnnotations B (preys)\tInteraction Annotations\tHost organism taxid\tparameters Interaction\tdataset\tCaution Interaction\tbinding sites A (baits)\tbinding sites B (preys)\tptms A (baits)\tptms B (preys)\tmutations A (baits)\tmutations B (preys)\tnegative\tinference\tcuration depth":
 				self.log(" ERROR\n")
