@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import apsw
+import bisect
 import itertools
 import sys
 
@@ -12,21 +13,20 @@ class Database(object):
 	# public class data
 	
 	
-	ver_maj,ver_min,ver_rev,ver_dev,ver_date = 2,0,0,'a6','2012-08-17'
-	chr_list = ('1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19','20','21','22','X','Y','XY','MT')
+	ver_maj,ver_min,ver_rev,ver_dev,ver_date = 2,0,0,'a7','2012-08-30'
+	
+	# hardcode translations between chromosome numbers and textual tags
 	chr_num = {}
 	chr_name = {}
-	for n in range(0,len(chr_list)):
-		cname = chr_list[n]
-		cnum = n + 1
+	cnum = 0
+	for cname in ('1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19','20','21','22','X','Y','XY','MT'):
+		cnum += 1
 		chr_num[cnum] = cnum
 		chr_num['%s' % cnum] = cnum
 		chr_num[cname] = cnum
 		chr_name[cnum] = cname
 		chr_name['%s' % cnum] = cname
 		chr_name[cname] = cname
-	
-	# Alias 'M' and 'MT'
 	chr_num['M'] = chr_num['MT']
 	chr_name['M'] = chr_name['MT']
 	
@@ -116,11 +116,29 @@ class Database(object):
   source_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
   source VARCHAR(32) UNIQUE NOT NULL,
   updated DATETIME,
-  build INTEGER
+  version VARCHAR(32),
+  grch INTEGER,
+  ucschg INTEGER,
+  current_ucschg INTEGER
 )
 """,
 				'index': {}
 			}, #.db.source
+			
+			
+			'source_file': {
+				'table': """
+(
+  source_id TINYINT NOT NULL,
+  filename VARCHAR(256) NOT NULL,
+  size BIGINT,
+  modified DATETIME,
+  md5 VARCHAR(64),
+  PRIMARY KEY (source_id, filename)
+)
+""",
+				'index': {}
+			}, #.db.source_file
 			
 			
 			'type': {
@@ -132,6 +150,20 @@ class Database(object):
 """,
 				'index': {}
 			}, #.db.type
+			
+			
+			'warning': {
+				'table': """
+(
+  warning_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+  source_id TINYINT NOT NULL,
+  warning VARCHAR(8192)
+)
+""",
+				'index': {
+					'warning__source': '(source_id)',
+				}
+			}, #.db.warning
 			
 			
 			##################################################
@@ -163,6 +195,8 @@ class Database(object):
 """,
 				'index': {
 					'snp_locus__chr_pos_rs': '(chr,pos,rs)',
+					# a (validated,...) index would be nice but adds >1GB to the file size :/
+					#'snp_locus__valid_chr_pos_rs': '(validated,chr,pos,rs)',
 				}
 			}, #.db.snp_locus
 			
@@ -378,34 +412,47 @@ class Database(object):
 			# liftover tables
 			
 			
-			'build_assembly': {
+			'grch_ucschg': {
 				'table': """
 (
-  build VARCHAR(8) PRIMARY KEY NOT NULL,
-  assembly INTEGER NOT NULL
+  grch INTEGER PRIMARY KEY,
+  ucschg INTEGER NOT NULL
 )
 """,
+				# hardcode translations between GRCh/NCBI and UCSC 'hg' genome build numbers
+				# TODO: find a source for this so we can transition to new builds without a code update, i.e.
+				#         http://genome.ucsc.edu/FAQ/FAQreleases.html
+				#         http://genome.ucsc.edu/goldenPath/releaseLog.html
+				#       these aren't meant to be machine-readable but might be good enough if they're kept updated
+				'data': [
+					(34,16),
+					(35,17),
+					(36,18),
+					(37,19),
+				],
 				'index': {}
-			}, #.db.build_assembly
+			}, #.db.grch_ucschg
 			
 			
 			'chain': {
 				'table': """
 (
   chain_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-  old_assembly INTEGER NOT NULL,
-  score BIGINT NOT NULL,
+  old_ucschg INTEGER NOT NULL,
   old_chr TINYINT NOT NULL,
-  old_start INTEGER NOT NULL,
-  old_end INTEGER NOT NULL,
+  old_start BIGINT NOT NULL,
+  old_end BIGINT NOT NULL,
+  new_ucschg INTEGER NOT NULL,
   new_chr TINYINT NOT NULL,
-  new_start INTEGER NOT NULL,
-  new_end INTEGER NOT NULL,
-  is_fwd TINYINT NOT NULL
+  new_start BIGINT NOT NULL,
+  new_end BIGINT NOT NULL,
+  score BIGINT NOT NULL,
+  is_fwd TINYINT NOT NULL,
+  source_id TINYINT NOT NULL
 )
 """,
 				'index': {
-					'chain__assy_chr': '(old_assembly,old_chr)',
+					'chain__oldhg_newhg_chr': '(old_ucschg,new_ucschg,old_chr)',
 				}
 			}, #.db.chain
 			
@@ -414,9 +461,10 @@ class Database(object):
 				'table': """
 (
   chain_id INTEGER NOT NULL,
-  old_start INTEGER NOT NULL,
-  old_end INTEGER NOT NULL,
-  new_start INTEGER NOT NULL,
+  old_start BIGINT NOT NULL,
+  old_end BIGINT NOT NULL,
+  new_start BIGINT NOT NULL,
+  source_id TINYINT NOT NULL,
   PRIMARY KEY (chain_id,old_start)
 )
 """,
@@ -507,6 +555,7 @@ class Database(object):
 		self._dbFile = None
 		self._dbNew = None
 		self._updater = None
+		self._liftOverCache = dict() # { (from,to) : [] }
 		
 		self.configureDatabase()
 		self.attachDatabaseFile(dbFile)
@@ -740,8 +789,10 @@ class Database(object):
 				#foreach idxName in idxList
 				cursor.execute("ANALYZE `%s`.`%s`" % (dbName,tblName))
 		#foreach tblName in tblList
-		if doIndecies:
-			cursor.execute("ANALYZE `%s`.`sqlite_master`" % (dbName,))
+		
+		# this shouldn't be necessary since we don't manually modify the sqlite_stat* tables
+		#if doIndecies:
+		#	cursor.execute("ANALYZE `%s`.`sqlite_master`" % (dbName,))
 	#createDatabaseObjects()
 	
 	
@@ -924,6 +975,14 @@ class Database(object):
 			self._updater = loki_updater.Updater(self, self._is_test)
 		return self._updater.getSourceModules()
 	#getSourceModules()
+	
+	
+	def getSourceModuleVersions(self, sources=None):
+		if not self._updater:
+			import loki_updater
+			self._updater = loki_updater.Updater(self, self._is_test)
+		return self._updater.getSourceModuleVersions(sources)
+	#getSourceModuleVersions()
 	
 	
 	def getSourceModuleOptions(self, sources=None):
@@ -1357,4 +1416,194 @@ GROUP BY namespace_id
 	#generateGroupNameStats()
 	
 	
+	##################################################
+	# liftover
+	# 
+	# originally from UCSC
+	# reimplemented? in C++ for Biofilter 1.0 by Eric Torstenson
+	# ported to Python by John Wallace
+	
+	
+	def _generateApplicableLiftOverChains(self, oldHG, newHG, chrom, start, end):
+		conv = (oldHG,newHG)
+		if conv in self._liftOverCache:
+			chains = self._liftOverCache[conv]
+		else:
+			chains = {'data':{}, 'keys':{}}
+			sql = """
+SELECT chain_id,
+  c.old_chr, c.score, c.old_start, c.old_end, c.new_start, c.is_fwd, c.new_chr,
+  cd.old_start, cd.old_end, cd.new_start
+FROM `db`.`chain` AS c
+JOIN `db`.`chain_data` AS cd USING (chain_id)
+WHERE c.old_ucschg=? AND c.new_ucschg=?
+ORDER BY c.old_chr, score DESC, cd.old_start
+"""
+			for row in self._db.cursor().execute(sql, conv):
+				chain = (row[2], row[3], row[4], row[5], row[6], row[7], row[0])
+				chr = row[1]
+				
+				if chr not in chains['data']:
+					chains['data'][chr] = {chain: []}
+					chains['keys'][chr] = [chain]
+				elif chain not in chains['data'][chr]:
+					chains['data'][chr][chain] = []
+					chains['keys'][chr].append(chain)
+				
+				chains['data'][chr][chain].append( (row[8],row[9],row[10]) )
+			#foreach row
+			
+			# Sort the chains by score
+			for k in chains['keys']:
+				chains['keys'][k].sort(reverse=True)
+			
+			self._liftOverCache[conv] = chains
+		#if chains are cached
+		
+		for c in chains['keys'].get(chrom, []):
+			# if the region overlaps the chain...
+			if start <= c[2] and end >= c[1]:
+				data = chains['data'][chrom][c]
+				idx = bisect.bisect(data, (start, sys.maxint, sys.maxint))
+				if idx:
+					idx = idx-1
+				
+				if idx < len(data) - 1 and start == data[idx + 1]:
+					idx = idx + 1
+				
+				while idx < len(data) and data[idx][0] < end:
+					yield (c[-1], data[idx][0], data[idx][1], data[idx][2], c[4], c[5])
+					idx = idx + 1
+		#foreach chain
+	#_generateApplicableLiftOverChains()
+	
+	
+	def _liftOverRegionUsingChains(self, label, start, end, first_seg, end_seg, total_mapped_sz):
+		"""
+		Map a region given the 1st and last segment as well as the total mapped size
+		"""
+		mapped_reg = None
+		
+		# The front and end differences are the distances from the
+		# beginning of the segment.
+		
+		# The front difference should be >= 0 and <= size of 1st segment
+		front_diff = max(0, min(start - first_seg[1], first_seg[2] - first_seg[1]))
+		
+		# The end difference should be similar, but w/ last
+		end_diff = max(0, min(end - end_seg[1], end_seg[2] - end_seg[1]))
+		
+		# Now, if we are moving forward, we add the difference
+		# to the new_start, backward, we subtract
+		# Also, at this point, if backward, swap start/end
+		if first_seg[4]:
+			new_start = first_seg[3] + front_diff
+			new_end = end_seg[3] + end_diff
+		else:
+			new_start = end_seg[3] - end_diff
+			new_end = first_seg[3] - front_diff
+		
+		# old_startHere, detect if we have mapped a sufficient fraction 
+		# of the region.  liftOver uses a default of 95%
+		mapped_size = total_mapped_sz - front_diff - (end_seg[2] - end_seg[1]) + end_diff
+		
+		if mapped_size / float(end - start) >= 0.95: # TODO: configurable threshold?
+			mapped_reg = (label, first_seg[5], new_start, new_end)
+		
+		return mapped_reg
+	#_liftOverRegionUsingChains()
+	
+	
+	def generateLiftOverRegions(self, oldHG, newHG, regions, tally=None, errorCallback=None):
+		# regions=[ (label,chr,posMin,posMax), ... ]
+		oldHG = int(oldHG)
+		newHG = int(newHG)
+		numNull = numLift = 0
+		for region in regions:
+			label,chrom,start,end = region
+			
+			# We need to actually lift regions to detect dropped sections
+			is_region = True
+			
+			# If the start and end are swapped, reverse them, please
+			if start > end:
+				(start, end) = (end, start)
+			elif start == end:
+				is_region = False
+				end = start + 1	
+			
+			mapped_reg = None
+			curr_chain = None
+			total_mapped_sz = 0
+			first_seg = None
+			end_seg = None
+			for seg in self._generateApplicableLiftOverChains(oldHG, newHG, chrom, start, end):
+				if curr_chain is None:
+					curr_chain = seg[0]
+					first_seg = seg
+					end_seg = seg
+					total_mapped_sz = seg[2] - seg[1]
+				elif seg[0] != curr_chain:
+					mapped_reg = self._liftOverRegionUsingChains(label, start, end, first_seg, end_seg, total_mapped_sz)
+					if mapped_reg:
+						break
+					curr_chain = seg[0] #TODO ?
+					first_seg = seg
+					end_seg = seg
+					total_mapped_sz = seg[2] - seg[1]
+				else:
+					end_seg = seg
+					total_mapped_sz = total_mapped_sz + seg[2] - seg[1]
+			
+			if not mapped_reg and first_seg is not None:
+				mapped_reg = self._liftOverRegionUsingChains(label, start, end, first_seg, end_seg, total_mapped_sz)
+			
+			if mapped_reg:
+				numLift += 1
+				if not is_region:
+					mapped_reg = (mapped_reg[0], mapped_reg[1], mapped_reg[2], mapped_reg[2])
+				yield mapped_reg
+			else:
+				numNull += 1
+				if errorCallback:
+					errorCallback(region)
+		#foreach region
+		
+		if tally != None:
+			tally['null'] = numNull
+			tally['lift'] = numLift
+	#generateLiftOverRegions()
+	
+	
+	def generateLiftOverLoci(oldHG, newHG, loci, tally=None, errorCallback=None):
+		# loci=[ (label,chr,pos), ... ]
+		regions = ((l[0],l[1],l[2],l[2]) for l in loci)
+		for r in self.generateLiftOverRegions(oldHG, newHG, regions, tally, errorCallback):
+			yield r[0:3]
+	#generateLiftOverLoci()
+	
+	
 #Database
+
+
+#TODO: temporary liftover testing code!
+if __name__ == "__main__":
+	inputFile = file(sys.argv[1])
+	loki = Database(sys.argv[2])
+	outputFile = file(sys.argv[3],'w')
+	unmapFile = file(sys.argv[4],'w')
+	oldHG = int(sys.argv[5]) if (len(sys.argv) > 5) else 18
+	newHG = int(sys.argv[6]) if (len(sys.argv) > 6) else 19
+	
+	def generateInput():
+		for line in inputFile:
+			chrom,start,end = line.split()
+			if chrom[:3].upper() in ('CHM','CHR'):
+				chrom = chrom[3:]
+			yield (None, loki.chr_num.get(chrom,-1), int(start), int(end))
+	
+	def errorCallback(region):
+		print >> unmapFile, "chr"+loki.chr_name.get(region[1],'?'), region[2], region[3]
+	
+	for region in loki.generateLiftOverRegions(oldHG, newHG, generateInput(), errorCallback=errorCallback):
+		print >> outputFile, "chr"+loki.chr_name.get(region[1],'?'), region[2], region[3]
