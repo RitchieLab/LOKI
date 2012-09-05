@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import collections
 import hashlib
 import os
 import pkgutil
@@ -160,6 +161,7 @@ class Updater(object):
 		self._tablesUpdated = set()
 		self._tablesDeindexed = set()
 		with self._db:
+			cursor = self._db.cursor()
 			for srcName in sorted(srcSet):
 				srcObj = self._sourceObjects[srcName]
 				srcID = srcObj.getSourceID()
@@ -200,7 +202,6 @@ class Updater(object):
 				# provides file timestamps with no TZ (like via FTP) we use them
 				# as-is and assume they're supposed to be UTC
 				self.log("storing %s update logs ..." % srcName)
-				cursor = self._db.cursor()
 				sql = "UPDATE `db`.`source` SET updated = DATETIME('now'), version = ? WHERE source_id = ?"
 				cursor.execute(sql, (srcObj.getVersionString(), srcID))
 				cursor.execute("DELETE FROM `db`.`source_file` WHERE source_id = ?", (srcID,))
@@ -217,6 +218,50 @@ class Updater(object):
 				self.log(" OK\n")
 			#foreach source
 			
+			# cross-map GRCh/UCSChg build versions for all sources
+			ucscGRC = collections.defaultdict(int)
+			for row in self._db.cursor().execute("SELECT grch,ucschg FROM `db`.`grch_ucschg`"):
+				ucscGRC[row[1]] = max(row[0], ucscGRC[row[1]])
+				cursor.execute("UPDATE `db`.`source` SET grch = ? WHERE grch IS NULL AND ucschg = ?", (row[0],row[1]))
+				cursor.execute("UPDATE `db`.`source` SET ucschg = ? WHERE ucschg IS NULL AND grch = ?", (row[1],row[0]))
+			cursor.execute("UPDATE `db`.`source` SET current_ucschg = ucschg WHERE current_ucschg IS NULL")
+			
+			# check all sources' UCSChg build versions and set the latest as the target
+			hgSources = collections.defaultdict(set)
+			for row in cursor.execute("SELECT source_id, current_ucschg FROM `db`.`source` WHERE current_ucschg IS NOT NULL"):
+				hgSources[row[1]].add(row[0])
+			if hgSources:
+				targetHG = max(hgSources)
+				self.log("database genome build: GRCh%s / UCSChg%s\n" % (ucscGRC.get(targetHG,'?'), targetHG))
+				targetUpdated = (int(self._loki.getDatabaseSetting('ucschg')) != targetHG)
+				self._loki.setDatabaseSetting('ucschg', targetHG)
+			
+			# liftOver sources with old build versions, if there are any
+			if len(hgSources) > 1:
+				locusSources = set(row[0] for row in cursor.execute("SELECT DISTINCT source_id FROM `db`.`snp_locus`"))
+				regionSources = set(row[0] for row in cursor.execute("SELECT DISTINCT source_id FROM `db`.`biopolymer_region`"))
+				chainsUpdated = ('grch_ucschg' in self._tablesUpdated or 'chain' in self._tablesUpdated or 'chain_data' in self._tablesUpdated)
+				for oldHG in sorted(hgSources):
+					if oldHG == targetHG:
+						continue
+					if not self._loki.hasLiftOverChains(oldHG, targetHG):
+						self.log("ERROR: no chains available to lift hg%d to hg%d\n" % (oldHG, targetHG))
+						continue
+					
+					if targetUpdated or chainsUpdated or 'snp_locus' in self._tablesUpdated:
+						sourceIDs = hgSources[oldHG] & locusSources
+						if sourceIDs:
+							self.liftOverSNPLoci(oldHG, targetHG, sourceIDs)
+					if targetUpdated or chainsUpdated or 'biopolymer_region' in self._tablesUpdated:
+						sourceIDs = hgSources[oldHG] & regionSources
+						if sourceIDs:
+							self.liftOverRegions(oldHG, targetHG, sourceIDs)
+					
+					sql = "UPDATE `db`.`source` SET current_ucschg = %d WHERE source_id = ?" % targetHG
+					cursor.executemany(sql, ((sourceID,) for sourceID in hgSources[oldHG]))
+				#foreach old build
+			#if any old builds
+			
 			# post-process as needed
 			if 'snp_merge' in self._tablesUpdated or 'snp_locus' in self._tablesUpdated:
 				self.updateMergedSNPLoci()
@@ -228,7 +273,6 @@ class Updater(object):
 				self.resolveSNPBiopolymerRoles()
 			if 'biopolymer_name' in self._tablesUpdated or 'group_member_name' in self._tablesUpdated:
 				self.resolveGroupMembers()
-			# TODO: liftover snp_locus and biopolymer_region
 			if 'biopolymer_region' in self._tablesUpdated:
 				self.updateBiopolymerZones()
 			
@@ -243,6 +287,91 @@ class Updater(object):
 		self._tablesDeindexed = None
 		os.chdir(iwd)
 	#updateDatabase()
+	
+	
+	def liftOverSNPLoci(self, oldHG, newHG, sourceIDs):
+		self.log("lifting over SNP loci from hg%d to hg%d ..." % (oldHG,newHG))
+		self.prepareTableForUpdate('snp_locus')
+		cursor = self._db.cursor()
+		numLift = numNull = 0
+		tally = dict()
+		trash = set()
+		
+		# identify range of _ROWID_ in snp_locus
+		# (two separate queries is faster because a simple MIN() or MAX() only peeks at the index;
+		# SQLite isn't clever enough to do that for both at the same time, it does a table scan instead)
+		firstRowID = min(row[0] for row in cursor.execute("SELECT MIN(_ROWID_) FROM `db`.`snp_locus`"))
+		lastRowID = max(row[0] for row in cursor.execute("SELECT MAX(_ROWID_) FROM `db`.`snp_locus`"))
+		
+		# define a callback to store loci that can't be lifted over, for later deletion
+		def errorCallback(region):
+			trash.add( (region[0],) )
+		
+		# we can't SELECT and UPDATE the same table at the same time,
+		# so read in batches of 2.5 million at a time based on _ROWID_
+		minRowID = firstRowID
+		maxRowID = minRowID + 2500000 - 1
+		while minRowID <= lastRowID:
+			sql = "SELECT _ROWID_, chr, pos FROM `db`.`snp_locus`"
+			sql += " WHERE (_ROWID_ BETWEEN ? AND ?) AND source_id IN (%s)" % (','.join(str(i) for i in sourceIDs))
+			oldLoci = list(cursor.execute(sql, (minRowID,maxRowID)))
+			newLoci = self._loki.generateLiftOverLoci(oldHG, newHG, oldLoci, tally, errorCallback)
+			sql = "UPDATE OR REPLACE `db`.`snp_locus` SET chr = ?2, pos = ?3 WHERE _ROWID_ = ?1"
+			cursor.executemany(sql, newLoci)
+			numLift += tally['lift']
+			numNull += tally['null']
+			if trash:
+				cursor.executemany("DELETE FROM `db`.`snp_locus` WHERE _ROWID_ = ?", trash)
+				trash.clear()
+			minRowID = maxRowID + 1
+			maxRowID = minRowID + 2500000 - 1
+		#foreach batch
+		
+		self.log(" OK: %d loci lifted over, %d dropped\n" % (numLift,numNull))
+	#liftOverSNPLoci()	
+	
+	
+	def liftOverRegions(self, oldHG, newHG, sourceIDs):
+		self.log("lifting over regions from hg%d to hg%d ..." % (oldHG,newHG))
+		self.prepareTableForUpdate('biopolymer_region')
+		cursor = self._db.cursor()
+		numLift = numNull = 0
+		tally = dict()
+		trash = set()
+		
+		# identify range of _ROWID_ in biopolymer_region
+		# (two separate queries is faster because a simple MIN() or MAX() only peeks at the index;
+		# SQLite isn't clever enough to do that for both at the same time, it does a table scan instead)
+		firstRowID = min(row[0] for row in cursor.execute("SELECT MIN(_ROWID_) FROM `db`.`biopolymer_region`"))
+		lastRowID = max(row[0] for row in cursor.execute("SELECT MAX(_ROWID_) FROM `db`.`biopolymer_region`"))
+		
+		# define a callback to store regions that can't be lifted over, for later deletion
+		def errorCallback(region):
+			trash.add( (region[0],) )
+		
+		# we can't SELECT and UPDATE the same table at the same time,
+		# so read in batches of 2.5 million at a time based on _ROWID_
+		# (for regions this will probably be all of them in one go, but just in case)
+		minRowID = firstRowID
+		maxRowID = minRowID + 2500000 - 1
+		while minRowID <= lastRowID:
+			sql = "SELECT _ROWID_, chr, posMin, posMax FROM `db`.`biopolymer_region`"
+			sql += " WHERE (_ROWID_ BETWEEN ? AND ?) AND source_id IN (%s)" % (','.join(str(i) for i in sourceIDs))
+			oldRegions = list(cursor.execute(sql, (minRowID,maxRowID)))
+			newRegions = self._loki.generateLiftOverRegions(oldHG, newHG, oldRegions, tally, errorCallback)
+			sql = "UPDATE OR REPLACE `db`.`biopolymer_region` SET chr = ?2, posMin = ?3, posMax = ?4 WHERE _ROWID_ = ?1"
+			cursor.executemany(sql, newRegions)
+			numLift += tally['lift']
+			numNull += tally['null']
+			if trash:
+				cursor.executemany("DELETE FROM `db`.`biopolymer_region` WHERE _ROWID_ = ?", trash)
+				trash.clear()
+			minRowID = maxRowID + 1
+			maxRowID = minRowID + 2500000 - 1
+		#foreach batch
+		
+		self.log(" OK: %d regions lifted over, %d dropped\n" % (numLift,numNull))
+	#liftOverRegions()
 	
 	
 	def updateMergedSNPLoci(self):
