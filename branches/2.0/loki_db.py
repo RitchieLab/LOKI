@@ -49,6 +49,7 @@ class Database(object):
 )
 """,
 				'data': [
+					('ucschg','0'),
 					('zone_size','100000'),
 					('finalized','0'),
 				],
@@ -58,6 +59,28 @@ class Database(object):
 			
 			##################################################
 			# metadata tables
+			
+			
+			'grch_ucschg': {
+				'table': """
+(
+  grch INTEGER PRIMARY KEY,
+  ucschg INTEGER NOT NULL
+)
+""",
+				# hardcode translations between GRCh/NCBI and UCSC 'hg' genome build numbers
+				# TODO: find a source for this so we can transition to new builds without a code update, i.e.
+				#         http://genome.ucsc.edu/FAQ/FAQreleases.html
+				#         http://genome.ucsc.edu/goldenPath/releaseLog.html
+				#       these aren't meant to be machine-readable but might be good enough if they're kept updated
+				'data': [
+					(34,16),
+					(35,17),
+					(36,18),
+					(37,19),
+				],
+				'index': {}
+			}, #.db.grch_ucschg
 			
 			
 			'ldprofile': {
@@ -410,28 +433,6 @@ class Database(object):
 			
 			##################################################
 			# liftover tables
-			
-			
-			'grch_ucschg': {
-				'table': """
-(
-  grch INTEGER PRIMARY KEY,
-  ucschg INTEGER NOT NULL
-)
-""",
-				# hardcode translations between GRCh/NCBI and UCSC 'hg' genome build numbers
-				# TODO: find a source for this so we can transition to new builds without a code update, i.e.
-				#         http://genome.ucsc.edu/FAQ/FAQreleases.html
-				#         http://genome.ucsc.edu/goldenPath/releaseLog.html
-				#       these aren't meant to be machine-readable but might be good enough if they're kept updated
-				'data': [
-					(34,16),
-					(35,17),
-					(36,18),
-					(37,19),
-				],
-				'index': {}
-			}, #.db.grch_ucschg
 			
 			
 			'chain': {
@@ -1421,7 +1422,13 @@ GROUP BY namespace_id
 	# 
 	# originally from UCSC
 	# reimplemented? in C++ for Biofilter 1.0 by Eric Torstenson
-	# ported to Python by John Wallace
+	# reimplemented again in Python by John Wallace
+	
+	
+	def hasLiftOverChains(self, oldHG, newHG):
+		sql = "SELECT COUNT() FROM `db`.`chain` WHERE old_ucschg = ? AND new_ucschg = ?"
+		return max(row[0] for row in self._db.cursor().execute(sql, (oldHG, newHG)))
+	#hasLiftOverChains()
 	
 	
 	def _generateApplicableLiftOverChains(self, oldHG, newHG, chrom, start, end):
@@ -1575,7 +1582,7 @@ ORDER BY c.old_chr, score DESC, cd.old_start
 	#generateLiftOverRegions()
 	
 	
-	def generateLiftOverLoci(oldHG, newHG, loci, tally=None, errorCallback=None):
+	def generateLiftOverLoci(self, oldHG, newHG, loci, tally=None, errorCallback=None):
 		# loci=[ (label,chr,pos), ... ]
 		regions = ((l[0],l[1],l[2],l[2]) for l in loci)
 		for r in self.generateLiftOverRegions(oldHG, newHG, regions, tally, errorCallback):
