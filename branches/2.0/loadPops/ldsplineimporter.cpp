@@ -411,10 +411,13 @@ void LdSplineImporter::InitPopulationIDs(map<string, int>& popIDs,
 		if (popID == -1) {
 
 			stringstream pop_ins_ss;
-			string type = ((*sItr).first == R_SQUARED ? "RS" : ((*sItr).first == D_PRIME ? "DP" : "UNK"));
-			pop_ins_ss << "INSERT INTO ldprofile (ldprofile, comment, description) "
-					<< "VALUES ('" << popName << "','" << type << " " << (*sItr).second << "','"
-					<< sp.desc << " with " << type << " cutoff " << (*sItr).second << "');";
+			string metric = ((*sItr).first == R_SQUARED ? "rsquared" : ((*sItr).first == D_PRIME ? "dprime" : "unknown"));
+			pop_ins_ss << "INSERT INTO ldprofile (ldprofile, description, metric, value) VALUES ("
+					<< "'" << popName << "',"
+					<< "'" << sp.desc << " with " << metric << " cutoff " << (*sItr).second << "',"
+					<< "'" << metric << "',"
+					<< (*sItr).second
+					<< ");";
 
 			sqlite3_exec(_db, pop_ins_ss.str().c_str(), NULL, NULL, NULL);
 			sqlite3_exec(_db, pop_query.c_str(), parseSingleInt, &popID, NULL);
@@ -439,7 +442,7 @@ void LdSplineImporter::LoadGenes() {
 			<< "INNER JOIN biopolymer USING (biopolymer_id) "
 			<< "INNER JOIN type ON region.type_id=type.type_id "
 			<< "INNER JOIN ldprofile ON ldprofile.ldprofile_id=region_bound.ldprofile_id"
-			<< "WHERE ldprofile='n/a' AND type='gene' "
+			<< "WHERE ldprofile='' AND type='gene' "
 			<< "ORDER BY chr, posMin;";
 
 	sqlite3_exec(_db, query_ss.str().c_str(), parseGenes, &_region_map, NULL);
