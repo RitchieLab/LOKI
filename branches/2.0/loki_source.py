@@ -299,8 +299,8 @@ class Source(object):
 	
 	def setSourceBuilds(self, grch=None, ucschg=None):
 		self._loki.testDatabaseUpdate()
-		sql = "UPDATE `db`.`source` SET grch = ?, ucschg = ? WHERE source_id = ?"
-		self._db.cursor().execute(sql, (grch, ucschg, self.getSourceID()))
+		sql = "UPDATE `db`.`source` SET grch = ?, ucschg = ?, current_ucschg = ? WHERE source_id = ?"
+		self._db.cursor().execute(sql, (grch, ucschg, ucschg, self.getSourceID()))
 	#setSourceBuilds()
 	
 	
