@@ -38,7 +38,7 @@ class Source_entrez(loki_source.Source):
 		
 		# get or create the required metadata records
 		ldprofileID = self.addLDProfiles([
-			('', 'no LD adjustment'),
+			('', 'no LD adjustment', None, None),
 		])
 		namespaceID = self.addNamespaces([
 			('symbol',      0),
