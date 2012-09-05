@@ -131,13 +131,13 @@ class Source(object):
 	# metadata management
 	
 	
-	def addLDProfile(self, ldprofile, comment=None, description=None):
-		return self.addLDProfiles([(ldprofile,comment,description)])[ldprofile]
+	def addLDProfile(self, ldprofile, description=None, metric=None, value=None):
+		return self.addLDProfiles([(ldprofile,description,metric,value)])[ldprofile]
 	#addLDProfile()
 	
 	
 	def addLDProfiles(self, ldprofiles):
-		# ldprofiles=[ (ldprofile,comment,description), ... ]
+		# ldprofiles=[ (ldprofile,description,metric,value), ... ]
 		self._loki.testDatabaseUpdate()
 		dbc = self._db.cursor()
 		ret = {}
@@ -145,7 +145,7 @@ class Source(object):
 		# and execute() to avoid bailing out of executemany() due to ABORT
 		for l in ldprofiles:
 			try:
-				dbc.execute("INSERT OR ABORT INTO `db`.`ldprofile` (ldprofile,comment,description) VALUES (LOWER(?),?,?); SELECT LAST_INSERT_ROWID()", l)
+				dbc.execute("INSERT OR ABORT INTO `db`.`ldprofile` (ldprofile,description,metric,value) VALUES (LOWER(?),?,LOWER(?),?); SELECT LAST_INSERT_ROWID()", l)
 			except apsw.ConstraintError:
 				dbc.execute("SELECT ldprofile_id FROM `db`.`ldprofile` WHERE ldprofile = LOWER(?)", l[0:1])
 			for row in dbc:

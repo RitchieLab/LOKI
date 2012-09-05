@@ -54,7 +54,7 @@ class Source_oreganno(loki_source.Source):
 		snp_roleid = self.addRole("regulatory", "OregAnno Regulatory Polymorphism", 1, 0)
 		
 		# Get the default population ID
-		ldprofile_id = self.addLDProfile('', 'no LD adjustment', None)
+		ldprofile_id = self.addLDProfile('', 'no LD adjustment')
 		
 		# build dict of gene id->oreganno id and a dict of
 		# oreganno id->entrez id and oreganno id->ensembl id

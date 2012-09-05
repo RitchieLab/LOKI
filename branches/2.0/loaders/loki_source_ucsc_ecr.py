@@ -79,7 +79,7 @@ class Source_ucsc_ecr(loki_source.Source):
 		ecr_group_typeid = self.addType("ecr_group")
 		
 		# Make sure the '' ldprofile exists
-		ecr_ldprofile_id = self.addLDProfile('', 'no LD adjustment', None)
+		ecr_ldprofile_id = self.addLDProfile('', 'no LD adjustment')
 		
 		# Add a containment relationship
 		rel_id = self.addRelationship("contains")			

@@ -88,8 +88,9 @@ class Database(object):
 (
   ldprofile_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
   ldprofile VARCHAR(32) UNIQUE NOT NULL,
-  comment VARCHAR(128),
-  description VARCHAR(128)
+  description VARCHAR(128),
+  metric VARCHAR(32),
+  value DOUBLE
 )
 """,
 				'index': {}
