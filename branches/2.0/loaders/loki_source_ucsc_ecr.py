@@ -102,14 +102,16 @@ class Source_ucsc_ecr(loki_source.Source):
 				num_regions = 0
 				desc = "ECRs for " + sp + " on Chromosome " + ch
 				chr_grp_ids.append(self.addTypedGroups(ecr_group_typeid, [("ecr_%s_chr%s" % (sp, ch), desc)])[0])
-				band_gids = [];
+				self.addGroupNamespacedNames(ecr_ns, [(chr_grp_ids[-1], "ecr_%s_chr%s" % (sp, ch))])
+				band_grps = []
+				grp_rid = {}
 				for regions in self.getRegions(f):
 					label = "ecr_%s_chr%s_band%d" % (sp, ch, curr_band)
 					desc = "ECRs for " + sp + " on Chromosome " + ch + ", Band %d" % (curr_band,)
 					num_regions += len(regions)
 					
 					if regions:
-						band_gids.append(self.addTypedGroups(ecr_group_typeid, [(label, desc)])[0])
+						band_grps.append((label, desc))
 																
 					# Add the region itself
 					reg_ids = self.addTypedBiopolymers(ecr_typeid, ((self.getRegionName(sp, ch, r), '') for r in regions))
@@ -121,11 +123,21 @@ class Source_ucsc_ecr(loki_source.Source):
 					self.addBiopolymerLDProfileRegions(ecr_ldprofile_id, (tuple(itertools.chain(*c)) for c in region_bound_gen))			
 	
 					if regions:
+						grp_rid[band_grps[-1]] = reg_ids
 						#Add the region to the group
-						self.addGroupBiopolymers(((band_gids[-1], r_id) for r_id in reg_ids))
+						#self.addGroupBiopolymers(((band_gids[-1], r_id) for r_id in reg_ids))
 						
 					curr_band += 1
-					
+
+				
+				band_gids = self.addTypedGroups(ecr_group_typeid, band_grps)
+				self.addGroupNamespacedNames(ecr_ns, zip(band_gids, (r[0] for r in band_grps)))
+				gid_rid = []
+				for i in xrange(len(band_gids)):
+					gid_rid.extend(((band_gids[i], rid) for rid in grp_rid[band_grps[i]]))
+				
+				self.addGroupBiopolymers(gid_rid)
+
 				self.addGroupRelationships(((chr_grp_ids[-1], b, rel_id) for b in band_gids))
 				
 				self.log("OK (%d regions found in %d bands)\n" % (num_regions, curr_band - 1))
