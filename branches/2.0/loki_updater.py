@@ -233,7 +233,7 @@ class Updater(object):
 			if hgSources:
 				targetHG = max(hgSources)
 				self.log("database genome build: GRCh%s / UCSChg%s\n" % (ucscGRC.get(targetHG,'?'), targetHG))
-				targetUpdated = (int(self._loki.getDatabaseSetting('ucschg')) != targetHG)
+				targetUpdated = (int(self._loki.getDatabaseSetting('ucschg') or 0) != targetHG)
 				self._loki.setDatabaseSetting('ucschg', targetHG)
 			
 			# liftOver sources with old build versions, if there are any
