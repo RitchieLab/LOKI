@@ -1,3 +1,5 @@
+ACLOCAL_AMFLAGS= -I ./make/m4
+
 SUBDIRS = ldspline
 
 bin_PROGRAMS = pop_loader
@@ -14,6 +16,3 @@ AM_LDFLAGS= $(BOOST_LDFLAGS) $(BOOST_FILESYSTEM_LDFLAGS)
 AM_CPPFLAGS = -I$(srcdir)/ldspline/src -DDATA_DIR='"$(datadir)"' \
 	$(BOOST_CPPFLAGS) $(BOOST_FILESYSTEM_CPPFLAGS) $(SQLITE_CFLAGS)
 
-bin_SCRIPTS = buildPopulations.py
-
-EXTRA_DIST = buildPopulations.py

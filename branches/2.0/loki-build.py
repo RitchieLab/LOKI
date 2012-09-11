@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#! python
 
 import argparse
 import os
@@ -8,7 +8,7 @@ import sys
 import tarfile
 import tempfile
 
-import loki_db
+from loki import loki_db
 
 
 if __name__ == "__main__":

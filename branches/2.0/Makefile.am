@@ -59,11 +59,3 @@ uninstall-hook:
 nodist_data_DATA=$(VAR_FILES)
 
 CLEANFILES=test.bio knowledge.bio .creation
-
-
-
-
-
-
-
-
