@@ -25,11 +25,11 @@ util/liftOver.py
 
 
 if LOKI_INSTALL
-LOKI_CMDS=$(srcdir)/loki.py -k knowledge.bio -u -v
+LOKI_CMDS=$(srcdir)/loki-build.py -k knowledge.bio -u -v
 VAR_FILES=knowledge.bio
 	
 else
-LOKI_CMDS=$(srcdir)/loki.py -k test.bio -t -u -v
+LOKI_CMDS=$(srcdir)/loki-build.py -k test.bio -t -u -v
 VAR_FILES=test.bio
 	
 endif
