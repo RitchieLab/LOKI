@@ -31,7 +31,7 @@ class my_install(autodist.auto_install):
 
 setup(name='LOKI',version='2.0.0',
 	author='Ritchie Lab',author_email='software@ritchielab.psu.edu',
-	scripts=['loki.py','loadPops/buildPopulations.py'],
-	packages=['loki','loki.loaders','loki.util'],
+	scripts=['loki-build.py','loadPops/buildPopulations.py'],
+	packages=['loki','loki.loaders','loki.loaders.test','loki.util'],
 	package_dir = {'loki': ''},
 	cmdclass={'install':my_install, 'sdist':my_sdist})
