@@ -3,7 +3,7 @@ SUBDIRS = loadPops
 noinst_LTLIBRARIES=liblokiupdate.la
 
 liblokiupdate_la_SOURCES=loki_db.py \
-loki.py \
+loki-build.py \
 loki_source.py \
 loki_db.py \
 loki_updater.py \
@@ -27,11 +27,9 @@ util/liftOver.py
 if LOKI_INSTALL
 LOKI_CMDS=$(srcdir)/loki-build.py -k knowledge.bio -u -v
 VAR_FILES=knowledge.bio
-	
 else
 LOKI_CMDS=$(srcdir)/loki-build.py -k test.bio -t -u -v
-VAR_FILES=test.bio
-	
+VAR_FILES=test.bio	
 endif
 
 knowledge.bio: liblokiupdate.la .creation

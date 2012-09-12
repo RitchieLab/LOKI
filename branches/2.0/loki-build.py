@@ -8,7 +8,10 @@ import sys
 import tarfile
 import tempfile
 
-from loki import loki_db
+try:
+	from loki import loki_db
+except ImportError:
+	import loki_db
 
 
 if __name__ == "__main__":
