@@ -32,7 +32,7 @@ class Source_test_gene (loki_source.Source):
 		self._loki.setDatabaseSetting("zone_size", "9")
 		
 		self.log("Creating LD Profiles ...")
-		ld_ids = self.addLDProfiles([('', 'no LD adjustment', None), ('PLUS5', 'Add 5 to all boundaries', 'Adding 5')])
+		ld_ids = self.addLDProfiles([('', 'no LD adjustment', None, None), ('PLUS5', 'Add 5 to all boundaries', 5, 'plus')])
 		self.log("OK\n")
 		
 		self.log("Creating Regions ...")
