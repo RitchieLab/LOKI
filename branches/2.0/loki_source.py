@@ -461,14 +461,53 @@ class Source(object):
 	
 	
 	def addGroupRelationships(self, groupRels):
+		# groupRels=[ (group_id,related_group_id,relationship_id,contains), ... ]
+		self._loki.testDatabaseUpdate()
+		self.prepareTableForUpdate('group_group')
+		# we SHOULD be able to do (?1,?2,?3) and (?2,?1,?3) with the same 3 bindings for each execution,
+		# but apsw or SQLite appears to treat the compound statement separately, so we have to copy the bindings
+		sql = "INSERT OR IGNORE INTO `db`.`group_group` (group_id,related_group_id,relationship_id,direction,contains,source_id)"
+		sql += " VALUES (?1,?2,?3,1,(CASE WHEN ?4 IS NULL THEN NULL WHEN ?4 > 0 THEN 1 WHEN ?4 < 0 THEN -1 ELSE 0 END),%d)" % (self.getSourceID(),)
+		sql += ";INSERT OR IGNORE INTO `db`.`group_group` (group_id,related_group_id,relationship_id,direction,contains,source_id)"
+		sql += " VALUES (?2,?1,?3,-1,(CASE WHEN ?4 IS NULL THEN NULL WHEN ?4 > 0 THEN -1 WHEN ?4 < 0 THEN 1 ELSE 0 END),%d)" % (self.getSourceID(),)
+		self._db.cursor().executemany(sql, (2*gr for gr in groupRels))
+	#addGroupRelationships()
+	
+	
+	def addGroupParentRelationships(self, groupRels):
 		# groupRels=[ (group_id,related_group_id,relationship_id), ... ]
 		self._loki.testDatabaseUpdate()
 		self.prepareTableForUpdate('group_group')
-		sql = "INSERT OR IGNORE INTO `db`.`group_group` (group_id,related_group_id,relationship_id,direction,source_id) VALUES (?,?,?,1,%d)" % (self.getSourceID(),)
-		sql += ";INSERT OR IGNORE INTO `db`.`group_group` (related_group_id,group_id,relationship_id,direction,source_id) VALUES (?,?,?,-1,%d)" % (self.getSourceID(),)
-		# because we're doing two inserts per input tuple, we have to duplicate each tuple to satisfy the query bindings
+		sql = "INSERT OR IGNORE INTO `db`.`group_group` (group_id,related_group_id,relationship_id,direction,contains,source_id)"
+		sql += " VALUES (?1,?2,?3,1,1,%d)" % (self.getSourceID(),)
+		sql += ";INSERT OR IGNORE INTO `db`.`group_group` (group_id,related_group_id,relationship_id,direction,contains,source_id)"
+		sql += " VALUES (?2,?1,?3,-1,-1,%d)" % (self.getSourceID(),)
 		self._db.cursor().executemany(sql, (2*gr for gr in groupRels))
-	#addGroupRelationships()
+	#addGroupParentRelationships()
+	
+	
+	def addGroupChildRelationships(self, groupRels):
+		# groupRels=[ (group_id,related_group_id,relationship_id), ... ]
+		self._loki.testDatabaseUpdate()
+		self.prepareTableForUpdate('group_group')
+		sql = "INSERT OR IGNORE INTO `db`.`group_group` (group_id,related_group_id,relationship_id,direction,contains,source_id)"
+		sql += " VALUES (?1,?2,?3,1,-1,%d)" % (self.getSourceID(),)
+		sql += ";INSERT OR IGNORE INTO `db`.`group_group` (group_id,related_group_id,relationship_id,direction,contains,source_id)"
+		sql += " VALUES (?2,?1,?3,-1,1,%d)" % (self.getSourceID(),)
+		self._db.cursor().executemany(sql, (2*gr for gr in groupRels))
+	#addGroupChildRelationships()
+	
+	
+	def addGroupSiblingRelationships(self, groupRels):
+		# groupRels=[ (group_id,related_group_id,relationship_id), ... ]
+		self._loki.testDatabaseUpdate()
+		self.prepareTableForUpdate('group_group')
+		sql = "INSERT OR IGNORE INTO `db`.`group_group` (group_id,related_group_id,relationship_id,direction,contains,source_id)"
+		sql += " VALUES (?1,?2,?3,1,0,%d)" % (self.getSourceID(),)
+		sql += ";INSERT OR IGNORE INTO `db`.`group_group` (group_id,related_group_id,relationship_id,direction,contains,source_id)"
+		sql += " VALUES (?2,?1,?3,-1,0,%d)" % (self.getSourceID(),)
+		self._db.cursor().executemany(sql, (2*gr for gr in groupRels))
+	#addGroupSiblingRelationships()
 	
 	
 	def addGroupBiopolymers(self, groupBiopolymers):

@@ -13,7 +13,7 @@ class Database(object):
 	# public class data
 	
 	
-	ver_maj,ver_min,ver_rev,ver_dev,ver_date = 2,0,0,'a8','2012-09-05'
+	ver_maj,ver_min,ver_rev,ver_dev,ver_date = 2,0,0,'a9','2012-09-13'
 	
 	# hardcode translations between chromosome numbers and textual tags
 	chr_num = {}
@@ -49,6 +49,7 @@ class Database(object):
 )
 """,
 				'data': [
+					('schema','1'),
 					('ucschg','0'),
 					('zone_size','100000'),
 					('finalized','0'),
@@ -148,6 +149,19 @@ class Database(object):
 """,
 				'index': {}
 			}, #.db.source
+			
+			
+			'source_option': {
+				'table': """
+(
+  source_id TINYINT NOT NULL,
+  option VARCHAR(32) NOT NULL,
+  value VARCHAR(64),
+  PRIMARY KEY (source_id, option)
+)
+""",
+				'index': {}
+			}, #.db.source_option
 			
 			
 			'source_file': {
@@ -388,6 +402,7 @@ class Database(object):
   related_group_id INTEGER NOT NULL,
   relationship_id SMALLINT NOT NULL,
   direction TINYINT NOT NULL,
+  contains TINYINT,
   source_id TINYINT NOT NULL,
   PRIMARY KEY (group_id,related_group_id,relationship_id,direction)
 )
@@ -710,9 +725,9 @@ class Database(object):
 			if not quiet:
 				self.logPush("loading knowledge database file '%s' ..." % dbFile)
 			cursor.execute("ATTACH DATABASE ? AS `db`", (dbFile,))
-			self.configureDatabase('db')
 			self._dbFile = dbFile
 			self._dbNew = (0 == max(row[0] for row in cursor.execute("SELECT COUNT(1) FROM `db`.`sqlite_master`")))
+			self.configureDatabase('db')
 			
 			# establish or audit database schema
 			err_msg = ""

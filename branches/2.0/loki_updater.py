@@ -180,7 +180,12 @@ class Updater(object):
 						self.log("%s = %s\n" % (opt,val))
 					self.logPop("... OK\n")
 				
-				# switch to cache subdirectory for this source
+				# store source options
+				cursor.execute("DELETE FROM `db`.`source_option` WHERE source_id = ?", (srcID,))
+				sql = "INSERT INTO `db`.`source_option` (source_id, option, value) VALUES (%d,?,?)" % srcID
+				cursor.executemany(sql, options.iteritems())
+				
+				# switch to a temp subdirectory for this source
 				path = os.path.join(iwd, srcName)
 				if not os.path.exists(path):
 					os.makedirs(path)
@@ -192,18 +197,11 @@ class Updater(object):
 					srcObj.download(options)
 					self.logPop("... OK\n")
 				
-				# process new files
-				self.logPush("processing %s data ...\n" % srcName)
-				srcObj.update(options)
-				self.logPop("... OK\n")
-				
-				# store source update metadata
+				# store source file metadata
 				# all timestamps are assumed to be in UTC, but if a source
 				# provides file timestamps with no TZ (like via FTP) we use them
 				# as-is and assume they're supposed to be UTC
-				self.log("storing %s update logs ..." % srcName)
-				sql = "UPDATE `db`.`source` SET updated = DATETIME('now'), version = ? WHERE source_id = ?"
-				cursor.execute(sql, (srcObj.getVersionString(), srcID))
+				self.log("analyzing %s data files ..." % srcName)
 				cursor.execute("DELETE FROM `db`.`source_file` WHERE source_id = ?", (srcID,))
 				sql = "INSERT INTO `db`.`source_file` (source_id, filename, size, modified, md5) VALUES (%d,?,?,DATETIME(?,'unixepoch'),?)" % srcID
 				for filename in os.listdir('.'):
@@ -216,6 +214,15 @@ class Updater(object):
 							chunk = f.read(8*1024*1024)
 					cursor.execute(sql, (filename, stat.st_size, stat.st_mtime, md5.hexdigest()))
 				self.log(" OK\n")
+				
+				# process new files
+				self.logPush("processing %s data ...\n" % srcName)
+				srcObj.update(options)
+				self.logPop("... OK\n")
+				
+				# update source metadata
+				sql = "UPDATE `db`.`source` SET updated = DATETIME('now'), version = ? WHERE source_id = ?"
+				cursor.execute(sql, (srcObj.getVersionString(), srcID))
 			#foreach source
 			
 			# cross-map GRCh/UCSChg build versions for all sources
