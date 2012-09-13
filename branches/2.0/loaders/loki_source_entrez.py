@@ -10,8 +10,35 @@ class Source_entrez(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.0a1 (2012-08-30)'
+		return '2.0a2 (2012-09-12)'
 	#getVersionString()
+	
+	
+	@classmethod
+	def getOptions(cls):
+		return {
+			'locus-tags'    : "[yes|no]  --  include a gene's 'Locus Tag' as an alias (default: no)",
+			'favor-primary' : "[yes|no]  --  reduce symbol ambiguity by favoring primary symbols (default: yes)",
+			'favor-hist'    : "[yes|no]  --  reduce symbol ambiguity by favoring primary symbols (default: yes)",
+		}
+	#getOptions()
+	
+	
+	def validateOptions(self, options):
+		for o,v in options.iteritems():
+			v = v.strip().lower()
+			if o in ('locus-tags','favor-primary','favor-hist'):
+				if 'yes'.startswith(v):
+					v = 'yes'
+				elif 'no'.startswith(v):
+					v = 'no'
+				else:
+					return "%s must be 'yes' or 'no'" % o
+			else:
+				return "unknown option '%s'" % o
+			options[o] = v
+		return True
+	#validateOptions()
 	
 	
 	def download(self, options):
@@ -64,7 +91,6 @@ class Source_entrez(loki_source.Source):
 		nsNames = { ns:set() for ns in namespaceID }
 		nsNameNames = { ns:set() for ns in namespaceID }
 		numNames = numNameNames = numNameRefs = 0
-		empty = tuple()
 		
 		# process genes (no header!)
 		self.log("processing genes ...")
@@ -89,8 +115,10 @@ class Source_entrez(loki_source.Source):
 				words = line.rstrip().split("\t")
 				entrezID = int(words[1])
 				symbol = words[2]
-				aliases = words[4].split("|") if words[4] != "-" else empty
-				xrefs = words[5].split("|") if words[5] != "-" else empty
+				aliases = words[4].split("|") if words[4] != "-" else list()
+				if options.get('locus-tags','no') == 'yes' and words[3] != "-":
+					aliases.append(words[3])
+				xrefs = words[5].split("|") if words[5] != "-" else list()
 				chm = words[6]
 				desc = words[8]
 				
@@ -119,14 +147,16 @@ class Source_entrez(loki_source.Source):
 		#foreach line in geneFile
 		
 		# delete any symbol alias which is also the primary name of exactly one other gene
-		dupe = set()
-		for alias in nsNames['symbol']:
-			entrezID = alias[0]
-			symbol = alias[1]
-			if (symbol in primaryEntrez) and (primaryEntrez[symbol] != False) and (primaryEntrez[symbol] != entrezID):
-				dupe.add(alias)
-		nsNames['symbol'] -= dupe
-		dupe = None
+		if options.get('favor-primary','yes') == 'yes':
+			dupe = set()
+			for alias in nsNames['symbol']:
+				entrezID = alias[0]
+				symbol = alias[1]
+				if (symbol in primaryEntrez) and (primaryEntrez[symbol] != False) and (primaryEntrez[symbol] != entrezID):
+					dupe.add(alias)
+			nsNames['symbol'] -= dupe
+			dupe = None
+		#if favor-primary
 		
 		# print stats
 		numGenes = len(entrezGene)
@@ -297,14 +327,16 @@ class Source_entrez(loki_source.Source):
 			#foreach line in histFile
 			
 			# delete any symbol alias which is also the historical name of exactly one other gene
-			dupe = set()
-			for alias in nsNames['symbol']:
-				entrezID = alias[0]
-				symbol = alias[1]
-				if (symbol in historyEntrez) and (historyEntrez[symbol] != False) and (historyEntrez[symbol] != entrezID):
-					dupe.add(alias)
-			nsNames['symbol'] -= dupe
-			dupe = None
+			if options.get('favor-hist','yes') == 'yes':
+				dupe = set()
+				for alias in nsNames['symbol']:
+					entrezID = alias[0]
+					symbol = alias[1]
+					if (symbol in historyEntrez) and (historyEntrez[symbol] != False) and (historyEntrez[symbol] != entrezID):
+						dupe.add(alias)
+				nsNames['symbol'] -= dupe
+				dupe = None
+			#if favor-hist
 			
 			# print stats
 			numNames0 = numNames
