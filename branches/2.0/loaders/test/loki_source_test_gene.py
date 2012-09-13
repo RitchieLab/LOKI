@@ -1,56 +1,123 @@
 import loki_source
 
-class Source_test_gene (loki_source.Source):
+
+class Source_test_gene(loki_source.Source):
+	
+	
+	@classmethod
+	def getVersionString(cls):
+		return "2.0a1 (2012-09-13)"
+	#getVersionString()
+	
 	
 	def download(self, options):
-		"""
-		No download needed
-		"""
 		pass
-		
+	#download()
+	
+	
 	def update(self, options):
-		"""
-		Create some genes (and a test population)
-		"""
-		
+		# clear out all old data from this source
 		self.log("deleting old records from the database ...")
 		self.deleteAll()
 		self.log(" OK\n")
 		
-		namespaceID = self.addNamespaces([
-			('symbol',      0),
-			('entrez_gid',  0),
-			('alternate_id', 0),
-			('multi_ids', 1)
+		# get or create the required metadata records
+		ldprofileID = self.addLDProfiles([
+			('',   'no LD adjustment',   None, None),
+			('ld', 'some LD adjustment', None, None),
 		])
-		
+		namespaceID = self.addNamespaces([
+			('gene',       0),
+			('entrez_gid', 0), # needed to resolve snp_entrez_role
+			('protein',    1),
+		])
 		typeID = self.addTypes([
 			('gene',),
 		])
 		
-		# Set the zone size to 9
-		self._loki.setDatabaseSetting("zone_size", "9")
+		# define genes
+		self.log("adding genes to the database ...")
+		listGene = [
+			#(label,desc)
+			('A', 'normal gene'),
+			('B', 'normal gene'),
+			('C', 'overlapping gene'),
+			('D', 'overlapping gene'),
+			('E', 'gene with 2 regions'),
+			('F', 'gene with no SNPs'),
+			('G', 'gene with no regions'),
+			('H', 'overlapping gene'),
+			('I', 'overlapping gene'),
+			('P', 'gene with only nearby SNPs'),
+			('Q', 'normal gene'),
+			('R', 'normal gene'),
+			('S', 'gene with 2 regions'),
+		]
+		listBID = self.addTypedBiopolymers(typeID['gene'], listGene)
+		geneBID = dict(zip((g[0] for g in listGene), listBID))
+		self.log(" OK: %d genes\n" % len(geneBID))
 		
-		self.log("Creating LD Profiles ...")
-		ld_ids = self.addLDProfiles([('', 'no LD adjustment', None, None), ('PLUS5', 'Add 5 to all boundaries', 5, 'plus')])
-		self.log("OK\n")
+		# define gene aliases
+		self.log("adding gene identifiers to the database ...")
+		genEName = ((bid,ord(g)-64) for g,bid in geneBID.iteritems()) # A->1, B->2, ... S->19 ... Z->26
+		self.addBiopolymerNamespacedNames(namespaceID['entrez_gid'], genEName)
+		listGName = [
+			#(biopolymer_id,name)
+			(geneBID['A'], 'A'),
+			(geneBID['B'], 'B'),  (geneBID['B'], 'B2'),
+			(geneBID['C'], 'C'),
+			(geneBID['D'], 'D'),  (geneBID['D'], 'DE'),
+			(geneBID['E'], 'E'),  (geneBID['E'], 'DE'),  (geneBID['E'], 'EF'),
+			(geneBID['F'], 'F'),  (geneBID['F'], 'EF'),  (geneBID['F'], 'FG'),
+			(geneBID['G'], 'G'),  (geneBID['G'], 'FG'),
+			(geneBID['H'], 'H'),
+			(geneBID['I'], 'I'),
+			(geneBID['P'], 'P'),
+			(geneBID['Q'], 'Q'),
+			(geneBID['R'], 'R'),
+			(geneBID['S'], 'S'),
+		]
+		self.addBiopolymerNamespacedNames(namespaceID['gene'], listGName)
+		listPName = [
+			#(biopolymer_id,name)
+			(geneBID['P'],'pqr'),  (geneBID['P'],'qrp'),
+			(geneBID['Q'],'pqr'),  (geneBID['Q'],'qrp'),  (geneBID['Q'],'qrs'),
+			(geneBID['R'],'pqr'),  (geneBID['R'],'qrp'),  (geneBID['R'],'qrs'),
+			                                              (geneBID['S'],'qrs'),
+		]
+		self.addBiopolymerNamespacedNames(namespaceID['protein'], listPName)
+		self.log(" OK: %d identifiers\n" % (len(geneBID)+len(listGName)+len(listPName)))
 		
-		self.log("Creating Regions ...")
-		b_ids = self.addTypedBiopolymers(typeID['gene'], (("G%d" % (r+1), "Gene %d" % (r+1)) for r in range(6)))
-		self.log("OK\n")
+		# TODO: name references?
 		
-		self.log("Creating Region Aliases ...")
-		self.addBiopolymerNamespacedNames(namespaceID['symbol'], ((b_ids[r], "G%d" % (r+1)) for r in range(6)))
-		self.addBiopolymerNamespacedNames(namespaceID['entrez_gid'], ((b_ids[r], "%d" % (r+1)) for r in range(6)))
-		self.addBiopolymerNamespacedNames(namespaceID['alternate_id'],((b_ids[r], "R%d" % (r+1)) for r in range(6)))
-		self.addBiopolymerNamespacedNames(namespaceID['multi_ids'], [(b_ids[1], "G23"), (b_ids[2], "G23")])
-		self.log("OK\n")		
+		# define gene regions
+		self.log("adding gene regions to the database ...")
+		ld0 = ldprofileID['']
+		ld1 = ldprofileID['ld']
+		listRegion = [
+			#(biopolymer_id,ldprofile_id,chr,posMin,posMax)
+			(geneBID['A'], ld0, 1,  8, 22),  (geneBID['A'], ld1, 1,  6, 23), # expand both, no gain
+			(geneBID['B'], ld0, 1, 24, 52),  (geneBID['B'], ld1, 1, 23, 52), # expand left, no gain
+			(geneBID['C'], ld0, 1, 54, 62),  (geneBID['C'], ld1, 1, 48, 64), # expand both, gain dupe
+			(geneBID['D'], ld0, 1, 58, 72),  (geneBID['D'], ld1, 1, 54, 74), # expand both, gain 1
+			(geneBID['E'], ld0, 1, 78, 82),  (geneBID['E'], ld1, 1, 78, 84), # expand in, no gain
+			(geneBID['E'], ld0, 1, 84, 92),  (geneBID['E'], ld1, 1, 84, 94), # expand right, no gain
+			(geneBID['F'], ld0, 1, 94, 98),  (geneBID['F'], ld1, 1, 94, 99), # expand right, no gain
+			# no regions for G
+			(geneBID['H'], ld0, 2, 22, 42),  (geneBID['H'], ld1, 2, 22, 48), # expand to match
+			(geneBID['I'], ld0, 2, 38, 48),  (geneBID['I'], ld1, 2, 22, 48), # expand to match
+			(geneBID['P'], ld0, 3, 14, 18),  (geneBID['P'], ld1, 3, 16, 22), # expand both, gain 1
+			(geneBID['Q'], ld0, 3, 28, 36),  (geneBID['Q'], ld1, 3, 26, 42), # expand both, gain 1 between
+			(geneBID['R'], ld0, 3, 44, 52),  (geneBID['R'], ld1, 3, 38, 54), # expand both, gain 1 between
+			(geneBID['S'], ld0, 3, 58, 64),  (geneBID['S'], ld1, 3, 56, 72), # expand to dupe
+			(geneBID['S'], ld0, 3, 66, 72),  (geneBID['S'], ld1, 3, 56, 72), # expand to dupe
+		]
+		self.addBiopolymerRegions(listRegion)
+		self.log(" OK: %d regions\n" % len(listRegion))
 		
-		self.log("Creating Region Boundaries ...")
-		gene_bounds = dict((r+1, (20*r+5, 20*r+15)) for r in range(4))
-		gene_bounds[5] = (30,50)
-		gene_bounds[6] = (10, 20)
-		
-		self.addBiopolymerLDProfileRegions(ld_ids[''],((b_ids[r],1+(r==5),gene_bounds[r+1][0],gene_bounds[r+1][1])for r in range(6)))
-		self.addBiopolymerLDProfileRegions(ld_ids['PLUS5'],((b_ids[r],1+(r==5),gene_bounds[r+1][0]+5,gene_bounds[r+1][1]+5)for r in range(6)))
-		self.log("OK\n")
+		# set the zone size to 7 so that a few things land right on zone edges
+		self._loki.setDatabaseSetting("zone_size", "7")
+	#update()
+	
+	
+#Source_test_gene

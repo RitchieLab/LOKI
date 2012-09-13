@@ -1,54 +1,105 @@
 import loki_source
 
+
 class Source_test_snp(loki_source.Source):
-	"""
-	Class to load testing dataset
-	"""
+	
+	
+	@classmethod
+	def getVersionString(cls):
+		return "2.0a1 (2012-09-13)"
+	#getVersionString()
+	
 	
 	def download(self, options):
-		"""
-		Do nothing to download
-		"""
 		pass
-		
+	#download()
+	
+	
 	def update(self, options):
-		"""
-		Create the testing dataset
-		"""
-		
+		# clear out all old data from this source
 		self.log("deleting old records from the database ...")
 		self.deleteAll()
 		self.log(" OK\n")
 		
-		# Add some roles
-		self.log("Creating Roles ...")
-		role_list = [
-			("Exon", "Test Exon", 1, 1), 
-			("Regulatory", "Test Regulatory", 0, 1), 
-			("Intron", "Test Intron", 0, 0)]
-		role_ids = self.addRoles(role_list)
-			
-		self.log("OK\n")
-			
-		chr_snp = {1 : [r+1 for r in range(11)], 
-				   2 : [r+21 for r in range(4)]}
+		# define positions
+		self.log("adding SNPs to the database ...")
+		listSNP = [
+			#(rs,chr,pos,valid)
+			(11, 1, 10, 1),
+			(12, 1, 20, 1),
+			(13, 1, 35, 1),
+			(14, 1, 35, 1),
+			(15, 1, 50, 1),
+			(15, 1, 55, 1),
+			(16, 1, 60, 1),
+			(17, 1, 70, 1),
+			(18, 1, 80, 1),
+			(19, 1, 90, 1),
+			(21, 2, 10, 1),
+			(22, 2, 20, 1),
+			(23, 2, 30, 0),
+			(24, 2, 40, 1),
+			(25, 2, 50, 1),
+			(31, 3, 10, 0),
+			(32, 3, 20, 1),
+			(33, 3, 30, 1),
+			(34, 3, 40, 1),
+			(35, 3, 50, 1),
+			(36, 3, 60, 1),
+			(37, 3, 70, 0),
+		]
+		self.addSNPLoci(listSNP)
+		self.log(" OK: %d SNP positions (%d RS#s)\n" % (len(listSNP),len(set(s[0] for s in listSNP))))
 		
-		snp_gene = { 1: [1], 2: [1], 4:[2], 5: [2, 5], 6: [5], 7: [3,5], 8: [3],
-			10: [4], 11: [4], 22: [6], 23: [6]}
-			
-		# Add some snp merges: 1XX -> XX on chr 1 only
-		self.log("Creating SNP Merge Records ...")
-		self.addSNPMerges(zip((r+100 for r in chr_snp[1]), chr_snp[1]))
-		self.log("OK\n")
+		# define merges
+		self.log("adding SNP merge records to the database ...")
+		listMerge = [
+			#(rsOld,rsNew)
+			(9,19),
+		]
+		self.addSNPMerges(listMerge)
+		self.log(" OK: %d merges\n" % len(listMerge))
 		
-		# Add some role data
-		self.log("Creating SNP Roles ...")
-		for snp, v in snp_gene.iteritems():
-			self.addSNPEntrezRoles(((snp, g, role_ids[role_list[(snp+g)%3][0]]) for g in v))
-		self.log("OK\n")
+		# define role codes
+		self.log("adding SNP role codes to the database ...")
+		listRole = [
+			#(role,desc,coding,exon)
+			('exon',   'exon',                1, 1),
+			('utr',    'untranslated region', 0, 1),
+			('intron', 'intron',              0, 0),
+			('reg',    'regulatory',          1, 0),
+		]
+		roleID = self.addRoles(listRole)
+		self.log(" OK: %d role codes\n" % len(roleID))
 		
-		# Add some SNPs
-		self.log("Creating SNPs ...")
-		for chr in chr_snp:
-			self.addChromosomeSNPLoci(chr, ((r, r*7 - (chr-1)*20*7, r%4!=0) for r in chr_snp[chr]))
-		self.log("OK\n")
+		# define SNP roles
+		self.log("adding SNP roles to the database ...")
+		listSNPRole = [
+			#(rs,entrez_id,role_id)
+			(11,0,roleID['reg']),
+			(12,1,roleID['exon']),
+			(13,2,roleID['utr']),
+			(13,2,roleID['intron']),
+			# no role for rs14 which overlaps rs13
+			(15,2,roleID['reg']),
+			(15,3,roleID['exon']),
+			(16,3,roleID['intron']),
+			(16,4,roleID['intron']),
+			(17,3,roleID['reg']),
+			(18,5,roleID['exon']),
+			(19,5,roleID['exon']),
+			# no role for rs21
+			(22,8,roleID['utr']),
+			(23,8,roleID['intron']),
+			(24,8,roleID['reg']),
+			(24,9,roleID['exon']),
+			(25,16,roleID['reg']),
+			(36,19,roleID['intron']),
+			(37,19,roleID['exon']),
+		]
+		self.addSNPEntrezRoles(listSNPRole)
+		self.log(" OK: %d roles\n" % len(listSNPRole))
+	#update()
+	
+	
+#Source_test_snp
