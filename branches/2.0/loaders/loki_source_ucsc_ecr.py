@@ -18,7 +18,7 @@ class Source_ucsc_ecr(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.0a1 (2012-07-06)'
+		return '2.0a2 (2012-09-13)'
 	#getVersionString()
 	
 	
@@ -138,11 +138,11 @@ class Source_ucsc_ecr(loki_source.Source):
 				
 				self.addGroupBiopolymers(gid_rid)
 
-				self.addGroupRelationships(((chr_grp_ids[-1], b, rel_id) for b in band_gids))
+				self.addGroupRelationships(((chr_grp_ids[-1], b, rel_id, 1) for b in band_gids))
 				
 				self.log("OK (%d regions found in %d bands)\n" % (num_regions, curr_band - 1))
 			
-			self.addGroupRelationships(((ecr_gid, c, rel_id) for c in chr_grp_ids))
+			self.addGroupRelationships(((ecr_gid, c, rel_id, 1) for c in chr_grp_ids))
 			
 			self.logPop("... OK\n")
 

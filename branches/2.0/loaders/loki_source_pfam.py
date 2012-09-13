@@ -8,7 +8,7 @@ class Source_pfam(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.0a1 (2012-08-15)'
+		return '2.0a2 (2012-09-13)'
 	#getVersionString()
 	
 	
@@ -87,7 +87,7 @@ class Source_pfam(loki_source.Source):
 		# store protein family meta-group links
 		self.log("writing protein family links to the database ...")
 		for group in groupAcc:
-			self.addGroupRelationships( (accGID[pfamAcc],groupGID[group],relationshipID['']) for pfamAcc in groupAcc[group] )
+			self.addGroupRelationships( (accGID[pfamAcc],groupGID[group],relationshipID[''],None) for pfamAcc in groupAcc[group] )
 		self.log(" OK\n")
 		
 		# process associations

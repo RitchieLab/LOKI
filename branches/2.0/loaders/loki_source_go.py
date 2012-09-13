@@ -9,7 +9,7 @@ class Source_go(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.0a1 (2012-08-15)'
+		return '2.0a2 (2012-09-13)'
 	#getVersionString()
 	
 	
@@ -144,7 +144,7 @@ class Source_go(loki_source.Source):
 		for goID in goLinks:
 			for link in (goLinks[goID] or empty):
 				if link[0] in goGID:
-					listLinks.append( (goGID[goID],goGID[link[0]],link[1]) )
+					listLinks.append( (goGID[goID],goGID[link[0]],link[1],None) )
 		self.addGroupRelationships(listLinks)
 		self.log(" OK\n")
 		
