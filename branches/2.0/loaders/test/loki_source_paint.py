@@ -1,7 +1,7 @@
 import loki_source
 
 
-class Source_test_paint(loki_source.Source):
+class Source_paint(loki_source.Source):
 	
 	
 	@classmethod
@@ -94,4 +94,4 @@ class Source_test_paint(loki_source.Source):
 	#update()
 	
 	
-#Source_test_paint
+#Source_paint

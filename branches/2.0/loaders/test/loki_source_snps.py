@@ -1,7 +1,7 @@
 import loki_source
 
 
-class Source_test_snp(loki_source.Source):
+class Source_snps(loki_source.Source):
 	
 	
 	@classmethod
@@ -102,4 +102,4 @@ class Source_test_snp(loki_source.Source):
 	#update()
 	
 	
-#Source_test_snp
+#Source_snps

@@ -1,7 +1,7 @@
 import loki_source
 
 
-class Source_test_gene(loki_source.Source):
+class Source_genes(loki_source.Source):
 	
 	
 	@classmethod
@@ -121,4 +121,4 @@ class Source_test_gene(loki_source.Source):
 	#update()
 	
 	
-#Source_test_gene
+#Source_genes

@@ -1,7 +1,7 @@
 import loki_source
 
 
-class Source_test_spectrum(loki_source.Source):
+class Source_spectrum(loki_source.Source):
 	
 	
 	@classmethod
@@ -75,4 +75,4 @@ class Source_test_spectrum(loki_source.Source):
 	#update()
 	
 	
-#Source_test_spectrum
+#Source_spectrum
