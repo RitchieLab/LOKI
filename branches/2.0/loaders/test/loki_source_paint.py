@@ -6,7 +6,7 @@ class Source_paint(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return "2.0a1 (2012-09-13)"
+		return "2.0a1 (2012-09-14)"
 	#getVersionString()
 	
 	
