@@ -39,9 +39,9 @@ class Source_test_light(loki_source.Source):
 		self.log("adding groups to the database ...")
 		listGroup = [
 			#(label,description)
-			('red',   'redundant member name'),
+			('red',   'normal group'),
 			('green', 'unknown member'),
-			('blue',  'normal group'),
+			('blue',  'redundant member name'),
 			('gray',  'large parent group'),
 		]
 		listGID = self.addTypedGroups(typeID['group'], listGroup)
@@ -79,14 +79,14 @@ class Source_test_light(loki_source.Source):
 			#(group_id,member,name)
 			(groupGID['red'],   11, 'A'),
 			(groupGID['red'],   12, 'B'),
-			(groupGID['red'],   12, 'B2'),
 			(groupGID['green'], 21, 'Z'),
 			(groupGID['green'], 22, 'A'),
-			(groupGID['green'], 23, 'C'),
-			(groupGID['blue'],  31, 'B'),
+			(groupGID['green'], 23, 'B'),
+			(groupGID['blue'],  31, 'A'),
+			(groupGID['blue'],  31, 'A2'),
 			(groupGID['blue'],  32, 'C'),
-			(groupGID['gray'],  41, 'A'),
-			(groupGID['gray'],  42, 'B2'),
+			(groupGID['gray'],  41, 'A2'),
+			(groupGID['gray'],  42, 'B'),
 			(groupGID['gray'],  43, 'C'),
 			(groupGID['gray'],  44, 'D'),
 			(groupGID['gray'],  45, 'E'),

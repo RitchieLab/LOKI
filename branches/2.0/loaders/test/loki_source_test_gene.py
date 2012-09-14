@@ -63,8 +63,9 @@ class Source_test_gene(loki_source.Source):
 		self.addBiopolymerNamespacedNames(namespaceID['entrez_gid'], genEName)
 		listGName = [
 			#(biopolymer_id,name)
-			(geneBID['A'], 'A'),
-			(geneBID['B'], 'B'),  (geneBID['B'], 'B2'),
+			# nothing has name 'Z'
+			(geneBID['A'], 'A'),  (geneBID['A'], 'A2'),
+			(geneBID['B'], 'B'),
 			(geneBID['C'], 'C'),
 			(geneBID['D'], 'D'),  (geneBID['D'], 'DE'),
 			(geneBID['E'], 'E'),  (geneBID['E'], 'DE'),  (geneBID['E'], 'EF'),
@@ -96,8 +97,8 @@ class Source_test_gene(loki_source.Source):
 		ld1 = ldprofileID['ld']
 		listRegion = [
 			#(biopolymer_id,ldprofile_id,chr,posMin,posMax)
-			(geneBID['A'], ld0, 1,  8, 22),  (geneBID['A'], ld1, 1,  6, 23), # expand both, no gain
-			(geneBID['B'], ld0, 1, 24, 52),  (geneBID['B'], ld1, 1, 23, 52), # expand left, no gain
+			(geneBID['A'], ld0, 1,  8, 22),  (geneBID['A'], ld1, 1,  6, 24), # expand both, no gain
+			(geneBID['B'], ld0, 1, 28, 52),  (geneBID['B'], ld1, 1, 26, 52), # expand left, no gain
 			(geneBID['C'], ld0, 1, 54, 62),  (geneBID['C'], ld1, 1, 48, 64), # expand both, gain dupe
 			(geneBID['D'], ld0, 1, 58, 72),  (geneBID['D'], ld1, 1, 54, 74), # expand both, gain 1
 			(geneBID['E'], ld0, 1, 78, 82),  (geneBID['E'], ld1, 1, 78, 84), # expand in, no gain

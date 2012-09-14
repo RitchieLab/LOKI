@@ -75,7 +75,7 @@ class Source_test_paint(loki_source.Source):
 		self.log("adding group members to the database ...")
 		listMember = [
 			#(group_id,member,name)
-			(groupGID['cyan'],    11, 'B2'),
+			(groupGID['cyan'],    11, 'A2'),
 			(groupGID['cyan'],    12, 'C'),
 			(groupGID['cyan'],    13, 'D'),
 			(groupGID['cyan'],    13, 'DE'),
