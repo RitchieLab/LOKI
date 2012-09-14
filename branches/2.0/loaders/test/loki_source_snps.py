@@ -87,7 +87,7 @@ class Source_snps(loki_source.Source):
 			(16,4,roleID['intron']),
 			(17,3,roleID['reg']),
 			(18,5,roleID['exon']),
-			(19,5,roleID['exon']),
+			( 9,5,roleID['exon']), # rs9 merged -> rs19
 			# no role for rs21
 			(22,8,roleID['utr']),
 			(23,8,roleID['intron']),
