@@ -13,7 +13,8 @@ class Database(object):
 	# public class data
 	
 	
-	ver_maj,ver_min,ver_rev,ver_dev,ver_date = 2,0,0,'a9','2012-09-13'
+	# ver_dev must be in ('a','b','rc','release') for lexicographic sorting
+	ver_maj,ver_min,ver_rev,ver_dev,ver_build,ver_date = 2,0,0,'a',10,'2012-09-24'
 	
 	# hardcode translations between chromosome numbers and textual tags
 	chr_num = {}
@@ -500,35 +501,19 @@ class Database(object):
 	
 	
 	@classmethod
-	def getVersionString(cls):
-		return "%d.%d.%d%s%s (%s)" % (cls.ver_maj, cls.ver_min, cls.ver_rev, ("-" if cls.ver_dev else ""), (cls.ver_dev or ""), cls.ver_date)
-	#getVersionString()
+	def getVersionTuple(cls):
+		return (cls.ver_maj, cls.ver_min, cls.ver_rev, cls.ver_dev, cls.ver_build, cls.ver_date)
+	#getVersionTuple()
 	
 	
 	@classmethod
-	def checkMinimumVersion(cls, major=None, minor=None, revision=None, development=None):
-		if (major == None) or (cls.ver_maj > major):
-			return True
-		if cls.ver_maj < major:
-			return False
-		
-		if (minor == None) or (cls.ver_min > minor):
-			return True
-		if cls.ver_min < minor:
-			return False
-		
-		if (revision == None) or (cls.ver_rev > revision):
-			return True
-		if cls.ver_rev < revision:
-			return False
-		
-		if (development == None) or (not cls.ver_dev) or (cls.ver_dev > development):
-			return True
-		if cls.ver_dev < development:
-			return False
-		
-		return True
-	#checkMinimumVersion()
+	def getVersionString(cls):
+		# ver_dev has to be > 'rc' for releases for lexicographic comparison,
+		# but we don't need to actually print 'release' in the version string
+		t = list(cls.getVersionTuple())
+		t[3] = "" if t[3] == "release" else t[3]
+		return "%d.%d.%d%s%s (%s)" % tuple(t)
+	#getVersionString()
 	
 	
 	@classmethod
@@ -1281,6 +1266,34 @@ LEFT JOIN `db`.`biopolymer` AS b
 	#generateBiopolymerIDsByName()
 	
 	
+	def generateBiopolymerIDsBySearch(self, texts, typeID=None):
+		# texts=[ text, ... ]
+		# yields (id,label)
+		
+		sql = """
+SELECT b.biopolymer_id, b.label
+FROM `db`.`biopolymer` AS b
+LEFT JOIN `db`.`biopolymer_name` AS bn USING (biopolymer_id)
+WHERE
+  (
+    b.label LIKE '%'||?1||'%'
+    OR b.description LIKE '%'||?1||'%'
+    OR bn.name LIKE '%'||?1||'%'
+  )
+"""
+		if typeID:
+			sql += """
+  AND b.type_id = %d
+""" % typeID
+		
+		sql += """
+GROUP BY b.biopolymer_id
+"""
+		
+		return self._db.cursor().executemany(sql, itertools.izip(texts))
+	#generateBiopolymerIDsBySearch()
+	
+	
 	def generateBiopolymerNameStats(self, namespaceID=None, typeID=None):
 		sql = """
 SELECT
@@ -1396,6 +1409,34 @@ LEFT JOIN `db`.`group` AS g
 			tally['ambig'] = numAmbig
 			tally['match'] = numMatch
 	#generateGroupIDsByName()
+	
+	
+	def generateGroupIDsBySearch(self, texts, typeID=None):
+		# texts=[ text, ... ]
+		# yields (id,label)
+		
+		sql = """
+SELECT group_id, g.label
+FROM `db`.`group` AS g
+LEFT JOIN `db`.`group_name` AS gn USING (group_id)
+WHERE
+  (
+    g.label LIKE '%'||?1||'%'
+    OR g.description LIKE '%'||?1||'%'
+    OR gn.name LIKE '%'||?1||'%'
+  )
+"""
+		if typeID:
+			sql += """
+  AND g.type_id = %d
+""" % typeID
+		
+		sql += """
+GROUP BY group_id
+"""
+		
+		return self._db.cursor().executemany(sql, itertools.izip(texts))
+	#generateGroupIDsBySearch()
 	
 	
 	def generateGroupNameStats(self, namespaceID=None, typeID=None):
