@@ -10,11 +10,55 @@ class Database(object):
 	
 	
 	##################################################
+	# class interrogation
+	
+	
+	@classmethod
+	def getVersionTuple(cls):
+		# tuple = (major,minor,revision,dev,build,date)
+		# dev must be in ('a','b','rc','release') for lexicographic comparison
+		return (2,0,0,'a',11,'2012-09-27')
+	#getVersionTuple()
+	
+	
+	@classmethod
+	def getVersionString(cls):
+		v = list(cls.getVersionTuple())
+		# tuple = (major,minor,revision,dev,build,date)
+		# dev must be in > 'rc' for releases for lexicographic comparison,
+		# but we don't need to actually print 'release' in the version string
+		v[3] = '' if v[3] > 'rc' else v[3]
+		return "%d.%d.%d%s%s (%s)" % tuple(v)
+	#getVersionString()
+	
+	
+	@classmethod
+	def getDatabaseDriverName(cls):
+		return "SQLite"
+	#getDatabaseDriverName()
+	
+	
+	@classmethod
+	def getDatabaseDriverVersion(cls):
+		return apsw.sqlitelibversion()
+	#getDatabaseDriverVersion()
+	
+	
+	@classmethod
+	def getDatabaseInterfaceName(cls):
+		return "APSW"
+	#getDatabaseInterfaceName()
+	
+	
+	@classmethod
+	def getDatabaseInterfaceVersion(cls):
+		return apsw.apswversion()
+	#getDatabaseInterfaceVersion()
+	
+	
+	##################################################
 	# public class data
 	
-	
-	# ver_dev must be in ('a','b','rc','release') for lexicographic sorting
-	ver_maj,ver_min,ver_rev,ver_dev,ver_build,ver_date = 2,0,0,'a',10,'2012-09-24'
 	
 	# hardcode translations between chromosome numbers and textual tags
 	chr_num = {}
@@ -494,50 +538,6 @@ class Database(object):
 		}, #.db
 		
 	} #_schema{}
-	
-	
-	##################################################
-	# class interrogation
-	
-	
-	@classmethod
-	def getVersionTuple(cls):
-		return (cls.ver_maj, cls.ver_min, cls.ver_rev, cls.ver_dev, cls.ver_build, cls.ver_date)
-	#getVersionTuple()
-	
-	
-	@classmethod
-	def getVersionString(cls):
-		# ver_dev has to be > 'rc' for releases for lexicographic comparison,
-		# but we don't need to actually print 'release' in the version string
-		t = list(cls.getVersionTuple())
-		t[3] = "" if t[3] == "release" else t[3]
-		return "%d.%d.%d%s%s (%s)" % tuple(t)
-	#getVersionString()
-	
-	
-	@classmethod
-	def getDatabaseDriverName(cls):
-		return "SQLite"
-	#getDatabaseDriverName()
-	
-	
-	@classmethod
-	def getDatabaseDriverVersion(cls):
-		return apsw.sqlitelibversion()
-	#getDatabaseDriverVersion()
-	
-	
-	@classmethod
-	def getDatabaseInterfaceName(cls):
-		return "APSW"
-	#getDatabaseInterfaceName()
-	
-	
-	@classmethod
-	def getDatabaseInterfaceVersion(cls):
-		return apsw.apswversion()
-	#getDatabaseInterfaceVersion()
 	
 	
 	##################################################
@@ -1022,6 +1022,19 @@ class Database(object):
 	# metadata retrieval
 	
 	
+	def generateGRChByUCSChg(self, ucschg):
+		return (row[0] for row in self._db.cursor().execute("SELECT grch FROM grch_ucschg WHERE ucschg = ?", (ucschg,)))
+	#generateGRChByUCSChg()
+	
+	
+	def getUCSChgByGRCh(self, grch):
+		ucschg = None
+		for row in self._db.cursor().execute("SELECT ucschg FROM grch_ucschg WHERE grch = ?", (grch,)):
+			ucschg = row[0]
+		return ucschg
+	#getUCSChgByGRCh()
+	
+	
 	def getLDProfileID(self, ldprofile):
 		return self.getLDProfileIDs([ldprofile])[ldprofile]
 	#getLDProfileID()
@@ -1087,14 +1100,45 @@ class Database(object):
 	#getSourceID()
 	
 	
-	def getSourceIDs(self, sources):
+	def getSourceIDs(self, sources=None):
 		if not self._dbFile:
-			return { s:None for s in sources }
-		sql = "SELECT i.source, s.source_id FROM (SELECT ? AS source) AS i LEFT JOIN `db`.`source` AS s ON s.source = LOWER(i.source)"
-		with self._db:
-			ret = { row[0]:row[1] for row in self._db.cursor().executemany(sql, itertools.izip(sources)) }
+			return { s:None for s in (sources or list()) }
+		if sources:
+			sql = "SELECT i.source, s.source_id FROM (SELECT ? AS source) AS i LEFT JOIN `db`.`source` AS s ON s.source = LOWER(i.source)"
+			with self._db:
+				ret = { row[0]:row[1] for row in self._db.cursor().executemany(sql, itertools.izip(sources)) }
+		else:
+			sql = "SELECT source, source_id FROM `db`.`source`"
+			with self._db:
+				ret = { row[0]:row[1] for row in self._db.cursor().execute(sql) }
 		return ret
 	#getSourceIDs()
+	
+	
+	def getSourceIDVersion(self, sourceID):
+		sql = "SELECT version FROM `db`.`source` WHERE source_id = ?"
+		ret = None
+		with self._db:
+			for row in self._db.cursor().execute(sql, (sourceID,)):
+				ret = row[0]
+		return ret
+	#getSourceIDVersion()
+	
+	
+	def getSourceIDOptions(self, sourceID):
+		sql = "SELECT option, value FROM `db`.`source_option` WHERE source_id = ?"
+		with self._db:
+			ret = { row[0]:row[1] for row in self._db.cursor().execute(sql, (sourceID,)) }
+		return ret
+	#getSourceIDOptions()
+	
+	
+	def getSourceIDFiles(self, sourceID):
+		sql = "SELECT filename, modified, size, md5 FROM `db`.`source_file` WHERE source_id = ?"
+		with self._db:
+			ret = { row[0]:tuple(row[1:]) for row in self._db.cursor().execute(sql, (sourceID,)) }
+		return ret
+	#getSourceIDFiles()
 	
 	
 	def getTypeID(self, type):
@@ -1142,7 +1186,7 @@ LEFT JOIN `db`.`snp_merge` AS sm USING (rsMerged)
 	#generateCurrentRSesByRS()
 	
 	
-	def generateSNPLociByRS(self, rses, minMatch=1, maxMatch=1, validated=None, tally=None):
+	def generateSNPLociByRS(self, rses, minMatch=1, maxMatch=1, validated=None, tally=None, errorCallback=None):
 		# rses=[ rs, ... ]
 		# tally=dict()
 		# yield:[ (rs,chr,pos), ... ]
@@ -1154,33 +1198,41 @@ LEFT JOIN `db`.`snp_locus` AS sl
 """
 		if validated != None:
 			sql += "  AND sl.validated = %d" % (1 if validated else 0)
-		key = matches = None
-		numNull = numAmbig = numMatch = 0
+		
+		rs = matches = None
+		numZero = numOne = numMany = 0
 		with self._db:
 			for row in itertools.chain(self._db.cursor().executemany(sql, itertools.izip(rses)), [(None,None,None)]):
-				if key != row[0]:
-					if key:
-						if tally != None:
-							if not matches:
-								numNull += 1
-							elif len(matches) > 1:
-								numAmbig += 1
-							else:
-								numMatch += 1
-						if (minMatch or 0) < 1 and not matches:
-							yield (key,None,None)
-						elif (minMatch or 0) <= len(matches) <= (maxMatch or len(matches)):
-							for match in matches:
-								yield match
-					key = row[0]
+				if rs != row[0]:
+					if rs:
+						if not matches:
+							numZero += 1
+							if minMatch < 1:
+								yield (rs,None,None)
+							elif errorCallback:
+								errorCallback(name, "no matches")
+						elif len(matches) == 1:
+							numOne += 1
+							if minMatch <= len(matches) <= maxMatch:
+								yield next(match)
+							elif errorCallback:
+								errorCallback(name, "1 match")
+						else:
+							numMany += 1
+							if minMatch <= len(matches) <= maxMatch:
+								for match in matches:
+									yield match
+							elif errorCallback:
+								errorCallback(name, "%d matches" % len(matches))
+					rs = row[0]
 					matches = set()
 				if row[1] and row[2]:
 					matches.add(row)
 			#foreach row
 		if tally != None:
-			tally['null'] = numNull
-			tally['ambig'] = numAmbig
-			tally['match'] = numMatch
+			tally['zero'] = numZero
+			tally['one']  = numOne
+			tally['many'] = numMany
 	#generateSNPLociByRS()
 	
 	
@@ -1196,7 +1248,7 @@ LEFT JOIN `db`.`snp_locus` AS sl
 	#generateBiopolymersByID()
 	
 	
-	def generateBiopolymerIDsByName(self, names, minMatch=1, maxMatch=1, tally=None, namespaceID=None, typeID=None):
+	def generateBiopolymerIDsByName(self, names, minMatch=1, maxMatch=1, tally=None, namespaceID=None, typeID=None, errorCallback=None):
 		# names=[ name, ... ]
 		# tally=dict()
 		# namespaceID=0 means to search names using any namespace
@@ -1236,33 +1288,40 @@ LEFT JOIN `db`.`biopolymer` AS b
   AND b.type_id = %d
 """ % typeID
 		
-		key = matches = None
-		numNull = numAmbig = numMatch = 0
+		name = matches = None
+		numZero = numOne = numMany = 0
 		with self._db:
 			for row in itertools.chain(self._db.cursor().executemany(sql, itertools.izip(names)), [(None,None)]):
-				if key != row[0]:
-					if key:
-						if tally != None:
-							if not matches:
-								numNull += 1
-							elif len(matches) > 1:
-								numAmbig += 1
-							else:
-								numMatch += 1
-						if minMatch < 1 and not matches:
-							yield (key,None)
-						elif (minMatch or 0) <= len(matches) <= (maxMatch or len(matches)):
-							for match in matches:
-								yield match
-					key = row[0]
+				if name != row[0]:
+					if name:
+						if not matches:
+							numZero += 1
+							if minMatch < 1:
+								yield (name,None)
+							elif errorCallback:
+								errorCallback(name, "no matches")
+						elif len(matches) == 1:
+							numOne += 1
+							if minMatch <= len(matches) <= maxMatch:
+								yield next(match)
+							elif errorCallback:
+								errorCallback(name, "1 match")
+						else:
+							numMany += 1
+							if minMatch <= len(matches) <= maxMatch:
+								for match in matches:
+									yield match
+							elif errorCallback:
+								errorCallback(name, "%d matches" % len(matches))
+					name = row[0]
 					matches = set()
 				if row[1]:
 					matches.add(row)
 			#foreach row
 		if tally != None:
-			tally['null'] = numNull
-			tally['ambig'] = numAmbig
-			tally['match'] = numMatch
+			tally['zero'] = numZero
+			tally['one']  = numOne
+			tally['many'] = numMany
 	#generateBiopolymerIDsByName()
 	
 	
@@ -1341,7 +1400,7 @@ GROUP BY namespace_id
 	#generateGroupsByID()
 	
 	
-	def generateGroupIDsByName(self, names, minMatch=1, maxMatch=1, tally=None, namespaceID=None, typeID=None):
+	def generateGroupIDsByName(self, names, minMatch=1, maxMatch=1, tally=None, namespaceID=None, typeID=None, errorCallback=None):
 		# names=[ name, ... ]
 		# tally=dict()
 		# namespaceID=0 means to search names using any namespace
@@ -1381,33 +1440,40 @@ LEFT JOIN `db`.`group` AS g
   AND g.type_id = %d
 """ % typeID
 		
-		key = matches = None
-		numNull = numAmbig = numMatch = 0
+		name = matches = None
+		numZero = numOne = numMany = 0
 		with self._db:
 			for row in itertools.chain(self._db.cursor().executemany(sql, itertools.izip(names)), [(None,None)]):
-				if key != row[0]:
-					if key:
-						if tally != None:
-							if not matches:
-								numNull += 1
-							elif len(matches) > 1:
-								numAmbig += 1
-							else:
-								numMatch += 1
-						if minMatch < 1 and not matches:
-							yield (key,None)
-						elif (minMatch or 0) <= len(matches) <= (maxMatch or len(matches)):
-							for match in matches:
-								yield match
-					key = row[0]
+				if name != row[0]:
+					if name:
+						if not matches:
+							numZero += 1
+							if minMatch < 1:
+								yield (name,None)
+							elif errorCallback:
+								errorCallback(name, "no matches")
+						elif len(matches) == 1:
+							numOne += 1
+							if minMatch <= len(matches) <= maxMatch:
+								yield next(match)
+							elif errorCallback:
+								errorCallback(name, "1 match")
+						else:
+							numMany += 1
+							if minMatch <= len(matches) <= maxMatch:
+								for match in matches:
+									yield match
+							elif errorCallback:
+								errorCallback(name, "%d matches" % len(matches))
+					name = row[0]
 					matches = set()
 				if row[1]:
 					matches.add(row)
 			#foreach row
 		if tally != None:
-			tally['null'] = numNull
-			tally['ambig'] = numAmbig
-			tally['match'] = numMatch
+			tally['zero'] = numZero
+			tally['one']  = numOne
+			tally['many'] = numMany
 	#generateGroupIDsByName()
 	
 	
