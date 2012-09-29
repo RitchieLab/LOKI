@@ -1214,7 +1214,8 @@ LEFT JOIN `db`.`snp_locus` AS sl
 						elif len(matches) == 1:
 							numOne += 1
 							if minMatch <= len(matches) <= maxMatch:
-								yield next(match)
+								for match in matches:
+									yield match
 							elif errorCallback:
 								errorCallback(name, "1 match")
 						else:
@@ -1303,7 +1304,8 @@ LEFT JOIN `db`.`biopolymer` AS b
 						elif len(matches) == 1:
 							numOne += 1
 							if minMatch <= len(matches) <= maxMatch:
-								yield next(match)
+								for match in matches:
+									yield match
 							elif errorCallback:
 								errorCallback(name, "1 match")
 						else:
@@ -1455,7 +1457,8 @@ LEFT JOIN `db`.`group` AS g
 						elif len(matches) == 1:
 							numOne += 1
 							if minMatch <= len(matches) <= maxMatch:
-								yield next(match)
+								for match in matches:
+									yield match
 							elif errorCallback:
 								errorCallback(name, "1 match")
 						else:
