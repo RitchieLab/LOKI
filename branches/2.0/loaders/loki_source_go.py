@@ -9,7 +9,7 @@ class Source_go(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.0a2 (2012-09-13)'
+		return '2.0a3 (2012-10-03)'
 	#getVersionString()
 	
 	
@@ -112,13 +112,19 @@ class Source_go(loki_source.Source):
 					pass #TODO
 				elif tag == 'is_a':
 					curLinks = curLinks or set()
-					curLinks.add( (val.split()[0], relationshipID['is_a']) )
+					curLinks.add( (val.split()[0], relationshipID['is_a'], -1) )
 				elif tag == 'relationship':
 					curLinks = curLinks or set()
 					words = val.split()
 					if words[0] not in relationshipID:
 						relationshipID[words[0]] = self.addRelationship(words[0])
-					curLinks.add( (words[1], relationshipID[words[0]]) )
+					if words[0] == 'part_of':
+						contains = -1
+					elif words[0] in ('regulates','positively_regulates','negatively_regulates'):
+						contains = 0
+					else:
+						contains = None
+					curLinks.add( (words[1], relationshipID[words[0]], contains) )
 			#foreach line
 		#with oboFile
 		numTerms = len(goName)
@@ -144,7 +150,7 @@ class Source_go(loki_source.Source):
 		for goID in goLinks:
 			for link in (goLinks[goID] or empty):
 				if link[0] in goGID:
-					listLinks.append( (goGID[goID],goGID[link[0]],link[1],None) )
+					listLinks.append( (goGID[goID],goGID[link[0]],link[1],link[2]) )
 		self.addGroupRelationships(listLinks)
 		self.log(" OK\n")
 		
