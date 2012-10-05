@@ -6,6 +6,13 @@ import itertools
 import sys
 
 
+"""
+2.0.0a12
+- pluralized method names generateCurrentRSesByRS(), generateSNPLociByRS(), generateBiopolymersByID()
+- replaced generate[Biopolymer|Group]IDsByName() with generate[Typed][Biopolymer|Group]IDsByIdentifiers()
+- added generateTyped[Biopolymer|Group]IDsBySearch()
+"""
+
 class Database(object):
 	
 	
@@ -17,7 +24,7 @@ class Database(object):
 	def getVersionTuple(cls):
 		# tuple = (major,minor,revision,dev,build,date)
 		# dev must be in ('a','b','rc','release') for lexicographic comparison
-		return (2,0,0,'a',11,'2012-10-01')
+		return (2,0,0,'a',12,'2012-10-05')
 	#getVersionTuple()
 	
 	
@@ -581,6 +588,7 @@ class Database(object):
 	##################################################
 	# logging
 	
+	
 	def _checkTesting(self):
 		now_test = self.getDatabaseSetting("testing")
 		if now_test is None or bool(int(now_test)) == bool(self._is_test):
@@ -589,6 +597,7 @@ class Database(object):
 		else:
 			return False
 	# setTesting(is_test)
+	
 	
 	def getVerbose(self):
 		return self._verbose
@@ -1160,7 +1169,7 @@ class Database(object):
 	# snp data retrieval
 	
 	
-	def generateCurrentRSesByRS(self, rses, tally=None):
+	def generateCurrentRSesByRSes(self, rses, tally=None):
 		# rses=[ rs, ... ]
 		# tally=dict()
 		# yield:[ (rsInput,rsCurrent), ... ]
@@ -1183,10 +1192,10 @@ LEFT JOIN `db`.`snp_merge` AS sm USING (rsMerged)
 			else:
 				for row in self._db.cursor().executemany(sql, itertools.izip(rses)):
 					yield row
-	#generateCurrentRSesByRS()
+	#generateCurrentRSesByRSes()
 	
 	
-	def generateSNPLociByRS(self, rses, minMatch=1, maxMatch=1, validated=None, tally=None, errorCallback=None):
+	def generateSNPLociByRSes(self, rses, minMatch=1, maxMatch=1, validated=None, tally=None, errorCallback=None):
 		# rses=[ rs, ... ]
 		# tally=dict()
 		# yield:[ (rs,chr,pos), ... ]
@@ -1234,105 +1243,99 @@ LEFT JOIN `db`.`snp_locus` AS sl
 			tally['zero'] = numZero
 			tally['one']  = numOne
 			tally['many'] = numMany
-	#generateSNPLociByRS()
+	#generateSNPLociByRSes()
 	
 	
 	##################################################
 	# biopolymer data retrieval
 	
 	
-	def generateBiopolymersByID(self, ids):
+	def generateBiopolymersByIDs(self, ids):
 		# ids=[ id, ... ]
 		# yield:[ (id,type_id,label,description), ... ]
 		sql = "SELECT biopolymer_id, type_id, label, description FROM `db`.`biopolymer` WHERE biopolymer_id = ?"
 		return self._db.cursor().executemany(sql, itertools.izip(ids))
-	#generateBiopolymersByID()
+	#generateBiopolymersByIDs()
 	
 	
-	def generateBiopolymerIDsByName(self, names, minMatch=1, maxMatch=1, tally=None, namespaceID=None, typeID=None, errorCallback=None):
-		# names=[ name, ... ]
-		# tally=dict()
-		# namespaceID=0 means to search names using any namespace
-		# namespaceID=None means to search primary labels directly
-		# yields (name,id)
+	def _lookupBiopolymerIDs(self, typeID, identifiers, minMatch, maxMatch, tally, errorCallback):
+		# typeID=int or Falseish for any
+		# identifiers=[ (namespace,name), ... ]
+		#   namespace='-' for labels, not names
+		# minMatch=int or Falseish for none
+		# maxMatch=int or Falseish for none
+		# tally=dict() or None
+		# errorCallback=callable(input,error)
+		# yields (namespace,name,id)
 		
 		sql = """
-SELECT i.name, b.biopolymer_id
-FROM (SELECT ? AS name) AS i
-"""
-		
-		if namespaceID != None:
-			sql += """
+SELECT i.namespace, i.identifier, COALESCE(blabel.biopolymer_id,bname.biopolymer_id) AS biopolymer_id
+FROM (SELECT ?1 AS namespace, ?2 AS identifier) AS i
+LEFT JOIN `db`.`biopolymer` AS blabel
+  ON i.namespace = '-'
+  AND blabel.label = i.identifier
+  AND ( ({0} IS NULL) OR (blabel.type_id = {0}) )
+LEFT JOIN `db`.`namespace` AS n
+  ON i.namespace != '-'
+  AND n.namespace = COALESCE(NULLIF(LOWER(TRIM(i.namespace)),''),n.namespace)
 LEFT JOIN `db`.`biopolymer_name` AS bn
-  ON bn.name = i.name
-"""
-			if namespaceID:
-				sql += """
-  AND bn.namespace_id = %d
-""" % namespaceID
+  ON i.namespace != '-'
+  AND bn.name = i.identifier
+  AND bn.namespace_id = n.namespace_id
+LEFT JOIN `db`.`biopolymer` AS bname
+  ON i.namespace != '-'
+  AND bname.biopolymer_id = bn.biopolymer_id
+  AND ( ({0} IS NULL) OR (bname.type_id = {0}) )
+""".format(int(typeID) if typeID else "NULL")
 		
-		sql += """
-LEFT JOIN `db`.`biopolymer` AS b
-"""
-		
-		if namespaceID != None:
-			sql += """
-  ON b.biopolymer_id = bn.biopolymer_id
-"""
-		else:
-			sql += """
-  ON b.label = i.name
-"""
-		
-		if typeID:
-			sql += """
-  AND b.type_id = %d
-""" % typeID
-		
-		name = matches = None
+		identifier = matches = None
 		numZero = numOne = numMany = 0
 		with self._db:
-			for row in itertools.chain(self._db.cursor().executemany(sql, itertools.izip(names)), [(None,None)]):
-				if name != row[0]:
-					if name:
-						if not matches:
+			for row in itertools.chain(self._db.cursor().executemany(sql, identifiers), [(None,None,None)]):
+				if identifier != row[:-1]:
+					if identifier:
+						n = len(matches)
+						if n < 1:
 							numZero += 1
-							if minMatch < 1:
-								yield (name,None)
-							elif errorCallback:
-								errorCallback(name, "no matches")
-						elif len(matches) == 1:
+						elif n == 1:
 							numOne += 1
-							if minMatch <= len(matches) <= maxMatch:
-								for match in matches:
-									yield match
-							elif errorCallback:
-								errorCallback(name, "1 match")
 						else:
 							numMany += 1
-							if minMatch <= len(matches) <= maxMatch:
-								for match in matches:
-									yield match
-							elif errorCallback:
-								errorCallback(name, "%d matches" % len(matches))
-					name = row[0]
+						if (minMatch or n) <= n <= (maxMatch or n):
+							for match in (matches or [identifier+(None,)]):
+								yield match
+						elif errorCallback:
+							errorCallback(identifier, "%s match%s" % ((n or "no"),("" if n == 1 else "")))
+					identifier = row[:-1]
 					matches = set()
-				if row[1]:
+				if row[-1]:
 					matches.add(row)
 			#foreach row
 		if tally != None:
 			tally['zero'] = numZero
 			tally['one']  = numOne
 			tally['many'] = numMany
-	#generateBiopolymerIDsByName()
+	#_lookupBiopolymerIDs()
 	
 	
-	def generateBiopolymerIDsBySearch(self, texts, typeID=None):
-		# texts=[ text, ... ]
-		# yields (id,label)
+	def generateBiopolymerIDsByIdentifiers(self, identifiers, minMatch=1, maxMatch=1, tally=None, errorCallback=None):
+		# identifiers=[ (namespace,name), ... ]
+		return self._lookupBiopolymerIDs(None, identifiers, minMatch, maxMatch, tally, errorCallback)
+	#generateBiopolymerIDsByIdentifiers()
+	
+	
+	def generateTypedBiopolymerIDsByIdentifiers(self, typeID, identifiers, minMatch=1, maxMatch=1, tally=None, errorCallback=None):
+		# identifiers=[ (namespace,name), ... ]
+		return self._lookupBiopolymerIDs(typeID, identifiers, minMatch, maxMatch, tally, errorCallback)
+	#generateTypedBiopolymerIDsByIdentifiers()
+	
+	
+	def _searchBiopolymerIDs(self, typeID, texts):
+		# texts=[ (text,), ... ]
+		# yields (label,id)
 		
 		sql = """
-SELECT b.biopolymer_id, b.label
+SELECT b.label, b.biopolymer_id
 FROM `db`.`biopolymer` AS b
 LEFT JOIN `db`.`biopolymer_name` AS bn USING (biopolymer_id)
 WHERE
@@ -1342,17 +1345,29 @@ WHERE
     OR bn.name LIKE '%'||?1||'%'
   )
 """
+		
 		if typeID:
 			sql += """
   AND b.type_id = %d
 """ % typeID
+		#if typeID
 		
 		sql += """
 GROUP BY b.biopolymer_id
 """
 		
-		return self._db.cursor().executemany(sql, itertools.izip(texts))
+		return self._db.cursor().executemany(sql, texts)
+	#_searchBiopolymerIDs()
+	
+	
+	def generateBiopolymerIDsBySearch(self, searches):
+		return self._searchBiopolymerIDs(None, itertools.izip(searches))
 	#generateBiopolymerIDsBySearch()
+	
+	
+	def generateTypedBiopolymerIDsBySearch(self, typeID, searches):
+		return self._searchBiopolymerIDs(typeID, itertools.izip(searches))
+	#generateTypedBiopolymerIDsBySearch()
 	
 	
 	def generateBiopolymerNameStats(self, namespaceID=None, typeID=None):
@@ -1394,98 +1409,92 @@ GROUP BY namespace_id
 	# group data retrieval
 	
 	
-	def generateGroupsByID(self, ids):
+	def generateGroupsByIDs(self, ids):
 		# ids=[ id, ... ]
 		# yield:[ (id,type_id,label,description), ... ]
 		sql = "SELECT group_id, type_id, label, description FROM `db`.`group` WHERE group_id = ?"
 		return self._db.cursor().executemany(sql, itertools.izip(ids))
-	#generateGroupsByID()
+	#generateGroupsByIDs()
 	
 	
-	def generateGroupIDsByName(self, names, minMatch=1, maxMatch=1, tally=None, namespaceID=None, typeID=None, errorCallback=None):
-		# names=[ name, ... ]
-		# tally=dict()
-		# namespaceID=0 means to search names using any namespace
-		# namespaceID=None means to search primary labels directly
-		# yields (name,id)
+	def _lookupGroupIDs(self, typeID, identifiers, minMatch, maxMatch, tally, errorCallback):
+		# typeID=int or Falseish for any
+		# identifiers=[ (namespace,name), ... ]
+		#   namespace='' for any, '-' for labels
+		# minMatch=int or Falseish for none
+		# maxMatch=int or Falseish for none
+		# tally=dict() or None
+		# errorCallback=callable(input,error)
+		# yields (namespace,name,id)
 		
 		sql = """
-SELECT i.name, g.group_id
-FROM (SELECT ? AS name) AS i
-"""
-		
-		if namespaceID != None:
-			sql += """
+SELECT i.namespace, i.identifier, COALESCE(glabel.group_id,gname.group_id) AS group_id
+FROM (SELECT ?1 AS namespace, ?2 AS identifier) AS i
+LEFT JOIN `db`.`group` AS glabel
+  ON i.namespace = '-'
+  AND glabel.label = i.identifier
+  AND ( ({0} IS NULL) OR (glabel.type_id = {0}) )
+LEFT JOIN `db`.`namespace` AS n
+  ON i.namespace != '-'
+  AND n.namespace = COALESCE(NULLIF(LOWER(TRIM(i.namespace)),''),n.namespace)
 LEFT JOIN `db`.`group_name` AS gn
-  ON gn.name = i.name
-"""
-			if namespaceID:
-				sql += """
-  AND gn.namespace_id = %d
-""" % namespaceID
+  ON i.namespace != '-'
+  AND gn.name = i.identifier
+  AND gn.namespace_id = n.namespace_id
+LEFT JOIN `db`.`group` AS gname
+  ON i.namespace != '-'
+  AND gname.group_id = gn.group_id
+  AND ( ({0} IS NULL) OR (gname.type_id = {0}) )
+""".format(int(typeID) if typeID else "NULL")
 		
-		sql += """
-LEFT JOIN `db`.`group` AS g
-"""
-		
-		if namespaceID != None:
-			sql += """
-  ON g.group_id = gn.group_id
-"""
-		else:
-			sql += """
-  ON g.label = i.name
-"""
-		
-		if typeID:
-			sql += """
-  AND g.type_id = %d
-""" % typeID
-		
-		name = matches = None
+		identifier = matches = None
 		numZero = numOne = numMany = 0
 		with self._db:
-			for row in itertools.chain(self._db.cursor().executemany(sql, itertools.izip(names)), [(None,None)]):
-				if name != row[0]:
-					if name:
-						if not matches:
+			for row in itertools.chain(self._db.cursor().executemany(sql, identifiers), [(None,None,None)]):
+				if identifier != row[:-1]:
+					if identifier:
+						n = len(matches)
+						if n < 1:
 							numZero += 1
-							if minMatch < 1:
-								yield (name,None)
-							elif errorCallback:
-								errorCallback(name, "no matches")
-						elif len(matches) == 1:
+						elif n == 1:
 							numOne += 1
-							if minMatch <= len(matches) <= maxMatch:
-								for match in matches:
-									yield match
-							elif errorCallback:
-								errorCallback(name, "1 match")
 						else:
 							numMany += 1
-							if minMatch <= len(matches) <= maxMatch:
-								for match in matches:
-									yield match
-							elif errorCallback:
-								errorCallback(name, "%d matches" % len(matches))
-					name = row[0]
+						if (minMatch or n) <= n <= (maxMatch or n):
+							for match in (matches or [identifier+(None,)]):
+								yield match
+						elif errorCallback:
+							errorCallback(identifier, "%s match%s" % ((n or "no"),("" if n == 1 else "")))
+					identifier = row[:-1]
 					matches = set()
-				if row[1]:
+				if row[-1]:
 					matches.add(row)
 			#foreach row
 		if tally != None:
 			tally['zero'] = numZero
 			tally['one']  = numOne
 			tally['many'] = numMany
-	#generateGroupIDsByName()
+	#_lookupGroupIDs()
 	
 	
-	def generateGroupIDsBySearch(self, texts, typeID=None):
-		# texts=[ text, ... ]
-		# yields (id,label)
+	def generateGroupIDsByIdentifiers(self, identifiers, minMatch=1, maxMatch=1, tally=None, errorCallback=None):
+		# identifiers=[ (namespace,name), ... ]
+		return self._lookupGroupIDs(None, identifiers, minMatch, maxMatch, tally, errorCallback)
+	#generateGroupIDsByIdentifiers()
+	
+	
+	def generateTypedGroupIDsByIdentifiers(self, typeID, identifiers, minMatch=1, maxMatch=1, tally=None, errorCallback=None):
+		# identifiers=[ (namespace,name), ... ]
+		return self._lookupGroupIDs(typeID, identifiers, minMatch, maxMatch, tally, errorCallback)
+	#generateTypedGroupIDsByIdentifiers()
+	
+	
+	def _searchGroupIDs(self, typeID, texts):
+		# texts=[ (text,), ... ]
+		# yields (label,id)
 		
 		sql = """
-SELECT group_id, g.label
+SELECT g.label, g.group_id
 FROM `db`.`group` AS g
 LEFT JOIN `db`.`group_name` AS gn USING (group_id)
 WHERE
@@ -1495,17 +1504,29 @@ WHERE
     OR gn.name LIKE '%'||?1||'%'
   )
 """
+		
 		if typeID:
 			sql += """
   AND g.type_id = %d
 """ % typeID
+		#if typeID
 		
 		sql += """
-GROUP BY group_id
+GROUP BY g.group_id
 """
 		
-		return self._db.cursor().executemany(sql, itertools.izip(texts))
+		return self._db.cursor().executemany(sql, texts)
+	#_searchGroupIDs()
+	
+	
+	def generateGroupIDsBySearch(self, searches):
+		return self._searchGroupIDs(None, itertools.izip(searches))
 	#generateGroupIDsBySearch()
+	
+	
+	def generateTypedGroupIDsBySearch(self, typeID, searches):
+		return self._searchGroupIDs(typeID, itertools.izip(searches))
+	#generateTypedGroupIDsBySearch()
 	
 	
 	def generateGroupNameStats(self, namespaceID=None, typeID=None):
