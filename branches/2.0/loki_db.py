@@ -6,13 +6,6 @@ import itertools
 import sys
 
 
-"""
-2.0.0a12
-- pluralized method names generateCurrentRSesByRS(), generateSNPLociByRS(), generateBiopolymersByID()
-- replaced generate[Biopolymer|Group]IDsByName() with generate[Typed][Biopolymer|Group]IDsByIdentifiers()
-- added generateTyped[Biopolymer|Group]IDsBySearch()
-"""
-
 class Database(object):
 	
 	
