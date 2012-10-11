@@ -419,8 +419,10 @@ void LdSplineImporter::InitPopulationIDs(map<string, int>& popIDs,
 					<< (*sItr).second
 					<< ");";
 
-			sqlite3_exec(_db, pop_ins_ss.str().c_str(), NULL, NULL, NULL);
-			sqlite3_exec(_db, pop_query.c_str(), parseSingleInt, &popID, NULL);
+			string pop = pop_ins_ss.str();
+
+			int err_code = sqlite3_exec(_db, pop_ins_ss.str().c_str(), NULL, NULL, NULL);
+			err_code = sqlite3_exec(_db, pop_query.c_str(), parseSingleInt, &popID, NULL);
 
 		} else {
 			stringstream del_ss;
@@ -437,11 +439,11 @@ void LdSplineImporter::InitPopulationIDs(map<string, int>& popIDs,
 void LdSplineImporter::LoadGenes() {
 
 	stringstream query_ss;
-	query_ss << "SELECT region_id, chr, posMin, posMax, region_bound.source_id "
+	query_ss << "SELECT biopolymer_id, chr, posMin, posMax, biopolymer_region.source_id "
 			<< "FROM biopolymer_region "
 			<< "INNER JOIN biopolymer USING (biopolymer_id) "
-			<< "INNER JOIN type ON region.type_id=type.type_id "
-			<< "INNER JOIN ldprofile ON ldprofile.ldprofile_id=region_bound.ldprofile_id"
+			<< "INNER JOIN type ON biopolymer.type_id=type.type_id "
+			<< "INNER JOIN ldprofile ON ldprofile.ldprofile_id=biopolymer_region.ldprofile_id "
 			<< "WHERE ldprofile='' AND type='gene' "
 			<< "ORDER BY chr, posMin;";
 
