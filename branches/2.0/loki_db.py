@@ -17,7 +17,7 @@ class Database(object):
 	def getVersionTuple(cls):
 		# tuple = (major,minor,revision,dev,build,date)
 		# dev must be in ('a','b','rc','release') for lexicographic comparison
-		return (2,0,0,'a',12,'2012-10-05')
+		return (2,0,0,'a',13,'2012-10-12')
 	#getVersionTuple()
 	
 	
@@ -1045,11 +1045,25 @@ class Database(object):
 	def getLDProfileIDs(self, ldprofiles):
 		if not self._dbFile:
 			return { l:None for l in ldprofiles }
-		sql = "SELECT i.ldprofile, l.ldprofile_id FROM (SELECT ? AS ldprofile) AS i LEFT JOIN `db`.`ldprofile` AS l ON l.ldprofile = LOWER(i.ldprofile)"
+		sql = "SELECT i.ldprofile, l.ldprofile_id FROM (SELECT ? AS ldprofile) AS i LEFT JOIN `db`.`ldprofile` AS l ON l.ldprofile = LOWER(TRIM(i.ldprofile))"
 		with self._db:
 			ret = { row[0]:row[1] for row in self._db.cursor().executemany(sql, itertools.izip(ldprofiles)) }
 		return ret
 	#getLDProfileIDs()
+	
+	
+	def getLDProfiles(self, ldprofiles=None):
+		if not self._dbFile:
+			return { l:None for l in (ldprofiles or list()) }
+		with self._db:
+			if ldprofiles:
+				sql = "SELECT i.ldprofile, l.ldprofile_id, l.description, l.metric, l.value FROM (SELECT ? AS ldprofile) AS i LEFT JOIN `db`.`ldprofile` AS l ON l.ldprofile = LOWER(TRIM(i.ldprofile))"
+				ret = { row[0]:row[1:] for row in self._db.cursor().executemany(sql, itertools.izip(ldprofiles)) }
+			else:
+				sql = "SELECT l.ldprofile, l.ldprofile_id, l.description, l.metric, l.value FROM `db`.`ldprofile` AS l"
+				ret = { row[0]:row[1:] for row in self._db.cursor().execute(sql) }
+		return ret
+	#getLDProfiles()
 	
 	
 	def getNamespaceID(self, namespace):
@@ -1694,7 +1708,7 @@ ORDER BY c.old_chr, score DESC, cd.old_start
 					mapped_reg = self._liftOverRegionUsingChains(label, start, end, first_seg, end_seg, total_mapped_sz)
 					if mapped_reg:
 						break
-					curr_chain = seg[0] #TODO ?
+					curr_chain = seg[0]
 					first_seg = seg
 					end_seg = seg
 					total_mapped_sz = seg[2] - seg[1]
@@ -1733,7 +1747,8 @@ ORDER BY c.old_chr, score DESC, cd.old_start
 #Database
 
 
-#TODO: temporary liftover testing code!
+# TODO: find a better place for this liftover testing code
+"""
 if __name__ == "__main__":
 	inputFile = file(sys.argv[1])
 	loki = Database(sys.argv[2])
@@ -1754,3 +1769,4 @@ if __name__ == "__main__":
 	
 	for region in loki.generateLiftOverRegions(oldHG, newHG, generateInput(), errorCallback=errorCallback):
 		print >> outputFile, "chr"+loki.chr_name.get(region[1],'?'), region[2], region[3]
+"""
