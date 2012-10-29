@@ -17,7 +17,7 @@ class Database(object):
 	def getVersionTuple(cls):
 		# tuple = (major,minor,revision,dev,build,date)
 		# dev must be in ('a','b','rc','release') for lexicographic comparison
-		return (2,0,0,'b',1,'2012-10-15')
+		return (2,0,0,'b',2,'2012-10-29')
 	#getVersionTuple()
 	
 	
@@ -1045,7 +1045,7 @@ class Database(object):
 	def getLDProfileIDs(self, ldprofiles):
 		if not self._dbFile:
 			return { l:None for l in ldprofiles }
-		sql = "SELECT i.ldprofile, l.ldprofile_id FROM (SELECT ? AS ldprofile) AS i LEFT JOIN `db`.`ldprofile` AS l ON l.ldprofile = LOWER(TRIM(i.ldprofile))"
+		sql = "SELECT i.ldprofile, l.ldprofile_id FROM (SELECT ? AS ldprofile) AS i LEFT JOIN `db`.`ldprofile` AS l ON LOWER(TRIM(l.ldprofile)) = LOWER(TRIM(i.ldprofile))"
 		with self._db:
 			ret = { row[0]:row[1] for row in self._db.cursor().executemany(sql, itertools.izip(ldprofiles)) }
 		return ret
@@ -1057,7 +1057,7 @@ class Database(object):
 			return { l:None for l in (ldprofiles or list()) }
 		with self._db:
 			if ldprofiles:
-				sql = "SELECT i.ldprofile, l.ldprofile_id, l.description, l.metric, l.value FROM (SELECT ? AS ldprofile) AS i LEFT JOIN `db`.`ldprofile` AS l ON l.ldprofile = LOWER(TRIM(i.ldprofile))"
+				sql = "SELECT i.ldprofile, l.ldprofile_id, l.description, l.metric, l.value FROM (SELECT ? AS ldprofile) AS i LEFT JOIN `db`.`ldprofile` AS l ON LOWER(TRIM(l.ldprofile)) = LOWER(TRIM(i.ldprofile))"
 				ret = { row[0]:row[1:] for row in self._db.cursor().executemany(sql, itertools.izip(ldprofiles)) }
 			else:
 				sql = "SELECT l.ldprofile, l.ldprofile_id, l.description, l.metric, l.value FROM `db`.`ldprofile` AS l"
