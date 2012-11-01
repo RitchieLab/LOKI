@@ -1,4 +1,6 @@
-import loki_source
+#!/usr/bin/env python
+
+from ... import loki_source
 
 
 class Source_genes(loki_source.Source):

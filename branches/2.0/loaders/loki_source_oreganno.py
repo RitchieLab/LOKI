@@ -1,5 +1,8 @@
-import loki_source
+#!/usr/bin/env python
+
 import itertools
+from .. import loki_source
+
 
 class Source_oreganno(loki_source.Source):
 	

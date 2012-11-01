@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import loki_source
+from .. import loki_source
 
 
 class Source_pfam(loki_source.Source):

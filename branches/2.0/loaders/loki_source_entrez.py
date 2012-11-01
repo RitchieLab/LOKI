@@ -2,7 +2,7 @@
 
 import collections
 import re
-import loki_source
+from .. import loki_source
 
 
 class Source_entrez(loki_source.Source):

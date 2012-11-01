@@ -5,9 +5,9 @@ import hashlib
 import os
 import pkgutil
 
-import loki_db
-import loki_source
-import loaders
+from . import loki_db
+from . import loki_source
+from . import loaders
 
 
 class Updater(object):

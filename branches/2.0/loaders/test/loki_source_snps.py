@@ -1,4 +1,6 @@
-import loki_source
+#!/usr/bin/env python
+
+from ... import loki_source
 
 
 class Source_snps(loki_source.Source):
