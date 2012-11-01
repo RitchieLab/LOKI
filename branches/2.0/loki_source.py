@@ -10,7 +10,7 @@ import sys
 import time
 import zlib
 
-from . import loki_db
+from loki import loki_db
 
 
 class Source(object):

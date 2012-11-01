@@ -3,7 +3,7 @@
 import collections
 import os
 import re
-from .. import loki_source
+from loki import loki_source
 
 
 class Source_dbsnp(loki_source.Source):

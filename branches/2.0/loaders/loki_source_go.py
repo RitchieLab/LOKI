@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import re
-from .. import loki_source
+from loki import loki_source
 
 
 class Source_go(loki_source.Source):

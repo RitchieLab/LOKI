@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import zipfile
-from .. import loki_source
+from loki import loki_source
 
 
 class Source_netpath(loki_source.Source):

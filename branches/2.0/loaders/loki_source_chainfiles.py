@@ -3,7 +3,7 @@
 import itertools
 import os
 import re
-from .. import loki_source
+from loki import loki_source
 
 
 class Source_chainfiles(loki_source.Source):

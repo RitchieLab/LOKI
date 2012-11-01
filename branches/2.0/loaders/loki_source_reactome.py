@@ -3,7 +3,7 @@
 #import collections
 import itertools
 import zipfile
-from .. import loki_source
+from loki import loki_source
 
 
 class Source_reactome(loki_source.Source):

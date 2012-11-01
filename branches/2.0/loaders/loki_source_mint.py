@@ -3,7 +3,7 @@
 import datetime
 import os
 import re
-from .. import loki_source
+from loki import loki_source
 
 
 class Source_mint(loki_source.Source):
