@@ -10,10 +10,7 @@ import sys
 import time
 import zlib
 
-try:
-	from . import loki_db
-except ValueError:
-	import loki_db
+import loki_db
 
 
 class Source(object):

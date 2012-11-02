@@ -5,14 +5,9 @@ import hashlib
 import os
 import pkgutil
 
-try:
-	from . import loki_db
-	from . import loki_source
-	from . import loaders
-except ValueError:
-	import loki_db
-	import loki_source
-	import loaders
+import loki_db
+import loki_source
+import loaders
 
 
 class Updater(object):

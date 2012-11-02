@@ -975,10 +975,7 @@ class Database(object):
 	
 	def getSourceModules(self):
 		if not self._updater:
-			try:
-				from . import loki_updater
-			except ValueError:
-				import loki_updater
+			import loki_updater
 			self._updater = loki_updater.Updater(self, self._is_test)
 		return self._updater.getSourceModules()
 	#getSourceModules()
@@ -986,10 +983,7 @@ class Database(object):
 	
 	def getSourceModuleVersions(self, sources=None):
 		if not self._updater:
-			try:
-				from . import loki_updater
-			except ValueError:
-				import loki_updater
+			import loki_updater
 			self._updater = loki_updater.Updater(self, self._is_test)
 		return self._updater.getSourceModuleVersions(sources)
 	#getSourceModuleVersions()
@@ -997,10 +991,7 @@ class Database(object):
 	
 	def getSourceModuleOptions(self, sources=None):
 		if not self._updater:
-			try:
-				from . import loki_updater
-			except ValueError:
-				import loki_updater
+			import loki_updater
 			self._updater = loki_updater.Updater(self, self._is_test)
 		return self._updater.getSourceModuleOptions(sources)
 	#getSourceModuleOptions()
@@ -1009,10 +1000,7 @@ class Database(object):
 	def updateDatabase(self, sources=None, sourceOptions=None, cacheOnly=False):
 		self.testDatabaseUpdate()
 		if not self._updater:
-			try:
-				from . import loki_updater
-			except ValueError:
-				import loki_updater
+			import loki_updater
 			self._updater = loki_updater.Updater(self, self._is_test)
 		return self._updater.updateDatabase(sources, sourceOptions, cacheOnly)
 	#updateDatabase()
