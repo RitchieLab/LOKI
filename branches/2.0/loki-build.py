@@ -15,6 +15,8 @@ except ImportError:
 
 
 if __name__ == "__main__":
+	sys.path.append(os.path.split(os.path.realpath(__file__))[0])
+	
 	version = "LOKI version %s" % (loki_db.Database.getVersionString())
 	
 	# define arguments
