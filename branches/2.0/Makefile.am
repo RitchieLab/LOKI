@@ -23,14 +23,19 @@ loaders/loki_source_chainfiles.py \
 util/__init__.py \
 util/liftOver.py
 
+EXTRA_DIST=loadPops/buildPopulations.py
+
+bin_SCRIPTS=loadPops/buildPopulations.py
 
 if LOKI_INSTALL
-LOKI_CMDS=$(srcdir)/loki-build.py -k knowledge.bio -u -v
 VAR_FILES=knowledge.bio
+LOKI_FLAGS="-u -v"
 else
-LOKI_CMDS=$(srcdir)/loki-build.py -k test.bio -t -u -v
-VAR_FILES=test.bio	
+VAR_FILES=test.bio
+LOKI_FLAGS=-t -u -v
 endif
+
+LOKI_CMDS=$(srcdir)/loki-build.py -k $(VAR_FILES) $(LOKI_FLAGS); if test "$$?" -ne 0 -a -f "$(VAR_FILES)" ; then mv "$(VAR_FILES)" "$(VAR_FILES).error"; fi
 
 knowledge.bio: liblokiupdate.la .creation
 	$(LOKI_CMDS)

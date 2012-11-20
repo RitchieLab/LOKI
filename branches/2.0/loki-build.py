@@ -8,11 +8,12 @@ import sys
 import tarfile
 import tempfile
 
-try:
-	from loki import loki_db
-except ImportError:
-	import loki_db
 
+# Add one level up to the beginning of the python path to allow for running from non-installed location
+if __name__ == "__main__":
+	sys.path.insert(0,os.path.abspath(os.path.join(__file__, "..", "..")))
+
+from loki import loki_db
 
 if __name__ == "__main__":
 	version = "LOKI version %s" % (loki_db.Database.getVersionString())
@@ -184,7 +185,7 @@ if __name__ == "__main__":
 				print "WARNING: unable to remove temporary file '%s': %s\n" % (path,exc)
 			shutil.rmtree(cacheDir, onerror=onerror)
 	#update
-	
+
 	# finalize?
 	if args.finalize:
 		db.finalizeDatabase()
