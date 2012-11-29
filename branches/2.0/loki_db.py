@@ -17,7 +17,7 @@ class Database(object):
 	def getVersionTuple(cls):
 		# tuple = (major,minor,revision,dev,build,date)
 		# dev must be in ('a','b','rc','release') for lexicographic comparison
-		return (2,0,0,'b',2,'2012-10-29')
+		return (2,0,0,'b',3,'2012-11-29')
 	#getVersionTuple()
 	
 	
@@ -1226,21 +1226,21 @@ LEFT JOIN `db`.`snp_locus` AS sl
 							if minMatch < 1:
 								yield (rs,None,None)
 							elif errorCallback:
-								errorCallback(name, "no matches")
+								errorCallback(rs, "no matches")
 						elif len(matches) == 1:
 							numOne += 1
 							if minMatch <= len(matches) <= maxMatch:
 								for match in matches:
 									yield match
 							elif errorCallback:
-								errorCallback(name, "1 match")
+								errorCallback(rs, "1 match")
 						else:
 							numMany += 1
 							if minMatch <= len(matches) <= maxMatch:
 								for match in matches:
 									yield match
 							elif errorCallback:
-								errorCallback(name, "%d matches" % len(matches))
+								errorCallback(rs, "%d matches" % len(matches))
 					rs = row[0]
 					matches = set()
 				if row[1] and row[2]:
@@ -1312,7 +1312,7 @@ LEFT JOIN `db`.`biopolymer` AS bname
 							for match in (matches or [identifier+(None,)]):
 								yield match
 						elif errorCallback:
-							errorCallback(identifier, "%s match%s" % ((n or "no"),("" if n == 1 else "")))
+							errorCallback("\t".join(identifier), "%s match%s" % ((n or "no"),("" if n == 1 else "es")))
 					identifier = row[:-1]
 					matches = set()
 				if row[-1]:
@@ -1471,7 +1471,7 @@ LEFT JOIN `db`.`group` AS gname
 							for match in (matches or [identifier+(None,)]):
 								yield match
 						elif errorCallback:
-							errorCallback(identifier, "%s match%s" % ((n or "no"),("" if n == 1 else "")))
+							errorCallback("\t".join(identifier), "%s match%s" % ((n or "no"),("" if n == 1 else "es")))
 					identifier = row[:-1]
 					matches = set()
 				if row[-1]:
