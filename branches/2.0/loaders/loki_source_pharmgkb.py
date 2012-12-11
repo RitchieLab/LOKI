@@ -9,7 +9,7 @@ class Source_pharmgkb(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.0a1 (2012-08-15)'
+		return '2.0a2 (2012-12-11)'
 	#getVersionString()
 	
 	
@@ -73,7 +73,7 @@ class Source_pharmgkb(loki_source.Source):
 				if info.filename == 'genes.tsv':
 					geneFile = geneZip.open(info,'r')
 					header = geneFile.next().rstrip()
-					if header != "PharmGKB Accession Id	Entrez Id	Ensembl Id	Name	Symbol	Alternate Names	Alternate Symbols	Is VIP	Has Variant Annotation	Cross-references":
+					if not header.startswith("PharmGKB Accession Id	Entrez Id	Ensembl Id	Name	Symbol	Alternate Names	Alternate Symbols	Is VIP	Has Variant Annotation	Cross-references"):
 						self.log(" ERROR\n")
 						self.log("unrecognized file header in '%s': %s\n" % (info.filename,header))
 						return False
@@ -150,14 +150,14 @@ class Source_pharmgkb(loki_source.Source):
 						if line == "" and lastline == "":
 							curPath = None
 						elif curPath == None:
-							words = line.split(':')
+							words = line.split(':',1)
 							if len(words) >= 2:
 								curPath = words[0].strip()
-								desc = words[1].split('-',1)
+								desc = words[1].strip().rsplit(' - ',1)
 								desc.append('')
 								#line.decode('latin-1') should handle this above
 								#pathDesc[curPath] = (unicode(desc[0].strip(),errors='ignore'),unicode(desc[1].strip(),errors='ignore'))
-								pathDesc[curPath] = (desc[0].strip(),desc[1].strip())
+								pathDesc[curPath] = (desc[0].strip().replace("`", "'"),desc[1].strip().replace("`", "'"))
 						elif curPath == False:
 							pass
 						else:
@@ -200,7 +200,8 @@ class Source_pharmgkb(loki_source.Source):
 			self.addGroupMemberTypedNamespacedNames(typeID['gene'], namespaceID[ns], ((pathGID[a[0]],a[1],a[2]) for a in nsAssoc[ns]) )
 		self.log(" OK\n")
 		
-		#TODO: diseases,drugs,relationships?
+		#TODO: eventually add diseases, drugs, relationships
+		
 	#update()
 	
 #Source_pharmgkb
