@@ -10,7 +10,7 @@ class Source_entrez(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.0a2 (2012-09-12)'
+		return '2.0a3 (2012-12-10)'
 	#getVersionString()
 	
 	
@@ -191,7 +191,7 @@ class Source_entrez(loki_source.Source):
 		refseqBIDs = collections.defaultdict(set)
 		regionFile = self.zfile('gene2refseq.gz') #TODO:context manager,iterator
 		header = regionFile.next().rstrip()
-		if header != "#Format: tax_id GeneID status RNA_nucleotide_accession.version RNA_nucleotide_gi protein_accession.version protein_gi genomic_nucleotide_accession.version genomic_nucleotide_gi start_position_on_the_genomic_accession end_position_on_the_genomic_accession orientation assembly (tab is used as a separator, pound sign - start of a comment)":
+		if not header.startswith("#Format: tax_id GeneID status RNA_nucleotide_accession.version RNA_nucleotide_gi protein_accession.version protein_gi genomic_nucleotide_accession.version genomic_nucleotide_gi start_position_on_the_genomic_accession end_position_on_the_genomic_accession orientation assembly"): # "(tab is used as a separator, pound sign - start of a comment)"
 			self.log(" ERROR: unrecognized file header\n")
 			self.log("%s\n" % header)
 		else:
@@ -241,8 +241,8 @@ class Source_entrez(loki_source.Source):
 					setBadChr.add(entrezID)
 					continue
 				elif (entrezID in entrezChm) and (self._loki.chr_name[chm] not in entrezChm[entrezID].split('|')):
-					# TODO: we're ignoring any gene region with an ambiguous chromosome
-					# (gene_info says one thing, gene2refseq says another); is that right?
+					# TODO: make sure we want to ignore any gene region with an ambiguous chromosome
+					#       (i.e. gene_info says one thing, gene2refseq says another)
 					#print "%s %s -> %s" % (entrezID,entrezChm[entrezID],self._loki.chr_name[chm])
 					#100293744 X -> Y
 					#100302657 3 -> 15
@@ -301,7 +301,7 @@ class Source_entrez(loki_source.Source):
 		historyEntrez = {}
 		histFile = self.zfile('gene_history.gz') #TODO:context manager,iterator
 		header = histFile.next().rstrip()
-		if header != "#Format: tax_id GeneID Discontinued_GeneID Discontinued_Symbol Discontinue_Date (tab is used as a separator, pound sign - start of a comment)":
+		if not header.startswith("#Format: tax_id GeneID Discontinued_GeneID Discontinued_Symbol"): # "Discontinue_Date (tab is used as a separator, pound sign - start of a comment)"
 			self.log(" ERROR: unrecognized file header\n")
 			self.log("%s\n" % header)
 		else:
@@ -348,7 +348,7 @@ class Source_entrez(loki_source.Source):
 		self.log("processing ensembl gene names ...")
 		ensFile = self.zfile('gene2ensembl.gz') #TODO:context manager,iterator
 		header = ensFile.next().rstrip()
-		if header != "#Format: tax_id GeneID Ensembl_gene_identifier RNA_nucleotide_accession.version Ensembl_rna_identifier protein_accession.version Ensembl_protein_identifier (tab is used as a separator, pound sign - start of a comment)":
+		if not header.startswith("#Format: tax_id GeneID Ensembl_gene_identifier RNA_nucleotide_accession.version Ensembl_rna_identifier protein_accession.version Ensembl_protein_identifier"): # "(tab is used as a separator, pound sign - start of a comment)"
 			self.log(" ERROR: unrecognized file header\n")
 			self.log("%s\n" % header)
 		else:
@@ -385,7 +385,7 @@ class Source_entrez(loki_source.Source):
 		self.log("processing unigene gene names ...")
 		with open('gene2unigene','rU') as ugFile:
 			header = ugFile.next().rstrip()
-			if header != "#Format: GeneID UniGene_cluster (tab is used as a separator, pound sign - start of a comment)":
+			if not header.startswith("#Format: GeneID UniGene_cluster"): # "(tab is used as a separator, pound sign - start of a comment)"
 				self.log(" ERROR: unrecognized file header\n")
 				self.log("%s\n" % header)
 			else:
@@ -414,7 +414,7 @@ class Source_entrez(loki_source.Source):
 			self.log("processing uniprot gene names ...")
 			upFile = self.zfile('gene_refseq_uniprotkb_collab.gz') #TODO:context manager,iterator
 			header = upFile.next().rstrip()
-			if header != "#Format: NCBI_protein_accession UniProtKB_protein_accession (tab is used as a separator, pound sign - start of a comment)":
+			if not header.startswith("#Format: NCBI_protein_accession UniProtKB_protein_accession"): # "(tab is used as a separator, pound sign - start of a comment)"
 				self.log(" ERROR: unrecognized file header\n")
 				self.log("%s\n" % header)
 			else:
