@@ -42,7 +42,7 @@ class Source_dbsnp(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.0a2 (2012-09-04)'
+		return '2.0a3 (2012-12-10)'
 	#getVersionString()
 	
 	
@@ -273,11 +273,11 @@ CREATE TABLE [b137_SNPContigLocusId]
 			header3 = chmFile.next().rstrip()
 			chmFile.next()
 			chmFile.next()
-			if header1 != "dbSNP Chromosome Report":
+			if not header1.startswith("dbSNP Chromosome Report"):
 				raise Exception("ERROR: unrecognized file header '%s'" % header1)
-			if header2 != "rs#\tmap\tsnp\tchr\tctg\ttotal\tchr\tctg\tctg\tctg\tctg\tchr\tlocal\tavg\ts.e.\tmax\tvali-\tgeno-\tlink\torig\tupd":
+			if not header2.startswith("rs#\tmap\tsnp\tchr\tctg\ttotal\tchr\tctg\tctg\tctg\tctg\tchr\tlocal\tavg\ts.e.\tmax\tvali-\tgeno-\tlink\torig\tupd"):
 				raise Exception("ERROR: unrecognized file subheader '%s'" % header2)
-			if header3 != "\twgt\ttype\thits\thits\thits\t\tacc\tver\tID\tpos\tpos\tloci\thet\thet\tprob\tdated\ttypes\touts\tbuild\tbuild":
+			if not header3.startswith("\twgt\ttype\thits\thits\thits\t\tacc\tver\tID\tpos\tpos\tloci\thet\thet\tprob\tdated\ttypes\touts\tbuild\tbuild"):
 				raise Exception("ERROR: unrecognized file subheader '%s'" % header3)
 			
 			# process lines
