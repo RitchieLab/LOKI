@@ -9,7 +9,7 @@ class Source_biogrid(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.0a1 (2012-08-30)'
+		return '2.0a2 (2012-12-10)'
 	#getVersionString()
 	
 	
@@ -55,10 +55,10 @@ class Source_biogrid(loki_source.Source):
 					assocFile = assocZip.open(info,'r')
 					header = assocFile.next().rstrip()
 					observedHeaders = {
-						"#BioGRID Interaction ID	Entrez Gene Interactor A	Entrez Gene Interactor B	BioGRID ID Interactor A	BioGRID ID Interactor B	Systematic Name Interactor A	Systematic Name Interactor B	Official Symbol Interactor A	Official Symbol Interactor B	Synonymns Interactor A	Synonyms Interactor B	Experimental System	Experimental System Type	Author	Pubmed ID	Organism Interactor A	Organism Interactor B	Throughput	Score	Modification	Phenotypes	Qualifications	Tags	Source Database",
-						"#BioGRID Interaction ID	Entrez Gene Interactor A	Entrez Gene Interactor B	BioGRID ID Interactor A	BioGRID ID Interactor B	Systematic Name Interactor A	Systematic Name Interactor B	Official Symbol Interactor A	Official Symbol Interactor B	Synonyms Interactor A	Synonyms Interactor B	Experimental System	Experimental System Type	Author	Pubmed ID	Organism Interactor A	Organism Interactor B	Throughput	Score	Modification	Phenotypes	Qualifications	Tags	Source Database",
+						"#BioGRID Interaction ID\tEntrez Gene Interactor A\tEntrez Gene Interactor B\tBioGRID ID Interactor A\tBioGRID ID Interactor B\tSystematic Name Interactor A\tSystematic Name Interactor B\tOfficial Symbol Interactor A\tOfficial Symbol Interactor B\tSynonymns Interactor A\tSynonyms Interactor B\tExperimental System\tExperimental System Type\tAuthor\tPubmed ID\tOrganism Interactor A\tOrganism Interactor B", # "\tThroughput\tScore\tModification\tPhenotypes\tQualifications\tTags\tSource Database",
+						"#BioGRID Interaction ID\tEntrez Gene Interactor A\tEntrez Gene Interactor B\tBioGRID ID Interactor A\tBioGRID ID Interactor B\tSystematic Name Interactor A\tSystematic Name Interactor B\tOfficial Symbol Interactor A\tOfficial Symbol Interactor B\tSynonyms Interactor A\tSynonyms Interactor B\tExperimental System\tExperimental System Type\tAuthor\tPubmed ID\tOrganism Interactor A\tOrganism Interactor B",  # "\tThroughput\tScore\tModification\tPhenotypes\tQualifications\tTags\tSource Database",
 					}
-					if header not in observedHeaders:
+					if not max(header.startswith(obsHdr) for obsHdr in observedHeaders):
 						self.log(" ERROR\n")
 						self.log("unrecognized file header in '%s': %s\n" % (info.filename,header))
 						return False
@@ -131,8 +131,8 @@ class Source_biogrid(loki_source.Source):
 			self.addGroupMemberTypedNamespacedNames(typeID['gene'], namespaceID[ns], nsAssoc[ns])
 		self.log(" OK\n")
 		
-		# identify pseudo-pathways
-		if 0: #TODO
+		# TODO: decide if there's any value in trying to identify pseudo-pathways
+		"""
 			self.log("identifying implied networks ...")
 			geneAssoc = dict()
 			for pair in listPair:
@@ -147,6 +147,8 @@ class Source_biogrid(loki_source.Source):
 			numGene = len(geneAssoc)
 			numGroup = len(listPath)
 			self.log(" OK: %d associations (%d genes in %d groups)\n" % (numAssoc,numGene,numGroup))
+		"""
 	#update()
+	
 	
 #Source_biogrid
