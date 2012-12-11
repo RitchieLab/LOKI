@@ -132,6 +132,7 @@ if __name__ == "__main__":
 			notSet |= set(srcList)
 	
 	# update?
+	updateOK = True
 	if (srcSet != None) or (notSet != None):
 		if srcSet and '+' in srcSet:
 			srcSet = set()
@@ -169,7 +170,7 @@ if __name__ == "__main__":
 			#if fromArchive
 			
 			os.chdir(cacheDir)
-			db.updateDatabase(srcSet, userOptions, args.cache_only)
+			updateOK = db.updateDatabase(srcSet, userOptions, args.cache_only)
 			os.chdir(startDir)
 			
 			# create output archive, if requested
@@ -188,6 +189,8 @@ if __name__ == "__main__":
 
 	# finalize?
 	if args.finalize:
-		db.finalizeDatabase()
-	
+		if updateOK:
+			db.finalizeDatabase()
+		else:
+			print "WARNING: errors encountered during knowledge database update; skipping finalization step"
 #__main__

@@ -17,7 +17,7 @@ class Database(object):
 	def getVersionTuple(cls):
 		# tuple = (major,minor,revision,dev,build,date)
 		# dev must be in ('a','b','rc','release') for lexicographic comparison
-		return (2,0,0,'b',3,'2012-11-29')
+		return (2,0,0,'b',4,'2012-12-11')
 	#getVersionTuple()
 	
 	
@@ -609,8 +609,8 @@ class Database(object):
 	
 	def log(self, message=""):
 		if self._logger:
-			self._logger.log(message)
-		elif self._verbose:
+			return self._logger.log(message)
+		if self._verbose:
 			if (self._logIndent > 0) and (not self._logHanging):
 				self._logFile.write(self._logIndent * "  ")
 				self._logHanging = True
@@ -620,33 +620,31 @@ class Database(object):
 				self._logFile.flush()
 			else:
 				self._logHanging = False
-		#if _logger
+		return self._logIndent
 	#log()
 	
 	
 	def logPush(self, message=None):
 		if self._logger:
-			self._logger.logPush(message)
-		else:
-			if message:
-				self.log(message)
-			if self._logHanging:
-				self.log("\n")
-			self._logIndent += 1
-		#if _logger
+			return self._logger.logPush(message)
+		if message:
+			self.log(message)
+		if self._logHanging:
+			self.log("\n")
+		self._logIndent += 1
+		return self._logIndent
 	#logPush()
 	
 	
 	def logPop(self, message=None):
 		if self._logger:
-			self._logger.logPop(message)
-		else:
-			if self._logHanging:
-				self.log("\n")
-			self._logIndent = max(0, self._logIndent - 1)
-			if message:
-				self.log(message)
-		#if _logger
+			return self._logger.logPop(message)
+		if self._logHanging:
+			self.log("\n")
+		self._logIndent = max(0, self._logIndent - 1)
+		if message:
+			self.log(message)
+		return self._logIndent
 	#logPop()
 	
 	

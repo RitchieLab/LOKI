@@ -149,80 +149,89 @@ class Updater(object):
 			raise Exception('_updating set before updateDatabase()')
 		
 		# check for extraneous options
+		self.logPush("preparing for update ...\n")
 		srcSet = self.attachSourceModules(sources)
 		srcOpts = sourceOptions or {}
 		for srcName in srcOpts.keys():
 			if srcName not in srcSet:
 				self.log("WARNING: not updating from source '%s' for which options were supplied\n" % srcName)
+		logIndent = self.logPop("... OK\n")
 		
 		# update all specified sources
 		iwd = os.path.abspath(os.getcwd())
 		self._updating = True
 		self._tablesUpdated = set()
 		self._tablesDeindexed = set()
+		srcErrors = set()
 		with self._db:
 			cursor = self._db.cursor()
 			for srcName in sorted(srcSet):
-				srcObj = self._sourceObjects[srcName]
-				srcID = srcObj.getSourceID()
-				
-				# validate options, if any
-				options = srcOpts.get(srcName, {})
-				if options:
-					self.logPush("validating %s options ...\n" % srcName)
-					msg = srcObj.validateOptions(options)
-					if msg != True:
-						ok = False
-						self.log("ERROR: %s\n" % msg)
-						self.logPop()
-						continue
-					for opt,val in options.iteritems():
-						self.log("%s = %s\n" % (opt,val))
-					self.logPop("... OK\n")
-				
-				# store source options
-				cursor.execute("DELETE FROM `db`.`source_option` WHERE source_id = ?", (srcID,))
-				sql = "INSERT INTO `db`.`source_option` (source_id, option, value) VALUES (%d,?,?)" % srcID
-				cursor.executemany(sql, options.iteritems())
-				
-				# switch to a temp subdirectory for this source
-				path = os.path.join(iwd, srcName)
-				if not os.path.exists(path):
-					os.makedirs(path)
-				os.chdir(path)
-				
-				# download files into a local cache
-				if not cacheOnly:
-					self.logPush("downloading %s data ...\n" % srcName)
-					srcObj.download(options)
-					self.logPop("... OK\n")
-				
-				# store source file metadata
-				# all timestamps are assumed to be in UTC, but if a source
-				# provides file timestamps with no TZ (like via FTP) we use them
-				# as-is and assume they're supposed to be UTC
-				self.log("analyzing %s data files ..." % srcName)
-				cursor.execute("DELETE FROM `db`.`source_file` WHERE source_id = ?", (srcID,))
-				sql = "INSERT INTO `db`.`source_file` (source_id, filename, size, modified, md5) VALUES (%d,?,?,DATETIME(?,'unixepoch'),?)" % srcID
-				for filename in os.listdir('.'):
-					stat = os.stat(filename)
-					md5 = hashlib.md5()
-					with open(filename,'rb') as f:
-						chunk = f.read(8*1024*1024)
-						while chunk:
-							md5.update(chunk)
-							chunk = f.read(8*1024*1024)
-					cursor.execute(sql, (filename, stat.st_size, stat.st_mtime, md5.hexdigest()))
-				self.log(" OK\n")
-				
-				# process new files
-				self.logPush("processing %s data ...\n" % srcName)
-				srcObj.update(options)
-				self.logPop("... OK\n")
-				
-				# update source metadata
-				sql = "UPDATE `db`.`source` SET updated = DATETIME('now'), version = ? WHERE source_id = ?"
-				cursor.execute(sql, (srcObj.getVersionString(), srcID))
+				try:
+					with self._db:
+						srcObj = self._sourceObjects[srcName]
+						srcID = srcObj.getSourceID()
+						
+						# validate options, if any
+						options = srcOpts.get(srcName, {})
+						if options:
+							self.logPush("validating %s options ...\n" % srcName)
+							msg = srcObj.validateOptions(options)
+							if msg != True:
+								raise Exception(msg)
+							for opt,val in options.iteritems():
+								self.log("%s = %s\n" % (opt,val))
+							self.logPop("... OK\n")
+						
+						# store source options
+						cursor.execute("DELETE FROM `db`.`source_option` WHERE source_id = ?", (srcID,))
+						sql = "INSERT INTO `db`.`source_option` (source_id, option, value) VALUES (%d,?,?)" % srcID
+						cursor.executemany(sql, options.iteritems())
+						
+						# switch to a temp subdirectory for this source
+						path = os.path.join(iwd, srcName)
+						if not os.path.exists(path):
+							os.makedirs(path)
+						os.chdir(path)
+						
+						# download files into a local cache
+						if not cacheOnly:
+							self.logPush("downloading %s data ...\n" % srcName)
+							srcObj.download(options)
+							self.logPop("... OK\n")
+						
+						# store source file metadata
+						# all timestamps are assumed to be in UTC, but if a source
+						# provides file timestamps with no TZ (like via FTP) we use them
+						# as-is and assume they're supposed to be UTC
+						self.log("analyzing %s data files ..." % srcName)
+						cursor.execute("DELETE FROM `db`.`source_file` WHERE source_id = ?", (srcID,))
+						sql = "INSERT INTO `db`.`source_file` (source_id, filename, size, modified, md5) VALUES (%d,?,?,DATETIME(?,'unixepoch'),?)" % srcID
+						for filename in os.listdir('.'):
+							stat = os.stat(filename)
+							md5 = hashlib.md5()
+							with open(filename,'rb') as f:
+								chunk = f.read(8*1024*1024)
+								while chunk:
+									md5.update(chunk)
+									chunk = f.read(8*1024*1024)
+							cursor.execute(sql, (filename, stat.st_size, stat.st_mtime, md5.hexdigest()))
+						self.log(" OK\n")
+						
+						# process new files
+						self.logPush("processing %s data ...\n" % srcName)
+						srcObj.update(options)
+						self.logPop("... OK\n")
+						
+						# update source metadata
+						sql = "UPDATE `db`.`source` SET updated = DATETIME('now'), version = ? WHERE source_id = ?"
+						cursor.execute(sql, (srcObj.getVersionString(), srcID))
+					#with db transaction
+				except Exception as exc:
+					# restore indentation, no matter how far in the source was when the exception happened
+					if self.log("ERROR: %s\n" % exc) > logIndent:
+						while self.logPop() > logIndent:
+							pass
+					srcErrors.add(srcName)
 			#foreach source
 			
 			# cross-map GRCh/UCSChg build versions for all sources
@@ -284,15 +293,24 @@ class Updater(object):
 				self.updateBiopolymerZones()
 			
 			# reindex all remaining tables
+			self.log("finalizing update ...")
 			if self._tablesDeindexed:
-				self.log("finalizing update ...")
 				self._loki.createDatabaseIndecies(None, 'db', self._tablesDeindexed)
-				self.log(" OK\n")
 		#with db transaction
+		self.log(" OK\n")
 		self._updating = False
 		self._tablesUpdated = None
 		self._tablesDeindexed = None
 		os.chdir(iwd)
+		
+		# report and return
+		if srcErrors:
+			self.logPush("WARNING: data from these sources was not updated:\n")
+			for srcName in sorted(srcErrors):
+				self.log("%s\n" % srcName)
+			self.logPop()
+			return False
+		return True
 	#updateDatabase()
 	
 	
