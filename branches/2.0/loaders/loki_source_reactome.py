@@ -279,7 +279,7 @@ class Source_reactome(loki_source.Source):
 					nsAssoc['entrez_gid']['react'].add( (reactID2,numAssoc,entrezG2) )
 					setID.add(('entrez_gid',entrezG2))
 				
-				#TODO: need the links?
+				#TODO: decide if we want the links
 				#if relationship not in relationshipID:
 				#	relationshipID[relationship] = self.addRelationship(relationship)
 				#reactLinks[reactID1].add( (reactID2,relationshipID[relationship]) )
