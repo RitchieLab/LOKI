@@ -9,7 +9,7 @@ class Source_netpath(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.0a1 (2012-08-28)'
+		return '2.0a2 (2012-12-10)'
 	#getVersionString()
 	
 	
@@ -61,7 +61,7 @@ class Source_netpath(loki_source.Source):
 				if info.filename == 'NetPath_Gene_regulation_all.txt':
 					pathFile = pathZip.open(info,'rU')
 					header = pathFile.next().rstrip()
-					if header != "Gene regulation id	Pathway name	Pathway ID	Gene name	Entrez gene ID	Regulation	Experiment	PubMed ID":
+					if not header.startswith("Gene regulation id	Pathway name	Pathway ID	Gene name	Entrez gene ID"): #	Regulation	Experiment	PubMed ID
 						self.log(" ERROR\n")
 						self.log("unrecognized file header in '%s': %s\n" % (info.filename,header))
 						return False
