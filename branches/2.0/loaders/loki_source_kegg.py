@@ -50,7 +50,7 @@ class Source_kegg(loki_source.Source):
 			# connect to SOAP/WSDL service
 			import suds.client
 			self.log("connecting to KEGG data service ...")
-			service = suds.client.Client('http://soap.genome.jp/KEGG.wsd').service
+			service = suds.client.Client('http://soap.genome.jp/KEGG.wsdl').service
 			self.log(" OK\n")
 			
 			# fetch pathway list
