@@ -8,7 +8,7 @@ class Source_kegg(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.0a1 (2012-08-15)'
+		return '2.0a2 (2012-12-10)'
 	#getVersionString()
 	
 	
@@ -39,12 +39,46 @@ class Source_kegg(loki_source.Source):
 	
 	def download(self, options):
 		if (options.get('api') == 'rest'):
-			# download the latest source files
-			self.downloadFilesFromHTTP('rest.kegg.jp', {
-				'list-pathway-hsa':  '/list/pathway/hsa',
-				'link-hsa-pathway':  '/link/hsa/pathway',
-			})
-		#if api==rest
+			# KEGG's REST API license agreement forbids "bulk" downloads, even of this paltry 500 kilobytes
+			# if you enable this code, it might work, but you might also be in violation of KEGG's license terms
+			if False:
+				self.downloadFilesFromHTTP('rest.kegg.jp', {
+					'list-pathway-hsa':  '/list/pathway/hsa',
+					'link-hsa-pathway':  '/link/hsa/pathway',
+				})
+		else:
+			# connect to SOAP/WSDL service
+			import suds.client
+			self.log("connecting to KEGG data service ...")
+			service = suds.client.Client('http://soap.genome.jp/KEGG.wsd').service
+			self.log(" OK\n")
+			
+			# fetch pathway list
+			self.log("fetching pathways ...")
+			pathIDs = set()
+			with open('list-pathway-hsa','wb') as pathFile:
+				for pathway in service.list_pathways('hsa'):
+					pathID = pathway['entry_id'][0]
+					name = pathway['definition'][0]
+					pathFile.write("%s\t%s\n" % (pathID,name))
+					pathIDs.add(pathID)
+				#foreach pathway
+			#with pathway cache file
+			self.log(" OK: %d pathways\n" % (len(pathIDs),))
+			
+			# fetch genes for each pathway
+			self.log("fetching gene associations ...")
+			numAssoc = 0
+			with open('link-hsa-pathway','wb') as assocFile:
+				for pathID in pathIDs:
+					for hsaGene in service.get_genes_by_pathway(pathID):
+						assocFile.write("%s\t%s\n" % (pathID,hsaGene))
+						numAssoc += 1
+					#foreach association
+				#foreach pathway
+			#with assoc cache file
+			self.log(" OK: %d associations\n" % (numAssoc,))
+		#if api==rest/soap
 	#download()
 	
 	
@@ -65,109 +99,60 @@ class Source_kegg(loki_source.Source):
 			('gene',),
 		])
 		
-		if (options.get('api') == 'rest'):
-			# process pathways
-			self.log("processing pathways ...")
-			pathName = {}
-			with open('list-pathway-hsa','rU') as pathFile:
-				for line in pathFile:
-					words = line.split("\t")
-					pathID = words[0]
-					name = words[1].rstrip()
-					if name.endswith(" - Homo sapiens (human)"):
-						name = name[:-23]
-					
-					pathName[pathID] = name
-				#foreach line in pathFile
-			#with pathFile
-			self.log(" OK: %d pathways\n" % (len(pathName),))
-			
-			# store pathways
-			self.log("writing pathways to the database ...")
-			listPath = pathName.keys()
-			listGID = self.addTypedGroups(typeID['pathway'], ((pathName[pathID],None) for pathID in listPath))
-			pathGID = dict(zip(listPath,listGID))
-			self.log(" OK\n")
-			
-			# store pathway names
-			self.log("writing pathway names to the database ...")
-			self.addGroupNamespacedNames(namespaceID['kegg_id'], ((pathGID[pathID],pathID) for pathID in listPath))
-			self.addGroupNamespacedNames(namespaceID['pathway'], ((pathGID[pathID],pathName[pathID]) for pathID in listPath))
-			self.log(" OK\n")
-			
-			# process associations
-			self.log("processing gene associations ...")
-			entrezAssoc = set()
-			numAssoc = 0
-			with open('link-hsa-pathway','rU') as assocFile:
-				for line in assocFile:
-					words = line.split("\t")
-					pathID = words[0]
-					hsaGene = words[1].rstrip()
-					
-					if (pathID in pathGID) and (hsaGene.startswith("hsa:")):
-						numAssoc += 1
-						entrezAssoc.add( (pathGID[pathID],numAssoc,hsaGene[4:]) )
-					#if pathway and gene are ok
-				#foreach line in assocFile
-			#with assocFile
-			self.log(" OK: %d associations\n" % (numAssoc,))
-			
-			# store gene associations
-			self.log("writing gene associations to the database ...")
-			self.addGroupMemberTypedNamespacedNames(typeID['gene'], namespaceID['entrez_gid'], entrezAssoc)
-			self.log(" OK\n")
-		else: #default api==soap
-			import suds.client
-			
-			# connect to SOAP/WSDL service
-			self.log("connecting to KEGG data service ...")
-			service = suds.client.Client('http://soap.genome.jp/KEGG.wsdl').service
-			self.log(" OK\n")
-			
-			# fetch pathway list
-			self.log("fetching pathways ...")
-			pathName = {}
-			for pathway in service.list_pathways('hsa'):
-				pathID = pathway['entry_id'][0]
-				name = pathway['definition'][0]
+		# since download() stores SOAP result data in files that look like REST data,
+		# we don't even have to check here -- it's the same local files either way
+		
+		# process pathways
+		self.log("processing pathways ...")
+		pathName = {}
+		with open('list-pathway-hsa','rU') as pathFile:
+			for line in pathFile:
+				words = line.split("\t")
+				pathID = words[0]
+				name = words[1].rstrip()
 				if name.endswith(" - Homo sapiens (human)"):
 					name = name[:-23]
 				
 				pathName[pathID] = name
-			#foreach pathway
-			self.log(" OK: %d pathways\n" % (len(pathName),))
-			
-			# store pathways
-			self.log("writing pathways to the database ...")
-			listPath = pathName.keys()
-			listGID = self.addTypedGroups(typeID['pathway'], ((pathName[pathID],None) for pathID in listPath))
-			pathGID = dict(zip(listPath,listGID))
-			self.log(" OK\n")
-			
-			# store pathway names
-			self.log("writing pathway names to the database ...")
-			self.addGroupNamespacedNames(namespaceID['kegg_id'], ((pathGID[pathID],pathID) for pathID in listPath))
-			self.addGroupNamespacedNames(namespaceID['pathway'], ((pathGID[pathID],pathName[pathID]) for pathID in listPath))
-			self.log(" OK\n")
-			
-			# fetch genes for each pathway
-			self.log("fetching gene associations ...")
-			entrezAssoc = set()
-			numAssoc = 0
-			for pathID in listPath:
-					for hsaGene in service.get_genes_by_pathway(pathID):
-							numAssoc += 1
-							entrezAssoc.add( (pathGID[pathID],numAssoc,hsaGene[4:]) )
-					#foreach association
-			#foreach pathway
-			self.log(" OK: %d associations\n" % (numAssoc,))
-			
-			# store gene associations
-			self.log("writing gene associations to the database ...")
-			self.addGroupMemberTypedNamespacedNames(typeID['gene'], namespaceID['entrez_gid'], entrezAssoc)
-			self.log(" OK\n")
-		#if rest/soap API
+			#foreach line in pathFile
+		#with pathFile
+		self.log(" OK: %d pathways\n" % (len(pathName),))
+		
+		# store pathways
+		self.log("writing pathways to the database ...")
+		listPath = pathName.keys()
+		listGID = self.addTypedGroups(typeID['pathway'], ((pathName[pathID],None) for pathID in listPath))
+		pathGID = dict(zip(listPath,listGID))
+		self.log(" OK\n")
+		
+		# store pathway names
+		self.log("writing pathway names to the database ...")
+		self.addGroupNamespacedNames(namespaceID['kegg_id'], ((pathGID[pathID],pathID) for pathID in listPath))
+		self.addGroupNamespacedNames(namespaceID['pathway'], ((pathGID[pathID],pathName[pathID]) for pathID in listPath))
+		self.log(" OK\n")
+		
+		# process associations
+		self.log("processing gene associations ...")
+		entrezAssoc = set()
+		numAssoc = 0
+		with open('link-hsa-pathway','rU') as assocFile:
+			for line in assocFile:
+				words = line.split("\t")
+				pathID = words[0]
+				hsaGene = words[1].rstrip()
+				
+				if (pathID in pathGID) and (hsaGene.startswith("hsa:")):
+					numAssoc += 1
+					entrezAssoc.add( (pathGID[pathID],numAssoc,hsaGene[4:]) )
+				#if pathway and gene are ok
+			#foreach line in assocFile
+		#with assocFile
+		self.log(" OK: %d associations\n" % (numAssoc,))
+		
+		# store gene associations
+		self.log("writing gene associations to the database ...")
+		self.addGroupMemberTypedNamespacedNames(typeID['gene'], namespaceID['entrez_gid'], entrezAssoc)
+		self.log(" OK\n")
 	#update()
 	
 #Source_kegg
