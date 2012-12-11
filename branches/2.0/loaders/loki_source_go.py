@@ -86,7 +86,7 @@ class Source_go(loki_source.Source):
 				elif tag == 'id':
 					curID = val
 				elif tag == 'alt_id':
-					pass #TODO
+					pass
 				elif tag == 'def':
 					curDef = val
 					if val.startswith('"'):
@@ -101,15 +101,15 @@ class Source_go(loki_source.Source):
 				elif tag == 'is_obsolete':
 					curObs = (val.lower().split()[0] == 'true')
 				elif tag == 'replaced_by':
-					pass #TODO
+					pass
 				#elif tag == 'namespace':
 				#	curNS = val
 				elif tag == 'name':
 					curName = val
 				elif tag == 'synonym':
-					pass #TODO
+					pass
 				elif tag == 'xref':
-					pass #TODO
+					pass
 				elif tag == 'is_a':
 					curLinks = curLinks or set()
 					curLinks.add( (val.split()[0], relationshipID['is_a'], -1) )
@@ -184,7 +184,7 @@ class Source_go(loki_source.Source):
 			#extensions = words[15].split('|')
 			#xrefIDsplice = words[16]
 			
-			# TODO: why ignore IEA?
+			# TODO: find out for sure why the old Biofilter loader ignores IEA
 			if xrefDB == 'UniProtKB' and goID in goGID and evidence != 'IEA' and taxon == 'taxon:9606':
 				numAssoc += 1
 				numID += 2
