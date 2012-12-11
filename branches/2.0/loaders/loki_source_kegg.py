@@ -8,45 +8,45 @@ class Source_kegg(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.0a2 (2012-12-10)'
+		return '2.0a3 (2012-12-11)'
 	#getVersionString()
 	
 	
 	@classmethod
 	def getOptions(cls):
-		return {
-			'api': '[soap|rest]  --  use the old SOAP or the new REST access API (default: soap)'
-		}
+		return None
+		#return {
+		#	'api': '[soap|rest]  --  use the old SOAP or the new REST access API (default: soap)'
+		#}
 	#getOptions()
 	
 	
 	def validateOptions(self, options):
 		for o,v in options.iteritems():
-			if o == 'api':
-				v = v.strip().lower()
-				if 'soap'.startswith(v):
-					v = 'soap'
-				elif 'rest'.startswith(v):
-					v = 'rest'
-				else:
-					return "api must be 'soap' or 'rest'"
-				options[o] = v
-			else:
-				return "unknown option '%s'" % o
+			#if o == 'api':
+			#	v = v.strip().lower()
+			#	if 'soap'.startswith(v):
+			#		v = 'soap'
+			#	elif 'rest'.startswith(v):
+			#		v = 'rest'
+			#	else:
+			#		return "api must be 'soap' or 'rest'"
+			#	options[o] = v
+			#else:
+				return "unexpected option '%s'" % o
 		return True
 	#validateOptions()
 	
 	
 	def download(self, options):
-		if (options.get('api') == 'rest'):
-			# KEGG's REST API license agreement forbids "bulk" downloads, even of this paltry 500 kilobytes
-			# if you enable this code, it might work, but you might also be in violation of KEGG's license terms
-			if False:
-				self.downloadFilesFromHTTP('rest.kegg.jp', {
-					'list-pathway-hsa':  '/list/pathway/hsa',
-					'link-hsa-pathway':  '/link/hsa/pathway',
-				})
-		else:
+		# KEGG's REST API license agreement forbids "bulk" downloads, even of this paltry 500 kilobytes
+		# if you enable this code, it might work, but you might also be in violation of KEGG's license terms
+		#if (options.get('api') == 'rest'):
+		#	self.downloadFilesFromHTTP('rest.kegg.jp', {
+		#		'list-pathway-hsa':  '/list/pathway/hsa',
+		#		'link-hsa-pathway':  '/link/hsa/pathway',
+		#	})
+		#else:
 			# connect to SOAP/WSDL service
 			import suds.client
 			self.log("connecting to KEGG data service ...")
