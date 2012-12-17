@@ -8,7 +8,7 @@ class Source_kegg(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.0a3 (2012-12-11)'
+		return '2.0a4 (2012-12-17)'
 	#getVersionString()
 	
 	
@@ -23,30 +23,30 @@ class Source_kegg(loki_source.Source):
 	
 	def validateOptions(self, options):
 		for o,v in options.iteritems():
-			#if o == 'api':
-			#	v = v.strip().lower()
-			#	if 'soap'.startswith(v):
-			#		v = 'soap'
-			#	elif 'rest'.startswith(v):
-			#		v = 'rest'
-			#	else:
-			#		return "api must be 'soap' or 'rest'"
-			#	options[o] = v
-			#else:
+			if o == 'api':
+				v = v.strip().lower()
+				if 'soap'.startswith(v):
+					v = 'soap'
+				elif 'rest'.startswith(v):
+					v = 'rest'
+				else:
+					return "api must be 'soap' or 'rest'"
+				options[o] = v
+			else:
 				return "unexpected option '%s'" % o
 		return True
 	#validateOptions()
 	
 	
 	def download(self, options):
-		# KEGG's REST API license agreement forbids "bulk" downloads, even of this paltry 500 kilobytes
-		# if you enable this code, it might work, but you might also be in violation of KEGG's license terms
-		#if (options.get('api') == 'rest'):
-		#	self.downloadFilesFromHTTP('rest.kegg.jp', {
-		#		'list-pathway-hsa':  '/list/pathway/hsa',
-		#		'link-hsa-pathway':  '/link/hsa/pathway',
-		#	})
-		#else:
+		# KEGG's REST API documentation forbids "bulk" downloads, apparently even of the paltry 500 kilobytes we need;
+		# so if you use the undocumented 'api' option, it might work, but you might also be in violation of KEGG's terms of use
+		if (options.get('api') == 'rest'):
+			self.downloadFilesFromHTTP('rest.kegg.jp', {
+				'list-pathway-hsa':  '/list/pathway/hsa',
+				'link-hsa-pathway':  '/link/hsa/pathway',
+			})
+		else:
 			# connect to SOAP/WSDL service
 			import suds.client
 			self.log("connecting to KEGG data service ...")
