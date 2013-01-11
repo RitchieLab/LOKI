@@ -114,13 +114,27 @@ class Source_dbsnp(loki_source.Source):
 		
 		# process merge report (no header!)
 		if options.get('merges','yes') == 'yes':
+			""" /* from human_9606_table.sql.gz */
+CREATE TABLE [RsMergeArch]
+(
+[rsHigh] [int] NULL ,
+[rsLow] [int] NULL ,
+[build_id] [int] NULL ,
+[orien] [tinyint] NULL ,
+[create_time] [datetime] NOT NULL ,
+[last_updated_time] [datetime] NOT NULL ,
+[rsCurrent] [int] NULL ,
+[orien2Current] [tinyint] NULL ,
+[comment] [varchar](255) NULL
+)
+"""
 			self.log("processing SNP merge records ...")
 			mergeFile = self.zfile('RsMergeArch.bcp.gz') #TODO:context manager,iterator
 			numMerge = 0
 			listMerge = list()
 			for line in mergeFile:
 				words = line.split("\t")
-				if len(words) <= 6:
+				if not (len(words) > 6 and words[0] and words[6]):
 					continue
 				rsOld = long(words[0])
 				#rsNew = long(words[1])
