@@ -63,6 +63,7 @@ class Updater(object):
 		if self._updating:
 			self.flagTableUpdate(table)
 			if table not in self._tablesDeindexed:
+				#print "deindexing %s" % table #DEBUG
 				self._tablesDeindexed.add(table)
 				self._loki.dropDatabaseIndecies(None, 'db', table)
 	#prepareTableForUpdate()
@@ -71,6 +72,7 @@ class Updater(object):
 	def prepareTableForQuery(self, table):
 		if self._updating:
 			if table in self._tablesDeindexed:
+				#print "reindexing %s" % table DEBUG
 				self._tablesDeindexed.remove(table)
 				self._loki.createDatabaseIndecies(None, 'db', table)
 	#prepareTableForQuery()
@@ -279,10 +281,16 @@ class Updater(object):
 			#if any old builds
 			
 			# post-process as needed
+			if 'snp_merge' in self._tablesUpdated:
+				self.cleanupSNPMerges()
 			if 'snp_merge' in self._tablesUpdated or 'snp_locus' in self._tablesUpdated:
 				self.updateMergedSNPLoci()
+			if 'snp_locus' in self._tablesUpdated:
+				self.cleanupSNPLoci()
 			if 'snp_merge' in self._tablesUpdated or 'snp_entrez_role' in self._tablesUpdated:
 				self.updateMergedSNPEntrezRoles()
+			if 'snp_entrez_role' in self._tablesUpdated:
+				self.cleanupSNPEntrezRoles()
 			if 'biopolymer_name' in self._tablesUpdated or 'biopolymer_name_name' in self._tablesUpdated:
 				self.resolveBiopolymerNames()
 			if 'biopolymer_name' in self._tablesUpdated or 'snp_entrez_role' in self._tablesUpdated:
@@ -399,18 +407,47 @@ class Updater(object):
 	#liftOverRegions()
 	
 	
+	def cleanupSNPMerges(self):
+		self.log("verifying SNP merge records ...")
+		self.prepareTableForQuery('snp_merge')
+		dbc = self._db.cursor()
+		
+		# for each set of ROWIDs which constitute a duplicated snp merge, cull all but one
+		cull = set()
+		sql = "SELECT GROUP_CONCAT(_ROWID_) FROM `db`.`snp_merge` GROUP BY rsMerged HAVING COUNT() > 1"
+		#for row in dbc.execute("EXPLAIN QUERY PLAN "+sql): #DEBUG
+		#	print row
+		for row in dbc.execute(sql):
+			cull.update( (long(i),) for i in row[0].split(',')[1:] )
+		#TODO
+		#last = None
+		#for row in dbc.execute("SELECT _ROWID_, rsMerged FROM `db`.`snp_merge` ORDER BY rsMerged"):
+		#	if last == row[1]:
+		#		cull.add(row[0:1])
+		#	last = row[1]
+		if cull:
+			self.flagTableUpdate('snp_merge')
+			dbc.executemany("DELETE FROM `db`.`snp_merge` WHERE _ROWID_ = ?", cull)
+		self.log(" OK: %d duplicate merges\n" % (len(cull),))
+	#cleanupSNPMerges()
+	
+	
 	def updateMergedSNPLoci(self):
 		self.log("checking for merged SNP loci ...")
 		self._loki.testDatabaseUpdate()
 		self.prepareTableForQuery('snp_locus')
 		self.prepareTableForQuery('snp_merge')
-		self._db.cursor().execute("""
-INSERT OR IGNORE INTO `db`.`snp_locus` (rs, chr, pos, validated, source_id)
+		dbc = self._db.cursor()
+		sql = """
+INSERT INTO `db`.`snp_locus` (rs, chr, pos, validated, source_id)
 SELECT sm.rsCurrent, sl.chr, sl.pos, sl.validated, sl.source_id
 FROM `db`.`snp_locus` AS sl
 JOIN `db`.`snp_merge` AS sm
   ON sm.rsMerged = sl.rs
-""")
+"""
+		#for row in dbc.execute("EXPLAIN QUERY PLAN "+sql): #DEBUG
+		#	print row
+		dbc.execute(sql)
 		numCopied = self._db.changes()
 		if numCopied:
 			self.flagTableUpdate('snp_locus')
@@ -418,23 +455,84 @@ JOIN `db`.`snp_merge` AS sm
 	#updateMergedSNPLoci()
 	
 	
+	def cleanupSNPLoci(self):
+		self.log("verifying SNP loci ...")
+		self.prepareTableForQuery('snp_locus')
+		dbc = self._db.cursor()
+		# for each set of ROWIDs which constitute a duplicated snp-locus, cull all but one
+		# but, make sure that if any of the originals were validated, the remaining one is also
+		valid = set()
+		cull = set()
+		sql = "SELECT GROUP_CONCAT(_ROWID_), MAX(validated) FROM `db`.`snp_locus` GROUP BY rs, chr, pos HAVING COUNT() > 1"
+		#for row in dbc.execute("EXPLAIN QUERY PLAN "+sql): #DEBUG
+		#	print row
+		for row in dbc.execute(sql):
+			rowids = row[0].split(',')
+			if row[1]:
+				valid.add( (long(rowids[0]),) )
+			cull.update( (long(i),) for i in rowids[1:] )
+		#TODO
+		#last = None
+		#for row in dbc.execute("SELECT _ROWID_, rs||':'||chr||':'||pos, validated FROM `db`.`snp_locus` ORDER BY rs, chr, pos"):
+		#	if last == row[1]:
+		#		cull.add(row[0:1])
+		#		if row[2]:
+		#			valid.add( last.split(':') )
+		#	last = row[1]
+		if valid:
+			dbc.executemany("UPDATE `db`.`snp_locus` SET validated = 1 WHERE _ROWID_ = ?", valid)
+			#dbc.executemany("UPDATE `db`.`snp_locus` SET validated = 1 WHERE rs = ? AND chr = ? AND pos = ?", valid)
+		if cull:
+			self.flagTableUpdate('snp_locus')
+			dbc.executemany("DELETE FROM `db`.`snp_locus` WHERE _ROWID_ = ?", cull)
+		self.log(" OK: %d duplicate loci\n" % (len(cull),))
+	#cleanupSNPLoci()
+	
+	
 	def updateMergedSNPEntrezRoles(self):
 		self.log("checking for merged SNP roles ...")
 		self._loki.testDatabaseUpdate()
 		self.prepareTableForQuery('snp_entrez_role')
 		self.prepareTableForQuery('snp_merge')
-		self._db.cursor().execute("""
+		dbc = self._db.cursor()
+		sql = """
 INSERT OR IGNORE INTO `db`.`snp_entrez_role` (rs, entrez_id, role_id, source_id)
 SELECT sm.rsCurrent, ser.entrez_id, ser.role_id, ser.source_id
 FROM `db`.`snp_entrez_role` AS ser
 JOIN `db`.`snp_merge` AS sm
   ON sm.rsMerged = ser.rs
-""")
+"""
+		#for row in dbc.execute("EXPLAIN QUERY PLAN "+sql): #DEBUG
+		#	print row
+		dbc.execute(sql)
 		numCopied = self._db.changes()
 		if numCopied:
 			self.flagTableUpdate('snp_entrez_role')
 		self.log(" OK: %d roles copied\n" % (numCopied,))
 	#updateMergedSNPEntrezRoles()
+	
+	
+	def cleanupSNPEntrezRoles(self):
+		self.log("verifying SNP roles ...")
+		self.prepareTableForQuery('snp_entrez_role')
+		dbc = self._db.cursor()
+		cull = set()
+		sql = "SELECT GROUP_CONCAT(_ROWID_) FROM `db`.`snp_entrez_role` GROUP BY rs, entrez_id, role_id HAVING COUNT() > 1"
+		#for row in dbc.execute("EXPLAIN QUERY PLAN "+sql): #DEBUG
+		#	print row
+		for row in dbc.execute(sql):
+			cull.update( (long(i),) for i in row[0].split(',')[1:] )
+		#TODO
+		#last = None
+		#for row in dbc.execute("SELECT _ROWID_, rs||':'||entrez_id||':'||role_id FROM `db`.`snp_entrez_role` ORDER BY rs, entrez_id, role_id"):
+		#	if last == row[1]:
+		#		cull.add(row[0:1])
+		#	last = row[1]
+		if cull:
+			self.flagTableUpdate('snp_entrez_role')
+			dbc.executemany("DELETE FROM `db`.`snp_entrez_role` WHERE _ROWID_ = ?", cull)
+		self.log(" OK: %d duplicate roles\n" % (len(cull),))
+	#cleanupSNPEntrezRoles()
 	
 	
 	def resolveBiopolymerNames(self):
@@ -565,7 +663,7 @@ FROM (
 			# we have to convert entrez_id to a string because the optimizer
 			# won't use the index on biopolymer_name.name if the types don't match
 			dbc.execute("""
-INSERT OR IGNORE INTO `db`.`snp_biopolymer_role` (rs, biopolymer_id, role_id, source_id)
+INSERT INTO `db`.`snp_biopolymer_role` (rs, biopolymer_id, role_id, source_id)
 SELECT ser.rs, bn.biopolymer_id, ser.role_id, ser.source_id
 FROM `db`.`snp_entrez_role` AS ser
 JOIN `db`.`biopolymer_name` AS bn
@@ -577,8 +675,24 @@ JOIN `db`.`biopolymer` AS b
 		
 		#TODO: warning for unknown entrez_ids
 		
-		numTotal = numSNPs = numGenes = 0
 		self.prepareTableForQuery('snp_biopolymer_role')
+		cull = set()
+		sql = "SELECT GROUP_CONCAT(_ROWID_) FROM `db`.`snp_biopolymer_role` GROUP BY rs, biopolymer_id, role_id HAVING COUNT() > 1"
+		#for row in dbc.execute("EXPLAIN QUERY PLAN "+sql): #DEBUG
+		#	print row
+		for row in dbc.execute(sql):
+			cull.update( (long(i),) for i in row[0].split(',')[1:] )
+		#TODO
+		#last = None
+		#for row in dbc.execute("SELECT _ROWID_, rs||':'||biopolymer_id||':'||role_id FROM `db`.`snp_biopolymer_role` ORDER BY rs, biopolymer_id, role_id"):
+		#	if last == row[1]:
+		#		cull.add(row[0:1])
+		#	last = row[1]
+		if cull:
+			self.flagTableUpdate('snp_biopolymer_role')
+			dbc.executemany("DELETE FROM `db`.`snp_biopolymer_role` WHERE _ROWID_ = ?", cull)
+		
+		numTotal = numSNPs = numGenes = 0
 		for row in dbc.execute("SELECT COUNT(), COUNT(DISTINCT rs), COUNT(DISTINCT biopolymer_id) FROM `db`.`snp_biopolymer_role`"):
 			numTotal = row[0]
 			numSNPs = row[1]

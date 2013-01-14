@@ -313,7 +313,8 @@ class Source(object):
 		self._loki.testDatabaseUpdate()
 		self.prepareTableForUpdate('snp_merge')
 		sql = "INSERT OR IGNORE INTO `db`.`snp_merge` (rsMerged,rsCurrent,source_id) VALUES (?,?,%d)" % (self.getSourceID(),)
-		self._db.cursor().executemany(sql, snpMerges)
+		with self._db:
+			self._db.cursor().executemany(sql, snpMerges)
 	#addSNPMerges()
 	
 	
@@ -322,7 +323,8 @@ class Source(object):
 		self._loki.testDatabaseUpdate()
 		self.prepareTableForUpdate('snp_locus')
 		sql = "INSERT OR IGNORE INTO `db`.`snp_locus` (rs,chr,pos,validated,source_id) VALUES (?,?,?,?,%d)" % (self.getSourceID(),)
-		self._db.cursor().executemany(sql, snpLoci)
+		with self._db:
+			self._db.cursor().executemany(sql, snpLoci)
 	#addSNPLoci()
 	
 	
@@ -331,7 +333,8 @@ class Source(object):
 		self._loki.testDatabaseUpdate()
 		self.prepareTableForUpdate('snp_locus')
 		sql = "INSERT OR IGNORE INTO `db`.`snp_locus` (rs,chr,pos,validated,source_id) VALUES (?,%d,?,?,%d)" % (chromosome,self.getSourceID(),)
-		self._db.cursor().executemany(sql, snpLoci)
+		with self._db:
+			self._db.cursor().executemany(sql, snpLoci)
 	#addChromosomeSNPLoci()
 	
 	
@@ -340,7 +343,8 @@ class Source(object):
 		self._loki.testDatabaseUpdate()
 		self.prepareTableForUpdate('snp_entrez_role')
 		sql = "INSERT OR IGNORE INTO `db`.`snp_entrez_role` (rs,entrez_id,role_id,source_id) VALUES (?,?,?,%d)" % (self.getSourceID(),)
-		self._db.cursor().executemany(sql, snpRoles)
+		with self._db:
+			self._db.cursor().executemany(sql, snpRoles)
 	#addSNPEntrezRoles()
 	
 	

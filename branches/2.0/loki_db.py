@@ -17,7 +17,7 @@ class Database(object):
 	def getVersionTuple(cls):
 		# tuple = (major,minor,revision,dev,build,date)
 		# dev must be in ('a','b','rc','release') for lexicographic comparison
-		return (2,0,0,'b',4,'2012-12-11')
+		return (2,0,0,'b',5,'2013-01-14')
 	#getVersionTuple()
 	
 	
@@ -256,12 +256,14 @@ class Database(object):
 			'snp_merge': {
 				'table': """
 (
-  rsMerged INTEGER PRIMARY KEY NOT NULL,
+  rsMerged INTEGER NOT NULL,
   rsCurrent INTEGER NOT NULL,
   source_id TINYINT NOT NULL
 )
 """,
-				'index': {}
+				'index': {
+					'snp_merge__merge_current': '(rsMerged,rsCurrent)',
+				}
 			}, #.db.snp_merge
 			
 			
@@ -272,11 +274,11 @@ class Database(object):
   chr TINYINT NOT NULL,
   pos BIGINT NOT NULL,
   validated TINYINT NOT NULL,
-  source_id TINYINT NOT NULL,
-  PRIMARY KEY (rs,chr,pos)
+  source_id TINYINT NOT NULL
 )
 """,
 				'index': {
+					'snp_locus__rs_chr_pos': '(rs,chr,pos)',
 					'snp_locus__chr_pos_rs': '(chr,pos,rs)',
 					# a (validated,...) index would be nice but adds >1GB to the file size :/
 					#'snp_locus__valid_chr_pos_rs': '(validated,chr,pos,rs)',
@@ -290,11 +292,12 @@ class Database(object):
   rs INTEGER NOT NULL,
   entrez_id INTEGER NOT NULL,
   role_id INTEGER NOT NULL,
-  source_id TINYINT NOT NULL,
-  PRIMARY KEY (entrez_id,rs,role_id)
+  source_id TINYINT NOT NULL
 )
 """,
-				'index': {}
+				'index': {
+					'snp_entrez_role__rs_entrez_role': '(rs,entrez_id,role_id)',
+				}
 			}, #.db.snp_entrez_role
 			
 			
@@ -304,11 +307,11 @@ class Database(object):
   rs INTEGER NOT NULL,
   biopolymer_id INTEGER NOT NULL,
   role_id INTEGER NOT NULL,
-  source_id TINYINT NOT NULL,
-  PRIMARY KEY (rs,biopolymer_id,role_id)
+  source_id TINYINT NOT NULL
 )
 """,
 				'index': {
+					'snp_biopolymer_role__rs_biopolymer_role': '(rs,biopolymer_id,role_id)',
 					'snp_biopolymer_role__biopolymer_rs_role': '(biopolymer_id,rs,role_id)',
 				}
 			}, #.db.snp_biopolymer_role
@@ -544,10 +547,11 @@ class Database(object):
 	# constructor
 	
 	
-	def __init__(self, dbFile=None, testing=False, updating=False):
+	def __init__(self, dbFile=None, testing=False, updating=False, cacheSize=None):
 		# initialize instance properties
 		self._is_test = testing
 		self._updating = updating
+		self._cacheSize = cacheSize
 		self._verbose = False
 		self._logger = None
 		self._logFile = sys.stderr
@@ -652,22 +656,40 @@ class Database(object):
 	# database management
 	
 	
-	def configureDatabase(self, db=None, pageSize=4096, cacheSize=-65536, sync='OFF'):
+	def configureDatabase(self, db=None, cacheSize=None):
 		cursor = self._db.cursor()
 		db = ("%s." % db) if db else None
 		
-		# linux VFS doesn't usually report actual disk cluster size,
-		# so sqlite ends up using 1KB pages by default
-		cursor.execute("PRAGMA %spage_size = %d" % (db,pageSize))
+		# sqlite expects cache in kibibytes, but we prefer the method argument in plain bytes
+		if not cacheSize:
+			cacheSize = -65536
+		elif cacheSize < 0:
+			cacheSize = long(cacheSize / 1024)
 		
-		# cache_size is pages if positive, kilobytes if negative
+		# linux VFS doesn't usually report actual disk cluster size,
+		# so sqlite ends up using 1KB pages by default; we prefer 4kb
+		cursor.execute("PRAGMA %spage_size = 4096" % (db,))
+		
+		# cache_size is pages if positive, kibibytes if negative;
+		# seems to only affect write performance
 		cursor.execute("PRAGMA %scache_size = %d" % (db,cacheSize))
 		
 		# for typical read-only usage, synchronization behavior is moot anyway,
 		# and while updating we're not that worried about a power failure
 		# corrupting the database file since the user could just start the
 		# update over from the beginning; so, we'll take the performance gain
-		cursor.execute("PRAGMA %ssynchronous = %s" % (db,sync))
+		cursor.execute("PRAGMA %ssynchronous = OFF" % (db,))
+		
+		# the journal isn't that big, so keeping it in memory is faster; the
+		# cost is that a system crash will corrupt the database rather than
+		# leaving it recoverable with the on-disk journal (a program crash
+		# should be fine since sqlite will rollback transactions before exiting)
+		cursor.execute("PRAGMA %sjournal_mode = MEMORY" % (db,))
+		
+		# we want EXCLUSIVE while updating since the data shouldn't be read
+		# until ready and we want the performance gain; for normal read usage,
+		# NORMAL is better so multiple users can share a database file
+		cursor.execute("PRAGMA %slocking_mode = %s" % (db,("EXCLUSIVE" if self._updating else "NORMAL")))
 	#configureDatabase()
 	
 		
@@ -686,8 +708,8 @@ class Database(object):
 		self.configureDatabase(db)
 	#attachTempDatabase()
 	
-		
-	def attachDatabaseFile(self, dbFile, readOnly=False, quiet=False):
+	
+	def attachDatabaseFile(self, dbFile, quiet=False):
 		cursor = self._db.cursor()
 		
 		# detach the current db file, if any
@@ -712,7 +734,7 @@ class Database(object):
 			cursor.execute("ATTACH DATABASE ? AS `db`", (dbFile,))
 			self._dbFile = dbFile
 			self._dbNew = (0 == max(row[0] for row in cursor.execute("SELECT COUNT(1) FROM `db`.`sqlite_master`")))
-			self.configureDatabase('db')
+			self.configureDatabase('db', cacheSize=self._cacheSize)
 			
 			# establish or audit database schema
 			err_msg = ""
