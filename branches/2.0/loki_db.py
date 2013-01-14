@@ -657,6 +657,11 @@ class Database(object):
 	# database management
 	
 	
+	def getDatabaseMemoryUsage(self, resetPeak=False):
+		return (apsw.memoryused(), apsw.memoryhighwater(resetPeak))
+	#getDatabaseMemoryUsage()
+	
+	
 	def getDatabaseMemoryLimit(self):
 		return apsw.softheaplimit(-1)
 	#getDatabaseMemoryLimit()
