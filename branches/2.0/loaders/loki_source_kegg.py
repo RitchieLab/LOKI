@@ -25,12 +25,14 @@ class Source_kegg(loki_source.Source):
 		for o,v in options.iteritems():
 			if o == 'api':
 				v = v.strip().lower()
-				if 'soap'.startswith(v):
+				if 'cache'.startswith(v):
+					v = 'cache'
+				elif 'soap'.startswith(v):
 					v = 'soap'
 				elif 'rest'.startswith(v):
 					v = 'rest'
 				else:
-					return "api must be 'soap' or 'rest'"
+					return "api must be 'cache', 'soap' or 'rest'"
 				options[o] = v
 			else:
 				return "unexpected option '%s'" % o
@@ -46,7 +48,7 @@ class Source_kegg(loki_source.Source):
 				'list-pathway-hsa':  '/list/pathway/hsa',
 				'link-hsa-pathway':  '/link/hsa/pathway',
 			})
-		else:
+		elif (options.get('api') == 'soap'):
 			# connect to SOAP/WSDL service
 			import suds.client
 			self.log("connecting to KEGG data service ...")
@@ -78,7 +80,9 @@ class Source_kegg(loki_source.Source):
 				#foreach pathway
 			#with assoc cache file
 			self.log(" OK: %d associations\n" % (numAssoc,))
-		#if api==rest/soap
+		else:
+			# api==cache ; do nothing, update() will just expect the files to already be there
+		#if api==rest/soap/cache
 	#download()
 	
 	
