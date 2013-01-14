@@ -16,7 +16,7 @@ class Source_kegg(loki_source.Source):
 	def getOptions(cls):
 		return None
 		#return {
-		#	'api': '[soap|rest]  --  use the old SOAP or the new REST access API (default: soap)'
+		#	'api': '[cache|soap|rest]  --  use local file cache, the old SOAP API, or the new REST API (default: cache)'
 		#}
 	#getOptions()
 	
