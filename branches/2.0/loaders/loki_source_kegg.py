@@ -82,6 +82,7 @@ class Source_kegg(loki_source.Source):
 			self.log(" OK: %d associations\n" % (numAssoc,))
 		else:
 			# api==cache ; do nothing, update() will just expect the files to already be there
+			pass
 		#if api==rest/soap/cache
 	#download()
 	
