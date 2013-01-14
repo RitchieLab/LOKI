@@ -144,10 +144,10 @@ CREATE TABLE [RsMergeArch]
 				
 				# write to the database after each 2.5 million, to keep memory usage down
 				if len(setMerge) >= 2500000:
+					numMerge += len(setMerge)
 					self.log(" ~%1.1f million so far\n" % (numMerge/1000000.0)) #TODO: time estimate
 					self.log("writing SNP merge records to the database ...")
 					self.addSNPMerges(setMerge)
-					numMerge += len(setMerge)
 					setMerge = set()
 					self.log(" OK\n")
 					self.log("processing SNP merge records ...")
@@ -248,10 +248,10 @@ CREATE TABLE [b137_SNPContigLocusId]
 				
 				# write to the database after each 2.5 million, to keep memory usage down
 				if len(setRole) >= 2500000:
+					numRole += len(setRole)
 					self.log(" ~%1.1f million so far\n" % (numRole/1000000.0)) #TODO: time estimate
 					self.log("writing SNP roles to the database ...")
 					self.addSNPEntrezRoles(setRole)
-					numRole += len(setRole)
 					setRole = set()
 					self.log(" OK\n")
 					self.log("processing SNP roles ...")
