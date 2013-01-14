@@ -281,24 +281,34 @@ class Updater(object):
 			#if any old builds
 			
 			# post-process as needed
+			self.log("MEMORY: %d bytes (%d peak)\n" % (apsw.memoryused(), apsw.memoryhighwater())) #DEBUG
 			if 'snp_merge' in self._tablesUpdated:
 				self.cleanupSNPMerges()
+				self.log("MEMORY: %d MB (%d MB peak)\n" % (apsw.memoryused()/1e6, apsw.memoryhighwater()/1e6)) #DEBUG
 			if 'snp_merge' in self._tablesUpdated or 'snp_locus' in self._tablesUpdated:
 				self.updateMergedSNPLoci()
+				self.log("MEMORY: %d MB (%d MB peak)\n" % (apsw.memoryused()/1e6, apsw.memoryhighwater()/1e6)) #DEBUG
 			if 'snp_locus' in self._tablesUpdated:
 				self.cleanupSNPLoci()
+				self.log("MEMORY: %d MB (%d MB peak)\n" % (apsw.memoryused()/1e6, apsw.memoryhighwater()/1e6)) #DEBUG
 			if 'snp_merge' in self._tablesUpdated or 'snp_entrez_role' in self._tablesUpdated:
 				self.updateMergedSNPEntrezRoles()
+				self.log("MEMORY: %d MB (%d MB peak)\n" % (apsw.memoryused()/1e6, apsw.memoryhighwater()/1e6)) #DEBUG
 			if 'snp_entrez_role' in self._tablesUpdated:
 				self.cleanupSNPEntrezRoles()
+				self.log("MEMORY: %d MB (%d MB peak)\n" % (apsw.memoryused()/1e6, apsw.memoryhighwater()/1e6)) #DEBUG
 			if 'biopolymer_name' in self._tablesUpdated or 'biopolymer_name_name' in self._tablesUpdated:
 				self.resolveBiopolymerNames()
+				self.log("MEMORY: %d MB (%d MB peak)\n" % (apsw.memoryused()/1e6, apsw.memoryhighwater()/1e6)) #DEBUG
 			if 'biopolymer_name' in self._tablesUpdated or 'snp_entrez_role' in self._tablesUpdated:
 				self.resolveSNPBiopolymerRoles()
+				self.log("MEMORY: %d MB (%d MB peak)\n" % (apsw.memoryused()/1e6, apsw.memoryhighwater()/1e6)) #DEBUG
 			if 'biopolymer_name' in self._tablesUpdated or 'group_member_name' in self._tablesUpdated:
 				self.resolveGroupMembers()
+				self.log("MEMORY: %d MB (%d MB peak)\n" % (apsw.memoryused()/1e6, apsw.memoryhighwater()/1e6)) #DEBUG
 			if 'biopolymer_region' in self._tablesUpdated:
 				self.updateBiopolymerZones()
+				self.log("MEMORY: %d MB (%d MB peak)\n" % (apsw.memoryused()/1e6, apsw.memoryhighwater()/1e6)) #DEBUG
 			
 			# reindex all remaining tables
 			self.log("finalizing update ...")

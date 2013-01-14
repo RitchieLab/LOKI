@@ -547,11 +547,11 @@ class Database(object):
 	# constructor
 	
 	
-	def __init__(self, dbFile=None, testing=False, updating=False, cacheSize=None):
+	def __init__(self, dbFile=None, testing=False, updating=False, memLimit=None):
 		# initialize instance properties
 		self._is_test = testing
 		self._updating = updating
-		self._cacheSize = cacheSize
+		self._memLimit = memLimit
 		self._verbose = False
 		self._logger = None
 		self._logFile = sys.stderr
@@ -563,6 +563,7 @@ class Database(object):
 		self._updater = None
 		self._liftOverCache = dict() # { (from,to) : [] }
 		
+		self.setDatabaseMemoryLimit(self._memLimit or 0)
 		self.configureDatabase()
 		self.attachDatabaseFile(dbFile)
 	#__init__()
@@ -656,6 +657,16 @@ class Database(object):
 	# database management
 	
 	
+	def getDatabaseMemoryLimit(self):
+		return apsw.softheaplimit(-1)
+	#getDatabaseMemoryLimit()
+	
+	
+	def setDatabaseMemoryLimit(self, limit=0):
+		apsw.softheaplimit(limit)
+	#setDatabaseMemoryLimit()
+	
+	
 	def configureDatabase(self, db=None, cacheSize=None):
 		cursor = self._db.cursor()
 		db = ("%s." % db) if db else None
@@ -734,7 +745,7 @@ class Database(object):
 			cursor.execute("ATTACH DATABASE ? AS `db`", (dbFile,))
 			self._dbFile = dbFile
 			self._dbNew = (0 == max(row[0] for row in cursor.execute("SELECT COUNT(1) FROM `db`.`sqlite_master`")))
-			self.configureDatabase('db', cacheSize=self._cacheSize)
+			self.configureDatabase('db', cacheSize=self._memLimit)
 			
 			# establish or audit database schema
 			err_msg = ""
