@@ -131,7 +131,7 @@ CREATE TABLE [RsMergeArch]
 			self.log("processing SNP merge records ...")
 			mergeFile = self.zfile('RsMergeArch.bcp.gz') #TODO:context manager,iterator
 			numMerge = 0
-			listMerge = list()
+			setMerge = set()
 			for line in mergeFile:
 				words = line.split("\t")
 				if not (len(words) > 6 and words[0] and words[6]):
@@ -140,26 +140,25 @@ CREATE TABLE [RsMergeArch]
 				#rsNew = long(words[1])
 				rsCur = long(words[6])
 				
-				numMerge += 1
-				listMerge.append( (rsOld,rsCur) )
+				setMerge.add( (rsOld,rsCur) )
 				
-				# write to the database after each million, to keep memory usage down
-				if len(listMerge) >= 1000000:
-					self.log(" %1.f million so far\n" % (numMerge/1000000.0)) #TODO: time estimate
+				# write to the database after each 2.5 million, to keep memory usage down
+				if len(setMerge) >= 2500000:
+					self.log(" ~%1.1f million so far\n" % (numMerge/1000000.0)) #TODO: time estimate
 					self.log("writing SNP merge records to the database ...")
-					self.addSNPMerges(listMerge)
-					listMerge = list()
+					self.addSNPMerges(setMerge)
+					numMerge += len(setMerge)
+					setMerge = set()
 					self.log(" OK\n")
 					self.log("processing SNP merge records ...")
 			#foreach line in mergeFile
-			self.log(" OK: %d merged RS#s\n" % numMerge)
-			
-			# write any remaining records
-			if listMerge:
+			numMerge += len(setMerge)
+			self.log(" OK: ~%d merged RS#s\n" % numMerge)
+			if setMerge:
 				self.log("writing SNP merge records to the database ...")
-				self.addSNPMerges(listMerge)
+				self.addSNPMerges(setMerge)
 				self.log(" OK\n")
-			listMerge = None
+			setMerge = None
 		#if merges
 		
 		# process SNP role function codes
@@ -229,7 +228,7 @@ CREATE TABLE [b137_SNPContigLocusId]
 )
 """
 			self.log("processing SNP roles ...")
-			listRole = list()
+			setRole = set()
 			numRole = 0
 			setOrphan = set()
 			numOrphan = 0
@@ -241,35 +240,36 @@ CREATE TABLE [b137_SNPContigLocusId]
 				#genesymbol = words[6]
 				code = int(words[11])
 				
-				if code not in roleID:
+				try:
+					setRole.add( (rs,entrez,roleID[code]) )
+				except KeyError:
 					setOrphan.add(code)
 					numOrphan += 1
-				else:
-					listRole.append( (rs,entrez,roleID[code]) )
-					numRole += 1
 				
 				# write to the database after each 2.5 million, to keep memory usage down
-				if len(listRole) >= 2500000:
-					self.log(" %1.1f million so far\n" % (numRole/1000000.0)) #TODO: time estimate
+				if len(setRole) >= 2500000:
+					self.log(" ~%1.1f million so far\n" % (numRole/1000000.0)) #TODO: time estimate
 					self.log("writing SNP roles to the database ...")
-					self.addSNPEntrezRoles(listRole)
-					listRole = list()
+					self.addSNPEntrezRoles(setRole)
+					numRole += len(setRole)
+					setRole = set()
 					self.log(" OK\n")
 					self.log("processing SNP roles ...")
 			#foreach line in funcFile
-			self.log(" OK: %d roles\n" % (numRole,))
+			numRole += len(setRole)
+			self.log(" OK: ~%d roles\n" % (numRole,))
+			if setRole:
+				self.log("writing SNP roles to the database ...")
+				self.addSNPEntrezRoles(setRole)
+				self.log(" OK\n")
+			setRole = None
+			
+			# warn about orphans
 			self.logPush()
 			if setOrphan:
 				self.log("WARNING: %d roles (%d codes) unrecognized\n" % (numOrphan,len(setOrphan)))
 			setOrphan = None
 			self.logPop()
-			
-			# write any remaining records
-			if listRole:
-				self.log("writing SNP roles to the database ...")
-				self.addSNPEntrezRoles(listRole)
-				self.log(" OK\n")
-			listRole = None
 		#if roles
 		
 		# process chromosome report files
