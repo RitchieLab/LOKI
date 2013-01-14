@@ -92,15 +92,16 @@ if __name__ == "__main__":
 		if m.endswith('B'):
 			m = m[:-1]
 		if m.endswith('T'):
-			m = long(m[:-1]) * 1024 * 1024 * 1024 * 1024
+			m = float(m[:-1]) * 1024 * 1024 * 1024 * 1024
 		elif m.endswith('G'):
-			m = long(m[:-1]) * 1024 * 1024 * 1024
+			m = float(m[:-1]) * 1024 * 1024 * 1024
 		elif m.endswith('M'):
-			m = long(m[:-1]) * 1024 * 1024
+			m = float(m[:-1]) * 1024 * 1024
 		elif m.endswith('K'):
-			m = long(m[:-1]) * 1024
+			m = float(m[:-1]) * 1024
 		else:
-			m = long(m)
+			m = float(m)
+		m = long(m)
 		if m < (1024*1024*1024 + memLimit):
 			print "WARNING: ignoring '%s' memory allotment, the updater requires ~1gb at minimum" % args.memory
 		else:
