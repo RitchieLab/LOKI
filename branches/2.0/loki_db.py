@@ -881,7 +881,7 @@ class Database(object):
 		cursor = self._db.cursor()
 		current = dict()
 		dbMaster = "`sqlite_temp_master`" if (dbName == "temp") else ("`%s`.`sqlite_master`" % dbName)
-		for row in cursor.execute("SELECT tbl_name,type,name,sql FROM %s WHERE type IN ('table','index')" % dbMaster):
+		for row in cursor.execute("SELECT tbl_name,type,name,COALESCE(sql,'') FROM %s WHERE type IN ('table','index')" % dbMaster):
 			tblName,objType,idxName,objDef = row
 			if tblName not in current:
 				current[tblName] = {'table':None, 'index':{}}
