@@ -86,7 +86,7 @@ if __name__ == "__main__":
 	args = parser.parse_args()
 	
 	# parse memory allotment, if any
-	memLimit = 64*1024*1024
+	memLimit = 64*1024*1024 # default 64mb for sqlite (+ ~1gb for updater itself)
 	if args.memory:
 		m = args.memory.upper()
 		if m.endswith('B'):
@@ -102,11 +102,11 @@ if __name__ == "__main__":
 		else:
 			m = float(m)
 		m = long(m)
-		if m < (1024*1024*1024 + memLimit):
+		if m < 1024*1024*1024:
 			print "WARNING: ignoring '%s' memory allotment, the updater requires ~1gb at minimum" % args.memory
 		else:
 			print "using ~%1.1fMB of memory" % (m / (1024 * 1024))
-			memLimit = m - 1024*1024*1024
+			memLimit = max(memLimit, m - 1024*1024*1024)
 	#if args.memory
 	
 	# instantiate database and load knowledge file, if any

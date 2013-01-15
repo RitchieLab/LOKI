@@ -886,9 +886,9 @@ class Database(object):
 			if tblName not in current:
 				current[tblName] = {'table':None, 'index':{}}
 			if objType == 'table':
-				current[tblName]['table'] = objDef
+				current[tblName]['table'] = " ".join(objDef.strip().split())
 			elif objType == 'index':
-				current[tblName]['index'][idxName] = objDef
+				current[tblName]['index'][idxName] = " ".join(objDef.strip().split())
 		tblEmpty = dict()
 		for tblName in current:
 			tblEmpty[tblName] = True
@@ -904,7 +904,7 @@ class Database(object):
 		for tblName in (tblList or schema.keys()):
 			if doTables:
 				if tblName in current:
-					if current[tblName]['table'].rstrip() == ("CREATE TABLE `%s` %s" % (tblName, schema[tblName]['table'].rstrip())):
+					if current[tblName]['table'] == ("CREATE TABLE `%s` %s" % (tblName, " ".join(schema[tblName]['table'].strip().split()))):
 						if 'data' in schema[tblName] and schema[tblName]['data']:
 							sql = "INSERT OR IGNORE INTO `%s`.`%s` VALUES (%s)" % (dbName, tblName, ("?,"*len(schema[tblName]['data'][0]))[:-1])
 							# TODO: change how 'data' is defined so it can be tested without having to try inserting
@@ -915,7 +915,44 @@ class Database(object):
 					elif doRepair and tblEmpty[tblName]:
 						self.log("WARNING: table '%s' schema mismatch -- repairing ..." % tblName)
 						self.dropDatabaseTables(schema, dbName, tblName)
-						self.createDatabaseTables(schema, dbName, tblName, doIndecies)
+						self.createDatabaseTables(schema, dbName, tblName)
+						current[tblName]['index'] = dict()
+						self.log(" OK\n")
+					elif doRepair and tblName == 'snp_merge' and current[tblName]['table'] == "CREATE TABLE `snp_merge` ( rsMerged INTEGER PRIMARY KEY NOT NULL, rsCurrent INTEGER NOT NULL, source_id TINYINT NOT NULL )":
+						self.log("WARNING: table '%s' schema mismatch -- repairing ..." % tblName)
+						cursor.execute("ALTER TABLE `%s`.`%s` RENAME TO `___old_%s___`" % (dbName,tblName,tblName))
+						self.createDatabaseTables(schema, dbName, tblName)
+						current[tblName]['index'] = dict()
+						columns = "rsMerged,rsCurrent,source_id"
+						cursor.execute("INSERT INTO `%s`.`%s` (%s) SELECT %s FROM `%s`.`___old_%s___`" % (dbName,tblName,columns,columns,dbName,tblName))
+						cursor.execute("DROP TABLE `%s`.`___old_%s___`" % (dbName,tblName))
+						self.log(" OK\n")
+					elif doRepair and tblName == 'snp_locus' and current[tblName]['table'] == "CREATE TABLE `snp_locus` ( rs INTEGER NOT NULL, chr TINYINT NOT NULL, pos BIGINT NOT NULL, validated TINYINT NOT NULL, source_id TINYINT NOT NULL, PRIMARY KEY (rs,chr,pos) )":
+						self.log("WARNING: table '%s' schema mismatch -- repairing ..." % tblName)
+						cursor.execute("ALTER TABLE `%s`.`%s` RENAME TO `___old_%s___`" % (dbName,tblName,tblName))
+						self.createDatabaseTables(schema, dbName, tblName)
+						current[tblName]['index'] = dict()
+						columns = "rs,chr,pos,validated,source_id"
+						cursor.execute("INSERT INTO `%s`.`%s` (%s) SELECT %s FROM `%s`.`___old_%s___`" % (dbName,tblName,columns,columns,dbName,tblName))
+						cursor.execute("DROP TABLE `%s`.`___old_%s___`" % (dbName,tblName))
+						self.log(" OK\n")
+					elif doRepair and tblName == 'snp_entrez_role' and current[tblName]['table'] == "CREATE TABLE `snp_entrez_role` ( rs INTEGER NOT NULL, entrez_id INTEGER NOT NULL, role_id INTEGER NOT NULL, source_id TINYINT NOT NULL, PRIMARY KEY (entrez_id,rs,role_id) )":
+						self.log("WARNING: table '%s' schema mismatch -- repairing ..." % tblName)
+						cursor.execute("ALTER TABLE `%s`.`%s` RENAME TO `___old_%s___`" % (dbName,tblName,tblName))
+						self.createDatabaseTables(schema, dbName, tblName)
+						current[tblName]['index'] = dict()
+						columns = "rs,entrez_id,role_id,source_id"
+						cursor.execute("INSERT INTO `%s`.`%s` (%s) SELECT %s FROM `%s`.`___old_%s___`" % (dbName,tblName,columns,columns,dbName,tblName))
+						cursor.execute("DROP TABLE `%s`.`___old_%s___`" % (dbName,tblName))
+						self.log(" OK\n")
+					elif doRepair and tblName == 'snp_biopolymer_role' and current[tblName]['table'] == "CREATE TABLE `snp_biopolymer_role` ( rs INTEGER NOT NULL, biopolymer_id INTEGER NOT NULL, role_id INTEGER NOT NULL, source_id TINYINT NOT NULL, PRIMARY KEY (rs,biopolymer_id,role_id) )":
+						self.log("WARNING: table '%s' schema mismatch -- repairing ..." % tblName)
+						cursor.execute("ALTER TABLE `%s`.`%s` RENAME TO `___old_%s___`" % (dbName,tblName,tblName))
+						self.createDatabaseTables(schema, dbName, tblName)
+						current[tblName]['index'] = dict()
+						columns = "rs,biopolymer_id,role_id,source_id"
+						cursor.execute("INSERT INTO `%s`.`%s` (%s) SELECT %s FROM `%s`.`___old_%s___`" % (dbName,tblName,columns,columns,dbName,tblName))
+						cursor.execute("DROP TABLE `%s`.`___old_%s___`" % (dbName,tblName))
 						self.log(" OK\n")
 					elif doRepair:
 						self.log("ERROR: table '%s' schema mismatch -- cannot repair\n" % tblName)
@@ -939,7 +976,7 @@ class Database(object):
 						self.log("ERROR: table '%s' is missing for index '%s'\n" % (tblName, idxName))
 						ok = False
 					elif tblName in current and idxName in current[tblName]['index']:
-						if current[tblName]['index'][idxName].rstrip() == ("CREATE INDEX `%s` ON `%s` %s" % (idxName, tblName, schema[tblName]['index'][idxName].rstrip())):
+						if current[tblName]['index'][idxName] == ("CREATE INDEX `%s` ON `%s` %s" % (idxName, tblName, " ".join(schema[tblName]['index'][idxName].strip().split()))):
 							pass
 						elif doRepair:
 							self.log("WARNING: index '%s' on table '%s' schema mismatch -- repairing ..." % (idxName, tblName))
