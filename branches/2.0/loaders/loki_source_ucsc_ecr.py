@@ -17,6 +17,7 @@ class Source_ucsc_ecr(loki_source.Source):
 	_min_sz = 100
 	_min_pct = 0.7
 	_max_gap = 50
+	_chr_list = ('1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19','20','21','22','X','Y')
 	
 	
 	@classmethod
@@ -58,7 +59,6 @@ class Source_ucsc_ecr(loki_source.Source):
 		"""
 		Download the files
 		"""
-		self._chr_list = ('1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19','20','21','22','X','Y')
 		file_dict = dict(((sp + ".chr" + ch + ".phastCons.txt.gz", self._remPath + sp + "/chr" + ch + ".phastCons46way." + v + "wigFix.gz") for (sp, v) in self._comparisons.iteritems() for ch in self._chr_list))
 		file_dict.update(dict(((sp + ".chrMT.phastCons.txt.gz", self._remPath + sp + "/chrM.phastCons46way." + v + "wigFix.gz") for (sp, v) in self._comparisons.iteritems())))
 	
