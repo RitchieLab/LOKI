@@ -69,21 +69,22 @@ def downloadFiles(population):
 	fn_list = []
 	# OK, now we have all the files, unzip them
 	for fn in file_list:
-		print "Extracting", fn
-		fz = gzip.open(fn)
-		f = file(os.path.splitext(fn)[0],'w')
-		for l in fz:
-			print >> f, l,
-		
-		fn_list.append(f.name)
-		
-		f.close()
-		fz.close()
-		os.remove(fz.name)
-
+		if False:
+			print "Extracting", fn
+			fz = gzip.open(fn)
+			f = file(os.path.splitext(fn)[0],'w')
+			for l in fz:
+				print >> f, l,
+			f.close()
+			fz.close()
+			os.remove(fz.name)
+			fn_list.append(f.name)
+		else:
+			fn_list.append(fn)
+	
 	# And return a list of all the files that we've downloaded
 	return fn_list		
-			
+
 
 def genPops(popList, dprimes, rsquared, opts):
 	"""
@@ -140,20 +141,25 @@ def genPops(popList, dprimes, rsquared, opts):
 				print >> idx_file, chr_list[0], "\t", fn
 		
 		idx_file.close()			
-	
+		
 		# Now, get the splines
 		print "Building LD Splines"
 		os.system(opts.ldspline + " load " + idx_file.name)
-	
+		if not opts.keep:
+			for fn in fn_list:
+				os.remove(fn)
+		
 		# Export the splines
 		print "Lifting splines to build 37"
 		os.system(opts.ldspline + " export-lomap " + pop_ext)
-	
+		
 		# Lift over the splines (36->37)
 		os.system(opts.liftover + " " + pop_ext + ".bim " + chainfn + " " + pop_ext + ".new " + pop_ext + ".unmapped")
-	
+		
 		# Re-import the splines
 		os.system(opts.ldspline + " import-lomap " + pop_ext + " 37")
+		if not opts.keep:
+			os.remove(pop_ext + ".ldspline")
 		
 		# print this population's LDspline location 
 		print >> cfg_f, pop_ext, os.path.join(os.getcwd(), pop_ext+"-b37.ldspline"), pop_ext + " population from HapMap"
@@ -191,7 +197,7 @@ if __name__ == "__main__":
 		help="Location of the LOKI databse (default 'knowledge.bio')",
 		default="knowledge.bio")
 	parser.add_option("-k", "--keep-data", dest="keep", action="store_true",
-		help="Do not download data after finished working with it",
+		help="Do not delete data after finished working with it",
 		default=False)
 		
 	(opts, args) = parser.parse_args();
