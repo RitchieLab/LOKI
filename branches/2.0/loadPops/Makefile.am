@@ -9,10 +9,10 @@ pop_loader_SOURCES = ldsplineimporter.cpp \
 	main.cpp
 	
 pop_loader_LDADD = ./ldspline/src/ldspline/libldspline.la \
-	$(SQLITE_LIBS) 	$(BOOST_FILESYSTEM_LIB)
+	$(SQLITE_LIBS) 	$(BOOST_FILESYSTEM_LIB) $(BOOST_IOSTREAMS_LIB)
 
-AM_LDFLAGS= $(BOOST_LDFLAGS) $(BOOST_FILESYSTEM_LDFLAGS) 
+AM_LDFLAGS= $(BOOST_LDFLAGS)
 
 AM_CPPFLAGS = -I$(srcdir)/ldspline/src -DDATA_DIR='"$(datadir)"' \
-	$(BOOST_CPPFLAGS) $(BOOST_FILESYSTEM_CPPFLAGS) $(SQLITE_CFLAGS)
+	$(BOOST_CPPFLAGS) $(SQLITE_CFLAGS)
 
