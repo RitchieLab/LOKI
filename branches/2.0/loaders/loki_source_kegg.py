@@ -8,7 +8,7 @@ class Source_kegg(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.0a4 (2012-12-17)'
+		return '2.0a5 (2012-01-22)'
 	#getVersionString()
 	
 	
