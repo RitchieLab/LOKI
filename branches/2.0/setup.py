@@ -1,10 +1,11 @@
 #! python
+
 from distutils.core import setup
 import distutils.command.install
-
 import autodist
 
 autodist.auto_dirs = ['loadPops']
+
 
 class my_install(autodist.auto_install):
 	"""
@@ -17,7 +18,8 @@ class my_install(autodist.auto_install):
 	def initialize_options(self):
 		autodist.auto_install.initialize_options(self)
 		self.ldprofile = False
-		
+	#initialize_options()
+	
 	def run(self):
 		"""
 		Call auto_install ONLY if ldprofile is enabled!
@@ -28,10 +30,32 @@ class my_install(autodist.auto_install):
 			distutils.command.install.install.run(self)
 		else:
 			autodist.auto_install.run(self)
+	#run()
+#my_install
 
-setup(name='LOKI',version='2.0.0',
-	author='Ritchie Lab',author_email='software@ritchielab.psu.edu',
-	scripts=['loki-build.py','loadPops/buildPopulations.py'],
-	packages=['loki','loki.loaders','loki.loaders.test','loki.util'],
-	package_dir = {'loki': ''},
-	cmdclass={'install':my_install, 'sdist':my_sdist})
+
+setup(
+	name='LOKI',
+	version='2.0.0',
+	author='Ritchie Lab',
+	author_email='software@ritchielab.psu.edu',
+	url='http://ritchielab.psu.edu',
+	scripts=[
+		'loki-build.py',
+		'loadPops/buildPopulations.py'
+	],
+	packages=[
+		'loki',
+		'loki.loaders',
+		'loki.loaders.test',
+		'loki.util'
+	],
+	package_dir={
+		'loki':''
+	},
+	cmdclass={
+		'install':my_install,
+		'sdist':autodist.auto_sdist
+	}
+)
+
