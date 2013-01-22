@@ -14,7 +14,7 @@ class Source_oreganno(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.0a1 (2012-07-06)'
+		return '2.0a2 (2012-09-05)'
 	#getVersionString()
 	
 	
