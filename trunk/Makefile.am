@@ -1,31 +1,37 @@
-SUBDIRS = loadPops
+SUBDIRS = loki/loadPops
 
 noinst_LTLIBRARIES=liblokiupdate.la
 
-liblokiupdate_la_SOURCES=loki_db.py \
+liblokiupdate_la_SOURCES=\
 loki-build.py \
-loki_source.py \
-loki_db.py \
-loki_updater.py \
-__init__.py \
-loaders/__init__.py \
-loaders/loki_source_biogrid.py \
-loaders/loki_source_dbsnp.py \
-loaders/loki_source_entrez.py \
-loaders/loki_source_go.py \
-loaders/loki_source_kegg.py \
-loaders/loki_source_mint.py \
-loaders/loki_source_netpath.py \
-loaders/loki_source_pfam.py \
-loaders/loki_source_pharmgkb.py \
-loaders/loki_source_reactome.py \
-loaders/loki_source_chainfiles.py \
-util/__init__.py \
-util/liftOver.py
+loki/loki_source.py \
+loki/loki_db.py \
+loki/loki_updater.py \
+loki/__init__.py \
+loki/loaders/__init__.py \
+loki/loaders/loki_source_biogrid.py \
+loki/loaders/loki_source_dbsnp.py \
+loki/loaders/loki_source_entrez.py \
+loki/loaders/loki_source_go.py \
+loki/loaders/loki_source_kegg.py \
+loki/loaders/loki_source_mint.py \
+loki/loaders/loki_source_netpath.py \
+loki/loaders/loki_source_pfam.py \
+loki/loaders/loki_source_pharmgkb.py \
+loki/loaders/loki_source_reactome.py \
+loki/loaders/loki_source_chainfiles.py \
+loki/loaders/test/__init__.py \
+loki/loaders/test/loki_source_genes.py \
+loki/loaders/test/loki_source_light.py \
+loki/loaders/test/loki_source_paint.py \
+loki/loaders/test/loki_source_snps.py \
+loki/loaders/test/loki_source_spectrum.py \
+loki/util/__init__.py \
+loki/util/liftOver.py
 
-EXTRA_DIST=loadPops/buildPopulations.py
+EXTRA_DIST=loki/loadPops/buildPopulations.py
 
-bin_SCRIPTS=loadPops/buildPopulations.py
+bin_SCRIPTS=loki/loadPops/buildPopulations.py
 
 if LOKI_INSTALL
 VAR_FILES=knowledge.bio
