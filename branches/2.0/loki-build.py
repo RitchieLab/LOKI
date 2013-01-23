@@ -44,9 +44,10 @@ if __name__ == "__main__":
 	parser.add_argument('-d', '--temp-directory', type=str, metavar='dir', action='store', default=None,
 			help="a directory to use for temporary storage of downloaded or archived source data files (default: platform dependent)"
 	)
-	parser.add_argument('-m', '--memory', type=str, metavar='size', default=None,
-			help="the target amount of system memory to use (not exact, allow some margin); default: ~1gb"
-	)
+	if 0:
+		parser.add_argument('-m', '--memory', type=str, metavar='size', default=None,
+				help="the target amount of system memory to use (not exact, allow some margin); default: ~1gb"
+		)
 	parser.add_argument('-l', '--list-sources', type=str, metavar='source', nargs='*', action='append', default=None,
 			help="list versions and options for the specified source loaders, or if none or '+' are specified, list all available sources"
 	)
@@ -87,7 +88,7 @@ if __name__ == "__main__":
 	
 	# parse memory allotment, if any
 	memLimit = 64*1024*1024 # default 64mb for sqlite (+ ~1gb for updater itself)
-	if args.memory:
+	if 0 and args.memory:
 		m = args.memory.upper()
 		if m.endswith('B'):
 			m = m[:-1]
