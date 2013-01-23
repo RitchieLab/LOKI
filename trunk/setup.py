@@ -4,7 +4,7 @@ from distutils.core import setup
 import distutils.command.install
 import autodist
 
-autodist.auto_dirs = ['loadPops']
+autodist.auto_dirs = ['loki/loadPops']
 
 
 class my_install(autodist.auto_install):
@@ -26,7 +26,7 @@ class my_install(autodist.auto_install):
 		"""
 		# If not using the ldprofile, remove buildpopulations
 		if not self.ldprofile:
-			self.distribution.scripts.remove('loadPops/buildPopulations.py')
+			self.distribution.scripts.remove('loki/loadPops/buildPopulations.py')
 			distutils.command.install.install.run(self)
 		else:
 			autodist.auto_install.run(self)
@@ -42,7 +42,7 @@ setup(
 	url='http://ritchielab.psu.edu',
 	scripts=[
 		'loki-build.py',
-		'loadPops/buildPopulations.py'
+		'loki/loadPops/buildPopulations.py'
 	],
 	packages=[
 		'loki',
@@ -50,9 +50,6 @@ setup(
 		'loki.loaders.test',
 		'loki.util'
 	],
-	package_dir={
-		'loki':''
-	},
 	cmdclass={
 		'install':my_install,
 		'sdist':autodist.auto_sdist

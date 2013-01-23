@@ -8,12 +8,8 @@ import sys
 import tarfile
 import tempfile
 
-
-# Add one level up to the beginning of the python path to allow for running from non-installed location
-if __name__ == "__main__":
-	sys.path.insert(0,os.path.abspath(os.path.join(__file__, "..", "..")))
-
 from loki import loki_db
+
 
 if __name__ == "__main__":
 	version = "LOKI version %s" % (loki_db.Database.getVersionString())
