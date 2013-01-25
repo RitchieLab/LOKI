@@ -17,7 +17,7 @@ class Database(object):
 	def getVersionTuple(cls):
 		# tuple = (major,minor,revision,dev,build,date)
 		# dev must be in ('a','b','rc','release') for lexicographic comparison
-		return (2,0,0,'rc',1,'2013-01-23')
+		return (2,0,0,'rc',2,'2013-01-25')
 	#getVersionTuple()
 	
 	
@@ -786,10 +786,10 @@ class Database(object):
 	#detachDatabaseFile()
 	
 	
-	def testDatabaseUpdate(self):
+	def testDatabaseUpdate(self, ignoreFinalized=False):
 		if self._dbFile == None:
 			raise Exception("ERROR: no knowledge database file is loaded")
-		if int(self.getDatabaseSetting('finalized') or 0):
+		if (not ignoreFinalized) and (int(self.getDatabaseSetting('finalized') or 0)):
 			raise Exception("ERROR: knowledge database has been finalized")
 		try:
 			if self._db.readonly('db'):
@@ -846,7 +846,7 @@ class Database(object):
 	#createDatabaseIndecies()
 	
 	
-	def dropDatabaseObjects(self, schema, dbName, tblList=None, doTables=True, idxList=None, doIndecies=True):
+	def dropDatabaseObjects(self, schema, dbName, tblList=None, doTables=True, idxList=None, doIndecies=True, ignoreFinalized=False):
 		cursor = self._db.cursor()
 		schema = schema or self._schema[dbName]
 		if tblList and isinstance(tblList, str):
@@ -856,7 +856,7 @@ class Database(object):
 		for tblName in (tblList or schema.keys()):
 			if doTables:
 				if dbName == 'db':
-					self.testDatabaseUpdate()
+					self.testDatabaseUpdate(ignoreFinalized)
 				cursor.execute("DROP TABLE IF EXISTS `%s`.`%s`" % (dbName, tblName))
 			elif doIndecies:
 				for idxName in (idxList or schema[tblName]['index'].keys()):
@@ -866,13 +866,13 @@ class Database(object):
 	#dropDatabaseObjects()
 	
 	
-	def dropDatabaseTables(self, schema, dbName, tblList):
-		return self.dropDatabaseObjects(schema, dbName, tblList, True, None, True)
+	def dropDatabaseTables(self, schema, dbName, tblList, ignoreFinalized=False):
+		return self.dropDatabaseObjects(schema, dbName, tblList, True, None, True, ignoreFinalized)
 	#dropDatabaseTables()
 	
 	
-	def dropDatabaseIndecies(self, schema, dbName, tblList, idxList=None):
-		return self.dropDatabaseObjects(schema, dbName, tblList, False, idxList, True)
+	def dropDatabaseIndecies(self, schema, dbName, tblList, idxList=None, ignoreFinalized=False):
+		return self.dropDatabaseObjects(schema, dbName, tblList, False, idxList, True, ignoreFinalized)
 	#dropDatabaseIndecies()
 	
 	
@@ -914,7 +914,7 @@ class Database(object):
 								pass
 					elif doRepair and tblEmpty[tblName]:
 						self.log("WARNING: table '%s' schema mismatch -- repairing ..." % tblName)
-						self.dropDatabaseTables(schema, dbName, tblName)
+						self.dropDatabaseTables(schema, dbName, tblName, ignoreFinalized=True)
 						self.createDatabaseTables(schema, dbName, tblName)
 						current[tblName]['index'] = dict()
 						self.log(" OK\n")
@@ -1017,8 +1017,7 @@ class Database(object):
 	
 	def finalizeDatabase(self):
 		self.log("discarding intermediate data ...")
-		self.testDatabaseUpdate()
-		self.dropDatabaseTables(None, 'db', ('snp_entrez_role','biopolymer_name_name','group_member_name'))
+		self.dropDatabaseTables(None, 'db', ('snp_entrez_role','biopolymer_name_name','group_member_name'), ignoreFinalized=True)
 		self.createDatabaseTables(None, 'db', ('snp_entrez_role','biopolymer_name_name','group_member_name'), True)
 		self.log(" OK\n")
 		self.log("updating optimizer statistics ...")
@@ -1341,7 +1340,7 @@ LEFT JOIN `db`.`snp_locus` AS sl
 	def _lookupBiopolymerIDs(self, typeID, identifiers, minMatch, maxMatch, tally, errorCallback):
 		# typeID=int or Falseish for any
 		# identifiers=[ (namespace,name), ... ]
-		#   namespace='-' for labels, not names
+		#   namespace='' for any, '-' for labels, '=' for biopolymer_id
 		# minMatch=int or Falseish for none
 		# maxMatch=int or Falseish for none
 		# tally=dict() or None
@@ -1349,23 +1348,27 @@ LEFT JOIN `db`.`snp_locus` AS sl
 		# yields (namespace,name,id)
 		
 		sql = """
-SELECT i.namespace, i.identifier, COALESCE(blabel.biopolymer_id,bname.biopolymer_id) AS biopolymer_id
+SELECT i.namespace, i.identifier, COALESCE(bID.biopolymer_id,bLabel.biopolymer_id,bName.biopolymer_id) AS biopolymer_id
 FROM (SELECT ?1 AS namespace, ?2 AS identifier) AS i
-LEFT JOIN `db`.`biopolymer` AS blabel
+LEFT JOIN `db`.`biopolymer` AS bID
+  ON i.namespace = '='
+  AND bID.biopolymer_id = 1*i.identifier
+  AND ( ({0} IS NULL) OR (bID.type_id = {0}) )
+LEFT JOIN `db`.`biopolymer` AS bLabel
   ON i.namespace = '-'
-  AND blabel.label = i.identifier
-  AND ( ({0} IS NULL) OR (blabel.type_id = {0}) )
+  AND bLabel.label = i.identifier
+  AND ( ({0} IS NULL) OR (bLabel.type_id = {0}) )
 LEFT JOIN `db`.`namespace` AS n
-  ON i.namespace != '-'
+  ON i.namespace NOT IN ('=','-')
   AND n.namespace = COALESCE(NULLIF(LOWER(TRIM(i.namespace)),''),n.namespace)
 LEFT JOIN `db`.`biopolymer_name` AS bn
-  ON i.namespace != '-'
+  ON i.namespace NOT IN ('=','-')
   AND bn.name = i.identifier
   AND bn.namespace_id = n.namespace_id
-LEFT JOIN `db`.`biopolymer` AS bname
-  ON i.namespace != '-'
-  AND bname.biopolymer_id = bn.biopolymer_id
-  AND ( ({0} IS NULL) OR (bname.type_id = {0}) )
+LEFT JOIN `db`.`biopolymer` AS bName
+  ON i.namespace NOT IN ('=','-')
+  AND bName.biopolymer_id = bn.biopolymer_id
+  AND ( ({0} IS NULL) OR (bName.type_id = {0}) )
 """.format(int(typeID) if typeID else "NULL")
 		
 		identifier = matches = None
@@ -1500,7 +1503,7 @@ GROUP BY namespace_id
 	def _lookupGroupIDs(self, typeID, identifiers, minMatch, maxMatch, tally, errorCallback):
 		# typeID=int or Falseish for any
 		# identifiers=[ (namespace,name), ... ]
-		#   namespace='' for any, '-' for labels
+		#   namespace='' for any, '-' for labels, '=' for group_id
 		# minMatch=int or Falseish for none
 		# maxMatch=int or Falseish for none
 		# tally=dict() or None
@@ -1508,23 +1511,27 @@ GROUP BY namespace_id
 		# yields (namespace,name,id)
 		
 		sql = """
-SELECT i.namespace, i.identifier, COALESCE(glabel.group_id,gname.group_id) AS group_id
+SELECT i.namespace, i.identifier, COALESCE(gID.group_id,gLabel.group_id,gName.group_id) AS group_id
 FROM (SELECT ?1 AS namespace, ?2 AS identifier) AS i
-LEFT JOIN `db`.`group` AS glabel
+LEFT JOIN `db`.`group` AS gID
+  ON i.namespace = '='
+  AND gID.group_id = 1*i.identifier
+  AND ( ({0} IS NULL) OR (gID.type_id = {0}) )
+LEFT JOIN `db`.`group` AS gLabel
   ON i.namespace = '-'
-  AND glabel.label = i.identifier
-  AND ( ({0} IS NULL) OR (glabel.type_id = {0}) )
+  AND gLabel.label = i.identifier
+  AND ( ({0} IS NULL) OR (gLabel.type_id = {0}) )
 LEFT JOIN `db`.`namespace` AS n
-  ON i.namespace != '-'
+  ON i.namespace NOT IN ('=','-')
   AND n.namespace = COALESCE(NULLIF(LOWER(TRIM(i.namespace)),''),n.namespace)
 LEFT JOIN `db`.`group_name` AS gn
-  ON i.namespace != '-'
+  ON i.namespace NOT IN ('=','-')
   AND gn.name = i.identifier
   AND gn.namespace_id = n.namespace_id
-LEFT JOIN `db`.`group` AS gname
-  ON i.namespace != '-'
-  AND gname.group_id = gn.group_id
-  AND ( ({0} IS NULL) OR (gname.type_id = {0}) )
+LEFT JOIN `db`.`group` AS gName
+  ON i.namespace NOT IN ('=','-')
+  AND gName.group_id = gn.group_id
+  AND ( ({0} IS NULL) OR (gName.type_id = {0}) )
 """.format(int(typeID) if typeID else "NULL")
 		
 		identifier = matches = None
