@@ -1,511 +1,130 @@
-/* example data */
-DELETE FROM namespace;
-INSERT INTO namespace (namespace_id, namespace, polyregion) VALUES (1, 'group', 0);
-INSERT INTO namespace (namespace_id, namespace, polyregion) VALUES (2, 'region', 0);
-INSERT INTO namespace (namespace_id, namespace, polyregion) VALUES (3, 'region_mono', 0);
-INSERT INTO namespace (namespace_id, namespace, polyregion) VALUES (4, 'region_poly', 1);
-DELETE FROM source;
-INSERT INTO source (source_id, source) VALUES (1, 'test');
-DELETE FROM type;
-INSERT INTO type (type_id, type) VALUES (1, 'group');
-INSERT INTO type (type_id, type) VALUES (2, 'region');
-DELETE FROM `group`;
-INSERT INTO `group` (group_id, type_id, label, description, source_id)
-SELECT 1, 1, 'g1', 'group1', 1 ;
-DELETE FROM group_name;
-INSERT INTO group_name (group_id, namespace_id, name, source_id)
-SELECT 1, 1, 'g1', 1 ;
-DELETE FROM group_region_name;
-INSERT INTO group_region_name (group_id, member, namespace_id, name, source_id)
-SELECT 1, 1, 3, 'A', 1 UNION ALL
-SELECT 1, 1, 3, 'B', 1 UNION ALL
-SELECT 1, 2, 3, 'C', 1 UNION ALL
-SELECT 1, 2, 3, 'D', 1 UNION ALL
-SELECT 1, 2, 3, 'E', 1 UNION ALL
-SELECT 1, 3, 3, 'F', 1 UNION ALL
-SELECT 1, 3, 3, 'G', 1 UNION ALL
-SELECT 1, 3, 3, 'H', 1 UNION ALL
-SELECT 1, 4, 3, 'I', 1 UNION ALL
-SELECT 1, 4, 3, 'J', 1 UNION ALL
-SELECT 1, 4, 3, 'K', 1 UNION ALL
-SELECT 1, 4, 3, 'L', 1 UNION ALL
-SELECT 1, 4, 3, 'M', 1 UNION ALL
-SELECT 1, 5, 3, 'N', 1 UNION ALL
-SELECT 1, 5, 4, 'O', 1 UNION ALL
-SELECT 1, 5, 3, 'P', 1 UNION ALL
-SELECT 1, 5, 3, 'Q', 1 UNION ALL
-SELECT 1, 6, 4, 'R', 1 UNION ALL
-SELECT 1, 6, 4, 'S', 1 UNION ALL
-SELECT 1, 6, 3, 'T', 1 UNION ALL
-SELECT 1, 7, 4, 'U', 1 UNION ALL
-SELECT 1, 7, 4, 'V', 1 UNION ALL
-SELECT 1, 7, 3, 'W', 1 ;
-DELETE FROM region;
-INSERT INTO region (region_id, type_id, label, description, source_id)
-SELECT 1, 2, 'r1', 'region1', 1 UNION ALL
-SELECT 2, 2, 'r2', 'region2', 1 UNION ALL
-SELECT 3, 2, 'r3', 'region3', 1 UNION ALL
-SELECT 4, 2, 'r4', 'region4', 1 UNION ALL
-SELECT 5, 2, 'r5', 'region5', 1 UNION ALL
-SELECT 6, 2, 'r6', 'region6', 1 UNION ALL
-SELECT 7, 2, 'r7', 'region7', 1 UNION ALL
-SELECT 8, 2, 'r8', 'region8', 1 UNION ALL
-SELECT 9, 2, 'r9', 'region9', 1 UNION ALL
-SELECT 10, 2, 'r10', 'region10', 1 UNION ALL
-SELECT 11, 2, 'r11', 'region11', 1 UNION ALL
-SELECT 12, 2, 'r12', 'region12', 1 UNION ALL
-SELECT 13, 2, 'r13', 'region13', 1 UNION ALL
-SELECT 14, 2, 'r14', 'region14', 1 UNION ALL
-SELECT 15, 2, 'r15', 'region15', 1 UNION ALL
-SELECT 16, 2, 'r16', 'region16', 1 UNION ALL
-SELECT 17, 2, 'r17', 'region17', 1 UNION ALL
-SELECT 18, 2, 'r18', 'region18', 1 UNION ALL
-SELECT 19, 2, 'r19', 'region19', 1 UNION ALL
-SELECT 20, 2, 'r20', 'region20', 1 UNION ALL
-SELECT 21, 2, 'r21', 'region21', 1 UNION ALL
-SELECT 22, 2, 'r22', 'region22', 1 UNION ALL
-SELECT 23, 2, 'r23', 'region23', 1 ;
-DELETE FROM region_name;
-INSERT INTO region_name (region_id, namespace_id, name, source_id)
-SELECT 1, 3, 'A', 1 UNION ALL
-SELECT 1, 3, 'B', 1 UNION ALL
-SELECT 2, 3, 'C', 1 UNION ALL
-SELECT 2, 3, 'D', 1 UNION ALL
-SELECT 3, 3, 'D', 1 UNION ALL
-SELECT 3, 3, 'E', 1 UNION ALL
-SELECT 4, 3, 'E', 1 UNION ALL
-SELECT 5, 3, 'F', 1 UNION ALL
-SELECT 5, 3, 'G', 1 UNION ALL
-SELECT 6, 3, 'G', 1 UNION ALL
-SELECT 6, 3, 'H', 1 UNION ALL
-SELECT 7, 3, 'I', 1 UNION ALL
-SELECT 7, 3, 'J', 1 UNION ALL
-SELECT 8, 3, 'J', 1 UNION ALL
-SELECT 8, 3, 'K', 1 UNION ALL
-SELECT 8, 3, 'L', 1 UNION ALL
-SELECT 9, 3, 'K', 1 UNION ALL
-SELECT 10, 3, 'L', 1 UNION ALL
-SELECT 10, 3, 'M', 1 UNION ALL
-SELECT 11, 3, 'N', 1 UNION ALL
-SELECT 11, 4, 'O', 1 UNION ALL
-SELECT 12, 4, 'O', 1 UNION ALL
-SELECT 13, 4, 'O', 1 UNION ALL
-SELECT 13, 3, 'P', 1 UNION ALL
-SELECT 14, 3, 'P', 1 UNION ALL
-SELECT 14, 3, 'Q', 1 UNION ALL
-SELECT 15, 3, 'Q', 1 UNION ALL
-SELECT 16, 4, 'R', 1 UNION ALL
-SELECT 17, 4, 'R', 1 UNION ALL
-SELECT 16, 4, 'S', 1 UNION ALL
-SELECT 17, 4, 'S', 1 UNION ALL
-SELECT 17, 3, 'T', 1 UNION ALL
-SELECT 18, 3, 'T', 1 UNION ALL
-SELECT 19, 4, 'U', 1 UNION ALL
-SELECT 20, 4, 'U', 1 UNION ALL
-SELECT 21, 4, 'U', 1 UNION ALL
-SELECT 20, 4, 'V', 1 UNION ALL
-SELECT 21, 4, 'V', 1 UNION ALL
-SELECT 22, 4, 'V', 1 UNION ALL
-SELECT 22, 3, 'W', 1 UNION ALL
-SELECT 23, 3, 'W', 1 ;
+===== original primary keys, local disk =====
+2557.66user 815.13system 1:27:01elapsed 64%CPU (0avgtext+0avgdata 4870352maxresident)k
+264104inputs+82136064outputs (4major+183562minor)pagefaults 0swaps
+
+===== indexes with GROUP BY postprocessing, local disk =====
+3489.59user 2125.53system 2:18:35elapsed 67%CPU (0avgtext+0avgdata 15294496maxresident)k
+8228192inputs+188924296outputs (52major+887259minor)pagefaults 0swaps
+
+===== indexes with GROUP BY postprocessing, PRAGMAs, local pre-cull, local disk =====
+2564.91user 1464.36system 1:08:02elapsed 98%CPU (0avgtext+0avgdata 4694688maxresident)k
+620392inputs+27771520outputs (3major+264118minor)pagefaults 0swaps
+
+===== indexes with ORDER BY postprocessing, PRAGMAs, local pre-cull, local disk =====
+2666.49user 1476.42system 1:10:17elapsed 98%CPU (0avgtext+0avgdata 4669552maxresident)k
+1890416inputs+27771608outputs (28major+322396minor)pagefaults 0swaps
+
+===== indexes with GROUP BY postprocessing, PRAGMAs, local pre-cull, 4gb cache, local disk =====
+2607.86user 1572.34system 1:11:45elapsed 97%CPU (0avgtext+0avgdata 4421408maxresident)k
+5578160inputs+27772736outputs (27major+861648minor)pagefaults 0swaps
+
+===== indexes with GROUP BY postprocessing, PRAGMAs, local pre-cull, default memlimit, local disk =====
+MEMORY: 67062560 bytes (68085552 peak)
+MEMORY: 67114784 bytes (68085552 peak)
+2686.76user 2056.20system 1:21:21elapsed 97%CPU (0avgtext+0avgdata 4634512maxresident)k
+3496840inputs+37648368outputs (26major+470001minor)pagefaults 0swaps
+
+===== indexes with GROUP BY postprocessing, PRAGMAs, local pre-cull, 2gb memlimit, local disk =====
+MEMORY: 1073261528 bytes (1074284520 peak)
+MEMORY: 1073748152 bytes (1074284520 peak)
+2698.38user 1979.49system 1:20:12elapsed 97%CPU (0avgtext+0avgdata 7898576maxresident)k
+3201392inputs+37648048outputs (29major+1280397minor)pagefaults 0swaps
+
+===== indexes with GROUP BY postprocessing, PRAGMAs, local pre-cull, on LionXG local disk =====
+2335.36user 1072.20system 1:13:43elapsed 77%CPU (0avgtext+0avgdata 21485936maxresident)k
+29305752inputs+70140944outputs (17major+1422631minor)pagefaults 0swaps
+
+===== indexes with GROUP BY postprocessing, PRAGMAs, local pre-cull, on LionXG local disk, 3.5gb memlimit =====
+MEMORY: 466200 bytes (1510912 peak)
+MEMORY: 461952 bytes (6016520 peak)
+2285.97user 1290.08system 1:00:00elapsed 99%CPU (0avgtext+0avgdata 4437040maxresident)k
+56inputs+70043704outputs (1major+238113minor)pagefaults 0swaps
+
+===== indexes with GROUP BY postprocessing, PRAGMAs, local pre-cull, on LionXG local disk, 3.5gb memlimit, dbsnp last =====
+2817.80user 1981.05system 1:24:07elapsed 95%CPU (0avgtext+0avgdata 4391504maxresident)k
+0inputs+45418600outputs (0major+242013minor)pagefaults 0swaps
 
 
-/* a 'poly name' is one whose namespace indicates it may legitimately match multiple gene regions */
-/* a 'poly region' is one which is matched by a poly name */
-/* a 'side name' is a non-poly name which matches a poly region */
-/* a 'side region' is a non-poly region which is matched by a side name */
-/* an 'other name' is a non-poly, non-side name */
-/* an 'other region' is a non-poly, non-side region which is matched by an other name */
+===== full build on LionXG, 3.5gb memlimit, all on gpfs =====
+MEMORY: 566232 bytes (1575448 peak)
+MEMORY: 9475456 bytes (22364816 peak)
+9808.98user 4032.61system 15:07:25elapsed 25%CPU (0avgtext+0avgdata 4526512maxresident)k
+0inputs+24269184outputs (0major+342983minor)pagefaults 0swaps
 
+===== full build on LionXG, 3.5gb memlimit, local disk =====
+MEMORY: 566304 bytes (1575520 peak)
+MEMORY: 9475528 bytes (22364888 peak)
+9621.22user 2225.09system 3:43:57elapsed 88%CPU (0avgtext+0avgdata 4524320maxresident)k
+15295920inputs+88378344outputs (2major+359315minor)pagefaults 0swaps
 
-DROP TABLE _group_region_name_score;
-/* name resolution scores */
-CREATE TEMP TABLE _group_region_name_score (
-  group_id INTERGER NOT NULL,
-  member INTEGER NOT NULL,
-  polynames INTEGER NOT NULL,
-  region_id INTEGER NOT NULL,
-  implication INTEGER NOT NULL,
-  quality INTEGER NOT NULL,
-  PRIMARY KEY (group_id, member, region_id)
-);
-DELETE FROM _group_region_name_score;
-INSERT INTO _group_region_name_score
-/* calculate implication and quality scores for each possible match for each member */
-SELECT
-  group_id,
-  member,
-  polynames,
-  region_id,
-  COUNT(DISTINCT grn_rowid) AS implication,
-  (CASE WHEN polynames > 0 THEN 1000 * COUNT(DISTINCT grn_rowid) ELSE SUM(1000 / region_count) END) AS quality
-FROM (
-  /* count the number of possible matches for each name of each member */
-  SELECT
-    grn._ROWID_ AS grn_rowid,
-    grn.group_id,
-    grn.member,
-    grn.namespace_id,
-    grn.name,
-    polynames,
-    COUNT(DISTINCT rn.region_id) AS region_count
-  FROM (
-    /* count the number of matchable polyregion names for each member */
-    SELECT
-      grn.group_id,
-      grn.member,
-      COUNT(DISTINCT (CASE WHEN n.polyregion > 0 THEN grn._ROWID_ ELSE NULL END)) AS polynames
-    FROM group_region_name AS grn
-    JOIN region_name AS rn USING (namespace_id, name)
-    JOIN namespace AS n USING (namespace_id)
-    GROUP BY grn.group_id, grn.member
-  )
-  JOIN group_region_name AS grn USING (group_id, member)
-  JOIN region_name AS rn USING (namespace_id, name)
-  JOIN namespace AS n USING (namespace_id)
-  WHERE n.polyregion > 0 OR polynames = 0
-  GROUP BY grn.group_id, grn.member, grn.namespace_id, grn.name
-)
-JOIN region_name AS rn USING (namespace_id, name)
-GROUP BY group_id, member, region_id
-;
+===== full build on RitchieDB, 1gb memlimit, local disk =====
+MEMORY: 67179880 bytes (68158896 peak)
+MEMORY: 67443264 bytes (71458976 peak)
+8680.24user 2299.44system 3:26:03elapsed 88%CPU (0avgtext+0avgdata 4788688maxresident)k
+1808inputs+101156576outputs (0major+333351minor)pagefaults 0swaps
 
+===== single no-ECR build on ACCRE, cache-only, 3.5gb memlimit, all on gpfs =====
+MEMORY: 547952 bytes (1578096 peak)
+MEMORY: 9470984 bytes (22350408 peak)
+4640.29user 3065.78system 2:27:11elapsed 87%CPU (0avgtext+0avgdata 4522192maxresident)k
+14728inputs+30787680outputs (0major+320317minor)pagefaults 0swaps
 
-/* pre-assignment member stats */
-SELECT
-  (SELECT COUNT() FROM (SELECT 1 FROM group_region_name GROUP BY group_id, member)) AS member_total,
-  (SELECT COUNT() FROM (SELECT 1 FROM group_region_name LEFT JOIN region_name USING (namespace_id, name) GROUP BY group_id, member HAVING MAX(region_id) IS NULL)) AS member_unmatched,
-  COUNT() AS member_matched,
-  SUM(CASE WHEN match_basic = 1 OR (polynames > 0 AND member_variance = 1) THEN 1 ELSE 0 END) AS basic_resolved,
-  SUM(CASE WHEN match_basic = 1 OR (polynames > 0 AND member_variance = 1) THEN 0 ELSE 1 END) AS basic_ambiguous,
-  SUM(CASE WHEN match_implication = 1 OR (polynames > 0 AND match_implication > 1) THEN 1 ELSE 0 END) AS implication_resolved,
-  SUM(CASE WHEN match_implication = 1 OR (polynames > 0 AND match_implication > 1) THEN 0 ELSE 1 END) AS implication_ambiguous,
-  SUM(CASE WHEN match_quality = 1 OR (polynames > 0 AND match_quality > 1) THEN 1 ELSE 0 END) AS quality_resolved,
-  SUM(CASE WHEN match_quality = 1 OR (polynames > 0 AND match_quality > 1) THEN 0 ELSE 1 END) AS quality_ambiguous
-FROM (
-    /* identify number of matches with the best score for each member */
-    SELECT
-      group_id,
-      member,
-      polynames,
-      COUNT(DISTINCT implication) AS member_variance,
-      member_implication,
-      member_quality,
-      COUNT() match_basic,
-      SUM(CASE WHEN implication >= member_implication THEN 1 ELSE 0 END) AS match_implication,
-      SUM(CASE WHEN quality >= member_quality THEN 1 ELSE 0 END) AS match_quality
-    FROM (
-      /* identify best scores for each member */
-      SELECT
-        group_id,
-        member,
-        polynames,
-        MAX(implication) AS member_implication,
-        MAX(quality) AS member_quality
-      FROM _group_region_name_score
-      GROUP BY group_id, member, polynames
-    )
-    JOIN _group_region_name_score USING (group_id, member, polynames)
-    GROUP BY group_id, member, polynames
-)
-;
+===== single no-ECR build on ACCRE, with download, 3.5gb memlimit, all on gpfs =====
+MEMORY: 547952 bytes (1575416 peak)
+MEMORY: 9470984 bytes (22353392 peak)
+4807.82user 3012.10system 3:14:07elapsed 67%CPU (0avgtext+0avgdata 4523904maxresident)k
+144inputs+35803480outputs (0major+312840minor)pagefaults 0swaps
 
+===== separate no-ECR build on ACCRE, cache-only, 3.5gb memlimit, all on gpfs =====
+resources_used.cput=03:08:06
+resources_used.mem=1744852kb
+resources_used.vmem=2245956kb
+resources_used.walltime=03:34:49
 
-DELETE FROM group_region;
-/* group-region assignments with confidence scores */
-INSERT INTO group_region
-SELECT
-  group_id,
-  region_id,
-  MAX(specificity) AS specificity,
-  MAX(implication) AS implication,
-  MAX(quality) AS quality
-FROM (
-  /* identify specific matches with the best score for each member */
-  SELECT
-    group_id,
-    member,
-    region_id,
-    (CASE
-      WHEN polynames THEN 100 / member_variance
-      ELSE 100 / match_basic
-    END) AS specificity,
-    (CASE
-      WHEN polynames THEN 100 * implication / member_implication
-      WHEN implication = member_implication THEN 100 / match_implication
-      ELSE 0
-    END) AS implication,
-    (CASE
-      WHEN polynames THEN 100 * quality / member_quality
-      WHEN quality = member_quality THEN 100 / match_quality
-      ELSE 0
-    END) AS quality
-  FROM (
-    /* identify number of matches with the best score for each member */
-    SELECT
-      group_id,
-      member,
-      polynames,
-      COUNT(DISTINCT implication) AS member_variance,
-      member_implication,
-      member_quality,
-      COUNT() match_basic,
-      SUM(CASE WHEN implication >= member_implication THEN 1 ELSE 0 END) AS match_implication,
-      SUM(CASE WHEN quality >= member_quality THEN 1 ELSE 0 END) AS match_quality
-    FROM (
-      /* identify best scores for each member */
-      SELECT
-        group_id,
-        member,
-        polynames,
-        MAX(implication) AS member_implication,
-        MAX(quality) AS member_quality
-      FROM _group_region_name_score
-      GROUP BY group_id, member, polynames
-    )
-    JOIN _group_region_name_score USING (group_id, member, polynames)
-    GROUP BY group_id, member, polynames
-  )
-  JOIN _group_region_name_score USING (group_id, member, polynames)
-  GROUP BY group_id, member, region_id
-)
-GROUP BY group_id, region_id
-;
+===== original primary keys, separate no-ECR build on ACCRE =====
+2 days, +over 3 hours for schema rollup
 
+===== single no-ECR build on ACCRE =====
+MEMORY: 67161896 bytes (68158952 peak)
+MEMORY: 67439064 bytes (71327176 peak)
+4591.11user 2882.00system 2:26:32elapsed 84%CPU (0avgtext+0avgdata 4787200maxresident)k
+272inputs+45065392outputs (0major+316971minor)pagefaults 0swaps
 
-/* group-region placeholders for unmatched members */
-INSERT INTO group_region
-SELECT
-  group_id,
-  0 AS region_id,
-  COUNT() AS specificity,
-  0 AS implication,
-  0 AS quality
-FROM (
-  SELECT group_id
-  FROM group_region_name
-  LEFT JOIN region_name USING (namespace_id, name)
-  GROUP BY group_id, member
-  HAVING MAX(region_id) IS NULL
-)
-GROUP BY group_id
-;
+===== ldprofiles on LionXG, 2 pops, 8 values, local disk =====
+17018.12user 176.34system 5:03:30elapsed 94%CPU (0avgtext+0avgdata 6838240maxresident)k
+160inputs+120079888outputs (2major+6882985minor)pagefaults 0swaps
 
+===== ldprofiles on ACCRE, 2 pops, 8 values, gpfs =====
+25296.87user 377.90system 8:43:51elapsed 81%CPU (0avgtext+0avgdata 6838096maxresident)k
+240inputs+88976outputs (2major+6909967minor)pagefaults 0swaps
 
-/* post-assignment match stats */
-SELECT
-  SUM(CASE WHEN region_id = 0 THEN specificity ELSE 0 END) AS unmatched,
-  SUM(CASE WHEN region_id > 0 AND specificity >= 100 THEN 1 ELSE 0 END) AS basic_strict,
-  SUM(CASE WHEN region_id > 0 AND specificity > 0 THEN 1 ELSE 0 END) AS basic_permissive,
-  SUM(CASE WHEN region_id > 0 AND implication >= 100 THEN 1 ELSE 0 END) AS implication_strict,
-  SUM(CASE WHEN region_id > 0 AND implication > 0 THEN 1 ELSE 0 END) AS implication_permissive,
-  SUM(CASE WHEN region_id > 0 AND quality >= 100 THEN 1 ELSE 0 END) AS quality_strict,
-  SUM(CASE WHEN region_id > 0 AND quality > 0 THEN 1 ELSE 0 END) AS quality_permissive
-FROM group_region
-;
+===== finalize on LionXG, local disk =====
+288.07user 55.77system 8:26.16elapsed 67%CPU (0avgtext+0avgdata 309328maxresident)k
+520inputs+50878416outputs (0major+20199minor)pagefaults 0swaps
 
+===== finalize on LionXG, gpfs =====
+285.12user 82.22system 25:14.84elapsed 24%CPU (0avgtext+0avgdata 309360maxresident)k
+0inputs+12506232outputs (0major+20202minor)pagefaults 0swaps
 
-/* post-assignment group details */
-SELECT
-  NULL AS mode,
-  NULL AS group_id,
-  'strict' AS strict,
-  'permissive' AS permissive
-UNION ALL
-SELECT * FROM (
-  SELECT
-    'basic' AS mode,
-    group_id,
-    GROUP_CONCAT(CASE WHEN region_id > 0 AND specificity >= 100 THEN region_id ELSE NULL END) AS basic_strict,
-    GROUP_CONCAT(CASE WHEN region_id > 0 AND specificity > 0 THEN region_id ELSE NULL END) AS basic_permissive
-  FROM group_region
-  GROUP BY group_id
-  UNION ALL
-  SELECT
-    'impl.' AS mode,
-    group_id,
-    GROUP_CONCAT(CASE WHEN region_id > 0 AND implication >= 100 THEN region_id ELSE NULL END) AS implication_strict,
-    GROUP_CONCAT(CASE WHEN region_id > 0 AND implication > 0 THEN region_id ELSE NULL END) AS implication_permissive
-  FROM group_region
-  GROUP BY group_id
-  UNION ALL
-  SELECT
-    'qual.' AS mode,
-    group_id,
-    GROUP_CONCAT(CASE WHEN region_id > 0 AND quality >= 100 THEN region_id ELSE NULL END) AS quality_strict,
-    GROUP_CONCAT(CASE WHEN region_id > 0 AND quality > 0 THEN region_id ELSE NULL END) AS quality_permissive
-  FROM group_region
-  GROUP BY group_id
-)
-WHERE group_id = 1
-;
-
-
-/* strategy comparison examples */
-SELECT
-  g.label,
-  grn.member,
-  n.namespace || (CASE WHEN n.polyregion THEN '*' ELSE '' END) AS namespace,
-  grn.name,
-  rn.region_id
-FROM (
-  SELECT
-    g.group_id,
-    g.label,
-    GROUP_CONCAT(CASE WHEN gr.specificity >= 100 THEN r.label ELSE NULL END) AS basic_strict,
-    GROUP_CONCAT(CASE WHEN gr.specificity > 0 THEN r.label ELSE NULL END) AS basic_permissive,
-    GROUP_CONCAT(CASE WHEN gr.implication >= 100 THEN r.label ELSE NULL END) AS implication_strict,
-    GROUP_CONCAT(CASE WHEN gr.implication > 0 THEN r.label ELSE NULL END) AS implication_permissive,
-    GROUP_CONCAT(CASE WHEN gr.quality >= 100 THEN r.label ELSE NULL END) AS quality_strict,
-    GROUP_CONCAT(CASE WHEN gr.quality > 0 THEN r.label ELSE NULL END) AS quality_permissive
-  FROM `group` AS g
-  JOIN group_region AS gr USING (group_id)
-  JOIN region AS r USING (region_id)
-  GROUP BY g.group_id
-  HAVING
-    (1 AND basic_strict = basic_permissive AND basic_strict = implication_strict AND basic_strict = implication_permissive AND basic_strict = quality_strict AND basic_strict = quality_permissive) OR
-    (0 AND basic_strict != implication_strict) OR
-    (0 AND implication_strict != quality_strict) OR
-    (0 AND basic_permissive != implication_permissive) OR
-    (0 AND implication_permissive != quality_permissive) OR
-    (0 AND basic_strict != basic_permissive) OR
-    (0 AND implication_strict != implication_permissive) OR
-    (0 AND quality_strict != quality_permissive)
-  LIMIT 1
-) AS g
-JOIN group_region_name AS grn USING (group_id)
-JOIN region_name AS rn USING (namespace_id, name)
-JOIN namespace AS n USING (namespace_id)
-;
+===== finalize on ACCRE, gpfs =====
+415.53user 79.68system 43:51.48elapsed 18%CPU (0avgtext+0avgdata 308704maxresident)k
+0inputs+11454392outputs (0major+20985minor)pagefaults 0swaps
 
 
 
-SELECT
-  (SELECT source FROM `group` JOIN source USING (source_id) WHERE group_id = g.group_id) AS source,
-  (SELECT GROUP_CONCAT(name) FROM group_name WHERE group_id = g.group_id) AS names,
-  g.group_id,
-  g.member,
-  GROUP_CONCAT(DISTINCT n.namespace || (CASE WHEN n.polyregion THEN '*' ELSE '' END)) AS namespace,
-  grn.name,
-  GROUP_CONCAT(DISTINCT rn.region_id) AS region_id
-FROM (
-    /* identify number of matches with the best score for each member */
-    SELECT
-      group_id,
-      member,
-      polynames,
-      COUNT(DISTINCT implication) AS member_variance,
-      member_implication,
-      member_quality,
-      COUNT() match_basic,
-      SUM(CASE WHEN implication >= member_implication THEN 1 ELSE 0 END) AS match_implication,
-      SUM(CASE WHEN quality >= member_quality THEN 1 ELSE 0 END) AS match_quality
-    FROM (
-      /* identify best scores for each member */
-      SELECT
-        group_id,
-        member,
-        polynames,
-        MAX(implication) AS member_implication,
-        MAX(quality) AS member_quality
-      FROM _group_region_name_score
-      GROUP BY group_id, member, polynames
-    )
-    JOIN _group_region_name_score USING (group_id, member, polynames)
-    GROUP BY group_id, member, polynames
-    HAVING
-      (0 AND polynames = 0 AND match_basic = 1) OR
-      (0 AND polynames = 0 AND match_basic > 1 AND match_implication = 1 AND match_quality > 1) OR
-      (0 AND polynames = 0 AND match_basic > 1 AND match_implication > 1 AND match_quality = 1) OR
-      (0 AND polynames = 0 AND match_basic > 1 AND match_implication = 1 AND match_quality = 1) OR
-      (0 AND polynames = 0 AND match_basic > 1 AND match_implication > 1 AND match_quality > 1) OR
-      (0 AND polynames > 0 AND match_basic > 1 AND member_implication = 1 AND member_variance = 1) OR
-      (0 AND polynames > 0 AND match_basic > 1 AND member_implication > 1 AND member_variance = 1) OR
-      (0 AND polynames > 0 AND match_basic > 1 AND member_implication > 1 AND member_variance > 1) OR
-      (1 AND polynames > 1)
-    LIMIT 10
-) AS g
-JOIN group_region_name AS grn USING (group_id, member)
-JOIN region_name AS rn USING (namespace_id, name)
-JOIN namespace AS n USING (namespace_id)
-GROUP BY g.group_id, g.member, grn.name
-;
+===== as of rc2 =====
 
+CaptainHammer (Intel Xeon E5606 2.13 GHz; local disk)
+	full data build: 5h, ~1.2gb RAM
+	2pop 6val LD: 8h, ~1.7gb RAM
+	finalize: 25m, ~100kb RAM
+LionXG (Intel Xeon E5-2665 2.40 GHz; local disk)
+	full data build: 3h10m, ~1.2gb RAM
+	2pop 6val LD: 5h15m, ~1.7gb RAM
+	finalize: 8m, ~100kb RAM
+ACCRE (AMD Opteron 2.4 GHz; GPFS)
+	non-ECR build: 2h10m, ~1.2gb RAM
+	2pop 4val LD: 8h15m, ~1.7gb RAM
+	2pop 6val LD: 9h15m, ~1.7gb RAM (Intel Nehalem 2.3 GHz)
+	finalize: 20m, ~100kb RAM
 
-
-
-
-
-DROP TABLE _region_name_name_score;
-/* region-name-name resolution scores */
-CREATE TEMP TABLE _region_name_name_score (
-  new_namespace_id INTERGER NOT NULL,
-  new_name VARCHAR(256) NOT NULL,
-  region_id INTEGER NOT NULL,
-  implication INTEGER NOT NULL,
-  PRIMARY KEY (new_namespace_id, new_name, region_id)
-);
-DELETE FROM _region_name_name_score;
-INSERT INTO _region_name_name_score
-/* calculate implication score for each possible match for each name */
-SELECT
-  rnn.new_namespace_id,
-  rnn.new_name,
-  rn.region_id,
-  COUNT(1) AS implication
-FROM region_name_name AS rnn
-JOIN region_name AS rn USING (namespace_id, name)
-GROUP BY rnn.new_namespace_id, rnn.new_name, rn.region_id
-;
-
-
-/* identify specific match with the best score for each name */
-SELECT
-  region_id,
-  new_namespace_id,
-  new_name,
-  1 AS derived,
-  0 AS source_id
-FROM (
-  /* identify names with only one best-score match */
-  SELECT
-    new_namespace_id,
-    new_name,
-    name_implication,
-    SUM(CASE WHEN implication >= name_implication THEN 1 ELSE 0 END) AS match_implication
-  FROM (
-    /* identify best score for each name */
-    SELECT
-      new_namespace_id,
-      new_name,
-      MAX(implication) AS name_implication
-    FROM _region_name_name_score
-    GROUP BY new_namespace_id, new_name
-  )
-  JOIN _region_name_name_score USING (new_namespace_id, new_name)
-  GROUP BY new_namespace_id, new_name
-  HAVING match_implication = 1
-)
-JOIN _region_name_name_score USING (new_namespace_id, new_name)
-WHERE implication >= name_implication
-;
-
-
-
-
-==================================================================
-
-snp role duplicates
-
-10000007	NT_016354	19	39100973	39100973	817	CAMK2D	NM_001221	3			6				37_3	224514665					224514665	212549749	1			ctgProt
-10000007	NT_016354	19	39100973	39100973	817	CAMK2D	NM_172128	2			6				37_3	224514665					224514665	212549750	1			ctgProt
-10000007	NT_016354	19	39100973	39100973	817	CAMK2D	NM_172127	2			6				37_3	224514665					224514665	212549751	1			ctgProt
-10000007	NT_016354	19	39100973	39100973	817	CAMK2D	NM_172114	1			6				37_3	224514665					224514665	212549752	1			ctgProt
-10000007	NT_016354	19	39100973	39100973	817	CAMK2D	NM_172115	2			6				37_3	224514665					224514665	212549754	1			ctgProt
-10000007	NT_016354	19	39100973	39100973	817	CAMK2D	NM_172129	1			6				37_3	224514665					224514665	212549755	1			ctgProt
-10000007	NW_001838915	1	39043125	39043125	817	CAMK2D	NM_001221	3			6				37_3	157696476					157696476	212549749	1			ctgProt
-10000007	NW_001838915	1	39043125	39043125	817	CAMK2D	NM_172128	2			6				37_3	157696476					157696476	212549750	1			ctgProt
-10000007	NW_001838915	1	39043125	39043125	817	CAMK2D	NM_172127	2			6				37_3	157696476					157696476	212549751	1			ctgProt
-10000007	NW_001838915	1	39043125	39043125	817	CAMK2D	NM_172114	1			6				37_3	157696476					157696476	212549752	1			ctgProt
-10000007	NW_001838915	1	39043125	39043125	817	CAMK2D	NM_172115	2			6				37_3	157696476					157696476	212549754	1			ctgProt
-10000007	NW_001838915	1	39043125	39043125	817	CAMK2D	NM_172129	1			6				37_3	157696476					157696476	212549755	1			ctgProt
