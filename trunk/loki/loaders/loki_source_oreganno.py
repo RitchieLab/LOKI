@@ -14,7 +14,7 @@ class Source_oreganno(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.0a2 (2012-09-05)'
+		return '2.0a3 (2013-02-06)'
 	#getVersionString()
 	
 	
@@ -186,5 +186,11 @@ class Source_oreganno(loki_source.Source):
 					group_membership.append((gid, mn, typeids['gene'], ext_ns, sym))
 		
 		self.addGroupMemberNames(group_membership)
-	
+		
 		self.log("OK\n")
+		
+		# store source metadata
+		self.setSourceBuilds(None, 19) # TODO: check for latest FTP path rather than hardcoded /goldenPath/hg19/database/
+	#update()
+	
+#Source_oreganno
