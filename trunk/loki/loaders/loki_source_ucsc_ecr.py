@@ -9,7 +9,7 @@ class Source_ucsc_ecr(loki_source.Source):
 	A class to load the pairwise alignments between species as ECRs from the 
 	UCSC inter-species alignments
 	"""
-
+	
 	
 	_remhost = "hgdownload.cse.ucsc.edu"
 	_remPath = "goldenPath/hg19/phastCons46way/"
@@ -22,7 +22,7 @@ class Source_ucsc_ecr(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.0a3 (2013-01-22)'
+		return '2.0a4 (2013-02-06)'
 	#getVersionString()
 	
 	
@@ -54,6 +54,8 @@ class Source_ucsc_ecr(loki_source.Source):
 				return "Cannot parse '%s' parameter value - given '%s'" % (o,v)
 		
 		return True
+	#validateOptions()
+	
 	
 	def download(self, options):
 		"""
@@ -61,9 +63,11 @@ class Source_ucsc_ecr(loki_source.Source):
 		"""
 		file_dict = dict(((sp + ".chr" + ch + ".phastCons.txt.gz", self._remPath + sp + "/chr" + ch + ".phastCons46way." + v + "wigFix.gz") for (sp, v) in self._comparisons.iteritems() for ch in self._chr_list))
 		file_dict.update(dict(((sp + ".chrMT.phastCons.txt.gz", self._remPath + sp + "/chrM.phastCons46way." + v + "wigFix.gz") for (sp, v) in self._comparisons.iteritems())))
-	
+		
 		self.downloadFilesFromFTP(self._remhost,file_dict)
-
+	#download()
+	
+	
 	def update(self, options):
 		"""
 		Load the data from all of the files
@@ -115,7 +119,7 @@ class Source_ucsc_ecr(loki_source.Source):
 					
 					if regions:
 						band_grps.append((label, desc))
-																
+					
 					# Add the region itself
 					reg_ids = self.addTypedBiopolymers(ecr_typeid, ((self.getRegionName(sp, ch, r), '') for r in regions))
 					# Add the name of the region
@@ -124,14 +128,14 @@ class Source_ucsc_ecr(loki_source.Source):
 					# This gives a generator that yields [(region_id, (chrom_id, start, stop)) ... ]
 					region_bound_gen = zip(((i,) for i in reg_ids), ((ch_id, r[0], r[1]) for r in regions))
 					self.addBiopolymerLDProfileRegions(ecr_ldprofile_id, (tuple(itertools.chain(*c)) for c in region_bound_gen))			
-	
+					
 					if regions:
 						grp_rid[band_grps[-1]] = reg_ids
 						#Add the region to the group
 						#self.addGroupBiopolymers(((band_gids[-1], r_id) for r_id in reg_ids))
-						
+					
 					curr_band += 1
-
+				
 				
 				band_gids = self.addTypedGroups(ecr_group_typeid, band_grps)
 				self.addGroupNamespacedNames(ecr_ns, zip(band_gids, (r[0] for r in band_grps)))
@@ -140,7 +144,7 @@ class Source_ucsc_ecr(loki_source.Source):
 					gid_rid.extend(((band_gids[i], rid) for rid in grp_rid[band_grps[i]]))
 				
 				self.addGroupBiopolymers(gid_rid)
-
+				
 				self.addGroupRelationships(((chr_grp_ids[-1], b, rel_id, 1) for b in band_gids))
 				
 				self.log("OK (%d regions found in %d bands)\n" % (num_regions, curr_band - 1))
@@ -148,15 +152,19 @@ class Source_ucsc_ecr(loki_source.Source):
 			self.addGroupRelationships(((ecr_gid, c, rel_id, 1) for c in chr_grp_ids))
 			
 			self.logPop("... OK\n")
-
-				
-				
+		
+		# store source metadata
+		self.setSourceBuilds(None, 19) # TODO: check for latest FTP path rather than hardcoded /goldenPath/hg19/phastCons46way/
+	#update()
+	
+	
 	def getRegionName(self, species, ch, region):
 		"""
 		Returns a string representation of the name
 		"""
 		return species + ":chr" + ch + ":" + str(region[0]) + "-" + str(region[1])
-				
+	#getRegionName()
+	
 	
 	def getRegions(self, f):
 		"""
@@ -240,3 +248,6 @@ class Source_ucsc_ecr(loki_source.Source):
 			 curr_band.append((curr_start, curr_end))
 		
 		yield curr_band
+	#getRegions()
+	
+#Source_ucsc_ecr
