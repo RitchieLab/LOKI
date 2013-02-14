@@ -22,7 +22,7 @@ class Source_ucsc_ecr(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.0a4 (2013-02-06)'
+		return '2.0 (2013-02-14)'
 	#getVersionString()
 	
 	

@@ -35,7 +35,7 @@ class Source_mint(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.0a1 (2012-08-30)'
+		return '2.0 (2013-02-14)'
 	#getVersionString()
 	
 	

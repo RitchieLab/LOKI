@@ -9,7 +9,7 @@ class Source_pharmgkb(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.0a2 (2012-12-11)'
+		return '2.0 (2013-02-14)'
 	#getVersionString()
 	
 	

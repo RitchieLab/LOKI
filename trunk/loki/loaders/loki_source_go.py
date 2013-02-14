@@ -9,7 +9,7 @@ class Source_go(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.0a3 (2012-10-03)'
+		return '2.0 (2013-02-14)'
 	#getVersionString()
 	
 	

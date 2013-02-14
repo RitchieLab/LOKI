@@ -42,7 +42,7 @@ class Source_dbsnp(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.0a4 (2013-01-22)'
+		return '2.0 (2013-02-14)'
 	#getVersionString()
 	
 	
