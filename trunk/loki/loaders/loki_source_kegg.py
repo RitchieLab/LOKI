@@ -8,16 +8,15 @@ class Source_kegg(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.0a5 (2013-01-22)'
+		return '2.0 (2013-02-14)'
 	#getVersionString()
 	
 	
 	@classmethod
 	def getOptions(cls):
-		return None
-		#return {
-		#	'api': '[cache|soap|rest]  --  use local file cache, the old SOAP API, or the new REST API (default: cache)'
-		#}
+		return {
+			'api': '[rest|soap|cache]  --  use the new REST API, the old SOAP API, or a local file cache (default: rest)'
+		}
 	#getOptions()
 	
 	
@@ -25,14 +24,14 @@ class Source_kegg(loki_source.Source):
 		for o,v in options.iteritems():
 			if o == 'api':
 				v = v.strip().lower()
-				if 'cache'.startswith(v):
-					v = 'cache'
+				if 'rest'.startswith(v):
+					v = 'rest'
 				elif 'soap'.startswith(v):
 					v = 'soap'
-				elif 'rest'.startswith(v):
-					v = 'rest'
+				elif 'cache'.startswith(v):
+					v = 'cache'
 				else:
-					return "api must be 'cache', 'soap' or 'rest'"
+					return "api must be 'rest', 'soap' or 'cache'"
 				options[o] = v
 			else:
 				return "unexpected option '%s'" % o
@@ -41,8 +40,6 @@ class Source_kegg(loki_source.Source):
 	
 	
 	def download(self, options):
-		# KEGG's REST API documentation forbids "bulk" downloads, apparently even of the paltry 500 kilobytes we need;
-		# so if you use the undocumented 'api' option, it might work, but you might also be in violation of KEGG's terms of use
 		if (options.get('api') == 'rest'):
 			self.downloadFilesFromHTTP('rest.kegg.jp', {
 				'list-pathway-hsa':  '/list/pathway/hsa',
