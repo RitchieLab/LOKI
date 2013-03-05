@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 
+#import collections
 import itertools
+import sys
 from loki import loki_source
 
 
@@ -11,27 +13,30 @@ class Source_ucsc_ecr(loki_source.Source):
 	"""
 	
 	
-	_remhost = "hgdownload.cse.ucsc.edu"
-	_remPath = "goldenPath/hg19/phastCons46way/"
-	_comparisons = {"vertebrate" : "", "placentalMammals" : "placental." , "primates" : "primates." }
-	_min_sz = 100
-	_min_pct = 0.7
-	_max_gap = 50
-	_chr_list = ('1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19','20','21','22','X','Y')
+	##################################################
+	# private class data
+	
+	
+	_chmList = ('1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19','20','21','22','X','Y','M')
+	_comparisons = {"vertebrate":"", "placentalMammals":"placental." , "primates":"primates." }
+	
+	
+	##################################################
+	# source interface
 	
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.0 (2013-02-14)'
+		return '2.0.1 (2013-03-01)'
 	#getVersionString()
 	
 	
 	@classmethod
 	def getOptions(cls):
 		return {
-			'size': 'An integer defining the minimum length of an ECR (default: 100)',
-			'identity' : 'A float defining the minimum identity of an ECR (default: 0.7)',
-			'gap' : 'An integer defining the maximum gap length below the identity threshold (default: 50)'
+			'size'     : 'minimum length of an ECR in bases (default: 100)',
+			'identity' : 'minimum identity of an ECR (default: 0.7)',
+			'gap'      : 'maximum gap length below the identity threshold (default: 50)'
 		}
 	#getOptions()
 	
@@ -43,16 +48,25 @@ class Source_ucsc_ecr(loki_source.Source):
 		for o,v in options.iteritems():
 			try:
 				if o == 'size':
-					self._min_sz = int(v)
+					v = int(v)
 				elif o == 'identity':
-					self._min_pct = float(v)
+					v = float(v)
 				elif o == 'gap':
-					self._max_gap = int(v)
+					v = int(v)
+				elif o == 'reverse': #undocumented debug option
+					v = v.lower()
+					if (v == '0') or 'false'.startswith(v) or 'no'.startswith(v):
+						v = False
+					elif (v == '1') or 'true'.startswith(v) or 'yes'.startswith(v):
+						v = True
+					else:
+						return "must be 0/false/no or 1/true/yes"
 				else:
 					return "unknown option '%s'" % o
 			except ValueError:
 				return "Cannot parse '%s' parameter value - given '%s'" % (o,v)
-		
+			options[o] = v
+		#foreach option
 		return True
 	#validateOptions()
 	
@@ -61,10 +75,11 @@ class Source_ucsc_ecr(loki_source.Source):
 		"""
 		Download the files
 		"""
-		file_dict = dict(((sp + ".chr" + ch + ".phastCons.txt.gz", self._remPath + sp + "/chr" + ch + ".phastCons46way." + v + "wigFix.gz") for (sp, v) in self._comparisons.iteritems() for ch in self._chr_list))
-		file_dict.update(dict(((sp + ".chrMT.phastCons.txt.gz", self._remPath + sp + "/chrM.phastCons46way." + v + "wigFix.gz") for (sp, v) in self._comparisons.iteritems())))
-		
-		self.downloadFilesFromFTP(self._remhost,file_dict)
+		remFiles = dict()
+		for chm in self._chmList:
+			for (d,f) in self._comparisons.iteritems():
+				remFiles[d+'.chr'+chm+'.phastCons.txt.gz'] = '/goldenPath/hg19/phastCons46way/'+d+'/chr'+chm+'.phastCons46way.'+f+'wigFix.gz'
+		self.downloadFilesFromFTP('hgdownload.cse.ucsc.edu', remFiles)
 	#download()
 	
 	
@@ -101,7 +116,7 @@ class Source_ucsc_ecr(loki_source.Source):
 			self.addGroupNamespacedNames(ecr_ns, [(ecr_gid, label)])
 			
 			chr_grp_ids = []
-			for ch in self._chr_list + ("MT",):
+			for ch in self._chmList:
 				ch_id = self._loki.chr_num[ch]
 				self.log("processing Chromosome " + ch + " ...")
 				f = self.zfile(sp + ".chr" + ch + ".phastCons.txt.gz")
@@ -112,7 +127,7 @@ class Source_ucsc_ecr(loki_source.Source):
 				self.addGroupNamespacedNames(ecr_ns, [(chr_grp_ids[-1], "ecr_%s_chr%s" % (sp, ch))])
 				band_grps = []
 				grp_rid = {}
-				for regions in self.getRegions(f):
+				for regions in self.getRegions(f, options):
 					label = "ecr_%s_chr%s_band%d" % (sp, ch, curr_band)
 					desc = "ECRs for " + sp + " on Chromosome " + ch + ", Band %d" % (curr_band,)
 					num_regions += len(regions)
@@ -166,88 +181,226 @@ class Source_ucsc_ecr(loki_source.Source):
 	#getRegionName()
 	
 	
-	def getRegions(self, f):
-		"""
-		Yields the regions that meets the thresholds with a given maximum gap
-		"""
-		running_sum = 0
-		n_pos = 0
-		curr_gap = 0
-		curr_pos = 1
-		curr_start = 1
-		curr_end = 0
+	def getRegions(self, f, options):
+		# fetch loader options
+		minSize = options.get('size',100)
+		minIdent = options.get('identity',0.7)
+		maxGap = options.get('gap',50)
+		reverse = options.get('reverse',False)
+		
+		# initialize parser state
+		pos = 1
 		step = 1
+		state = None
+		curStart = pos
+		curSum = 0.0
+		curCount = 0
 		
-		line = f.next()
-		curr_band = []
-		
-		for l in f:
+		# parse the file
+		segments = list()
+		regions = list()
+		EOF = False
+		while not EOF:
+			declaration = None
 			try:
-				p = float(l)
-				if p >= self._min_pct:
-					#If this is the 1st time we crossed the threshold, start the counters
-					if curr_gap != 0 and running_sum / float(n_pos) < self._min_pct:
-						if curr_end- curr_start >= self._min_sz:
-							curr_band.append((curr_start, curr_end))
-						
-						# Restart the region tracking
-						running_sum = 0
-						n_pos = 0
-					
-					if n_pos == 0:
-						curr_start = curr_pos
-											
-					curr_end = curr_pos
-					running_sum += p
-					n_pos += 1
-					curr_gap = 0
-				# If this is true, we're searching a gap				
-				elif n_pos != 0:
-					#print curr_gap, curr_end - curr_start
-					# If we are in an acceptable gap, don't add on to the end
-					if curr_gap < self._max_gap:
-						running_sum += p
-						n_pos += 1
-						curr_gap += 1
+				# parsing can be in one of four states, handled in rough order of frequency;
+				# we could cover all cases in one 'for line in f:' loop, but doing
+				# extra tests for things that don't change much is ~45% slower
+				while True:
+					loopState = state
+					loopPos = pos
+					if (state == False) and (curCount > maxGap):
+						# in a low segment that is already beyond the max gap length
+						# (so we don't care about sum or count anymore)
+						for line in f:
+							v = float(line)
+							if v >= minIdent:
+								state = True
+								break
+							pos += step
+						#for line in f
+					elif (state == False):
+						# in a low segment which is still within the max gap length
+						for line in f:
+							v = float(line)
+							if v >= minIdent:
+								state = True
+								break
+							curSum += v
+							curCount += 1
+							pos += step
+							if curCount > maxGap:
+								break
+						#for line in f
+					elif (state == True):
+						# in a high segment
+						for line in f:
+							v = float(line)
+							if v < minIdent:
+								state = False
+								break
+							curSum += v
+							curCount += 1
+							pos += step
+						#for line in f
 					else:
-						# If it's big enough, add it (we ran off the end of the gap)
-						if curr_end - curr_start > self._min_sz:
-							curr_band.append((curr_start, curr_end))
-						n_pos = 0
-						curr_start = 0
-						curr_end = 0
-						running_sum = 0
-						curr_gap = 0
-				# otherwise, just keep on trucking		
-				curr_pos += step
+						# starting a new segment at top of file or after a data gap
+						# (we only have to read 1 value to see what kind of segment is starting)
+						for line in f:
+							v = float(line)
+							state = (v >= minIdent)
+							break
+						#for line in f
+					#if
+					
+					# since all states have 'for line in f:' loops, we only land here for a few reasons
+					if loopState != state:
+						# we changed threshold state; store the segment, reset the counters and continue
+						segments.append( (curStart,pos-step,curSum,curCount,loopState) )
+						curStart = pos
+						curSum = v
+						curCount = 1
+						pos += step
+					elif loopPos == pos:
+						# we hit EOF; store the segment and process the final batch
+						segments.append( (curStart,pos-step,curSum,curCount,loopState) )
+						EOF = True
+						break
+					else:
+						# we exceeded the max gap length in a low segment; process the batch
+						break
+					#if
+				#while True
 			except ValueError:
-				# At this point, we have a format line
-				d = dict((v.split('=',2) for v in l.split() if v.find('=') != -1))
-				
-				# If this is moving us to a different place, we have to restart,
-				# o/w just keep on trucking
-				if int(d['start']) != curr_pos or int(d['step']) != step:
-					
-					if curr_end - curr_start > self._min_sz and running_sum / float(n_pos) >= self._min_pct and curr_gap < self._max_gap:
-						curr_band.append((curr_start, curr_end))
-					
-					yield curr_band
-					curr_band = []	
-	
-					running_sum = 0
-					n_pos = 0
-					curr_gap = 0
-					curr_pos = int(d['start'])
-					curr_start = int(d['start'])
-					step = int(d['step'])
-					curr_end = 0
-				
-		
-		# Check on the last region...
-		if curr_end - curr_start > self._min_sz and running_sum / float(n_pos) >= self._min_pct and curr_gap < self._max_gap:
-			 curr_band.append((curr_start, curr_end))
-		
-		yield curr_band
+				declaration = dict( pair.split('=',1) for pair in line.strip().split() if '=' in pair )
+				if ('start' not in declaration) or ('step' not in declaration):
+					raise Exception("ERROR: invalid phastcons format: %s" % line)
+				# if the new band picks right up after the old one,
+				# ignore it since there was no actual gap in the data
+				if int(declaration['start']) == pos:
+					step = int(declaration['step'])
+					continue
+				# store the segment
+				segments.append( (curStart,pos-step,curSum,curCount,state) )
+			#try/ValueError
+			
+			# invert segments if requested
+			if reverse:
+				for s in xrange(0,len(segments)):
+					segments[s] = (-segments[s][1],-segments[s][0]) + segments[s][2:]
+				segments.reverse()
+				tmpregions = regions
+				regions = list()
+			
+			# set min/max segment indecies to skip leading or trailing low or invalid segments
+			sn,sx = 0,len(segments)-1
+			while (sn <= sx) and (segments[sn][4] != True):
+				sn += 1
+			while (sn <= sx) and (segments[sx][4] != True):
+				sx -= 1
+			#assert ((sn > sx) or ((sx-sn+1)%2)), "segment list size cannot be even (must be hi , hi-lo-hi , etc)"
+			
+			# merge applicable high segments according to some metric
+			if 0: # running-average metric with minSize bugs (original algorithm)
+				while sn <= sx:
+					s0,s1 = sn,sn
+					while (s1 < sx) and ((sum(segments[s][2] for s in xrange(s0,s1+2)) / sum(segments[s][3] for s in xrange(s0,s1+2))) >= minIdent):
+						s1 += 2
+					if s1 == sx:
+						if (segments[s1][1] - segments[s0][0]) > minSize:
+							regions.append( (segments[s0][0],segments[s1][1]) )
+					elif (segments[s1][1] - segments[s0][0]) >= minSize:
+						regions.append( (segments[s0][0],segments[s1][1]) )
+					sn = s1+2
+				#while segments to process
+			elif 1: # running-average metric
+				while sn <= sx:
+					s0,s1 = sn,sn
+					while (s1 < sx) and ((sum(segments[s][2] for s in xrange(s0,s1+2)) / sum(segments[s][3] for s in xrange(s0,s1+2))) >= minIdent):
+						s1 += 2
+					if (segments[s1][1] - segments[s0][0] + 1) >= minSize:
+						regions.append( (segments[s0][0],segments[s1][1]) )
+					sn = s1+2
+				#while segments to process
+			elif 0: # potential-average metric
+				while sn <= sx:
+					s0,s1 = sn,sn
+					while (s1 < sx) and ((sum(segments[s][2] for s in xrange(s0,s1+3)) / sum(segments[s][3] for s in xrange(s0,s1+3))) >= minIdent):
+						s1 += 2
+					if (segments[s1][1] - segments[s0][0] + 1) >= minSize:
+						regions.append( (segments[s0][0],segments[s1][1]) )
+					sn = s1+2
+				#while segments to process
+			elif 0: # drop-worst metric v1
+				partitions = [(sn,sx)] if (sn <= sx) else None
+				while partitions:
+					sn,sx = partitions.pop()
+					s0,s1 = sn,sx
+					while (s0 < s1) and ((sum(segments[s][2] for s in xrange(s0,s1+1)) / sum(segments[s][3] for s in xrange(s0,s1+1))) < minIdent):
+						sw = [s1-1]
+						for s in xrange(s1-3,s0,-2):
+							if (segments[s][2]+0.0001) < (segments[sw[0]][2]-0.0001):
+								sw = [s]
+							elif (segments[s][2]-0.0001) <= (segments[sw[0]][2]+0.0001):
+								if segments[s][3] > segments[sw[0]][3]:
+									sw = [s]
+								elif segments[s][3] == segments[sw[0]][3]:
+									sw.append(s)
+						for s in sw:
+							partitions.append( (s+1,s1) )
+							s1 = s-1
+					#while segments need splitting
+					if (segments[s1][1] - segments[s0][0] + 1) >= minSize:
+						regions.append( (segments[s0][0],segments[s1][1]) )
+				#while segments to process
+			elif 0: # drop-worst metric v2
+				partitions = [(sn,sx)] if (sn <= sx) else None
+				while partitions:
+					sn,sx = partitions.pop()
+					s0,s1 = sn,sx
+					while (s0 < s1) and ((sum(segments[s][2] for s in xrange(s0,s1+1)) / sum(segments[s][3] for s in xrange(s0,s1+1))) < minIdent):
+						sw = [s1-1]
+						for s in xrange(s1-3,s0,-2):
+							if (minIdent*segments[s][3]-segments[s][2]-0.0001) > (minIdent*segments[sw[0]][3]-segments[sw[0]][2]+0.0001):
+								sw = [s]
+							elif (minIdent*segments[s][3]-segments[s][2]+0.0001) >= (minIdent*segments[sw[0]][3]-segments[sw[0]][2]-0.0001):
+								if segments[s][3] > segments[sw[0]][3]:
+									sw = [s]
+								elif segments[s][3] == segments[sw[0]][3]:
+									sw.append(s)
+						for s in sw:
+							partitions.append( (s+1,s1) )
+							s1 = s-1
+					#while segments need splitting
+					if (segments[s1][1] - segments[s0][0] + 1) >= minSize:
+						regions.append( (segments[s0][0],segments[s1][1]) )
+				#while segments to process
+			else:
+				raise Exception("ERROR: no segment merge metrics are enabled")
+			#if metric
+			segments = list()
+			
+			# re-invert results if necessary
+			if reverse:
+				for r in xrange(len(regions)-1,-1,-1):
+					tmpregions.append( (-regions[r][1],-regions[r][0]) )
+				regions = tmpregions
+				tmpregions = None
+			
+			# if we hit a declaration line or EOF, yield this band's regions
+			if (declaration or EOF) and regions:
+				yield regions
+				regions = list()
+			
+			# if we hit a declaration line but not EOF, reset the parser state
+			if declaration:
+				pos = int(declaration['start'])
+				step = int(declaration['step'])
+				state = None
+				curStart = pos
+				curSum = 0.0
+				curCount = 0
+		#while not EOF
 	#getRegions()
 	
 #Source_ucsc_ecr

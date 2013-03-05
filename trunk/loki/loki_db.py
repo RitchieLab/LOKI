@@ -17,7 +17,7 @@ class Database(object):
 	def getVersionTuple(cls):
 		# tuple = (major,minor,revision,dev,build,date)
 		# dev must be in ('a','b','rc','release') for lexicographic comparison
-		return (2,0,0,'release','','2013-02-14')
+		return (2,0,1,'a',1,'2013-03-01')
 	#getVersionTuple()
 	
 	
@@ -25,7 +25,7 @@ class Database(object):
 	def getVersionString(cls):
 		v = list(cls.getVersionTuple())
 		# tuple = (major,minor,revision,dev,build,date)
-		# dev must be in > 'rc' for releases for lexicographic comparison,
+		# dev must be > 'rc' for releases for lexicographic comparison,
 		# but we don't need to actually print 'release' in the version string
 		v[3] = '' if v[3] > 'rc' else v[3]
 		return "%d.%d.%d%s%s (%s)" % tuple(v)
@@ -94,9 +94,10 @@ class Database(object):
 )
 """,
 				'data': [
-					('schema','1'),
+					('schema','3'),
 					('ucschg','0'),
 					('zone_size','100000'),
+					('optimized','0'),
 					('finalized','0'),
 				],
 				'index': {}
@@ -759,6 +760,7 @@ class Database(object):
 					self.createDatabaseObjects(None, 'db')
 					ok = True
 				else:
+					self.updateDatabaseSchema()
 					ok = self.auditDatabaseObjects(None, 'db')
 					if not ok:
 						err_msg = "Audit of database failed"
@@ -786,21 +788,19 @@ class Database(object):
 	#detachDatabaseFile()
 	
 	
-	def testDatabaseUpdate(self, ignoreFinalized=False):
+	def testDatabaseWriteable(self):
 		if self._dbFile == None:
 			raise Exception("ERROR: no knowledge database file is loaded")
-		if (not ignoreFinalized) and (int(self.getDatabaseSetting('finalized') or 0)):
-			raise Exception("ERROR: knowledge database has been finalized")
 		try:
 			if self._db.readonly('db'):
-				raise Exception("ERROR: knowledge database file may not be modified")
+				raise Exception("ERROR: knowledge database file cannot be modified")
 		except AttributeError: # apsw.Connection.readonly() added in 3.7.11
 			try:
 				self._db.cursor().execute("UPDATE `db`.`setting` SET value = value")
 			except apsw.ReadOnlyError:
-				raise Exception("ERROR: knowledge database file may not be modified")
+				raise Exception("ERROR: knowledge database file cannot be modified")
 		return True
-	#testDatabaseUpdate()
+	#testDatabaseWriteable()
 	
 	
 	def createDatabaseObjects(self, schema, dbName, tblList=None, doTables=True, idxList=None, doIndecies=True):
@@ -846,7 +846,7 @@ class Database(object):
 	#createDatabaseIndecies()
 	
 	
-	def dropDatabaseObjects(self, schema, dbName, tblList=None, doTables=True, idxList=None, doIndecies=True, ignoreFinalized=False):
+	def dropDatabaseObjects(self, schema, dbName, tblList=None, doTables=True, idxList=None, doIndecies=True):
 		cursor = self._db.cursor()
 		schema = schema or self._schema[dbName]
 		if tblList and isinstance(tblList, str):
@@ -855,8 +855,6 @@ class Database(object):
 			idxList = (idxList,)
 		for tblName in (tblList or schema.keys()):
 			if doTables:
-				if dbName == 'db':
-					self.testDatabaseUpdate(ignoreFinalized)
 				cursor.execute("DROP TABLE IF EXISTS `%s`.`%s`" % (dbName, tblName))
 			elif doIndecies:
 				for idxName in (idxList or schema[tblName]['index'].keys()):
@@ -866,14 +864,46 @@ class Database(object):
 	#dropDatabaseObjects()
 	
 	
-	def dropDatabaseTables(self, schema, dbName, tblList, ignoreFinalized=False):
-		return self.dropDatabaseObjects(schema, dbName, tblList, True, None, True, ignoreFinalized)
+	def dropDatabaseTables(self, schema, dbName, tblList):
+		return self.dropDatabaseObjects(schema, dbName, tblList, True, None, True)
 	#dropDatabaseTables()
 	
 	
-	def dropDatabaseIndecies(self, schema, dbName, tblList, idxList=None, ignoreFinalized=False):
-		return self.dropDatabaseObjects(schema, dbName, tblList, False, idxList, True, ignoreFinalized)
+	def dropDatabaseIndecies(self, schema, dbName, tblList, idxList=None):
+		return self.dropDatabaseObjects(schema, dbName, tblList, False, idxList, True)
 	#dropDatabaseIndecies()
+	
+	
+	def updateDatabaseSchema(self):
+		cursor = self._db.cursor()
+		
+		if self.getDatabaseSetting('schema',int) < 2:
+			self.logPush("updating database schema to version 2 ...\n")
+			updateMap = {
+				'snp_merge'           : 'rsMerged,rsCurrent,source_id',
+				'snp_locus'           : 'rs,chr,pos,validated,source_id',
+				'snp_entrez_role'     : 'rs,entrez_id,role_id,source_id',
+				'snp_biopolymer_role' : 'rs,biopolymer_id,role_id,source_id',
+			}
+			for tblName,tblColumns in updateMap.iteritems():
+				self.log("%s ..." % (tblName,))
+				cursor.execute("ALTER TABLE `db`.`%s` RENAME TO `___old_%s___`" % (tblName,tblName))
+				self.createDatabaseTables(None, 'db', tblName)
+				cursor.execute("INSERT INTO `db`.`%s` (%s) SELECT %s FROM `db`.`___old_%s___`" % (tblName,tblColumns,tblColumns,tblName))
+				cursor.execute("DROP TABLE `db`.`___old_%s___`" % (tblName,))
+				self.createDatabaseIndecies(None, 'db', tblName)
+				self.log(" OK\n")
+			self.setDatabaseSetting('schema', 2)
+			self.logPop("... OK\n")
+		#schema<2
+		
+		if self.getDatabaseSetting('schema',int) < 3:
+			self.log("updating database schema to version 3 ...")
+			self.setDatabaseSetting('optimized', self.getDatabaseSetting('finalized',int))
+			self.setDatabaseSetting('schema', 3)
+			self.log(" OK\n")
+		#schema<3
+	#updateDatabaseSchema()
 	
 	
 	def auditDatabaseObjects(self, schema, dbName, tblList=None, doTables=True, idxList=None, doIndecies=True, doRepair=True):
@@ -914,45 +944,9 @@ class Database(object):
 								pass
 					elif doRepair and tblEmpty[tblName]:
 						self.log("WARNING: table '%s' schema mismatch -- repairing ..." % tblName)
-						self.dropDatabaseTables(schema, dbName, tblName, ignoreFinalized=True)
+						self.dropDatabaseTables(schema, dbName, tblName)
 						self.createDatabaseTables(schema, dbName, tblName)
 						current[tblName]['index'] = dict()
-						self.log(" OK\n")
-					elif doRepair and tblName == 'snp_merge' and current[tblName]['table'] == "CREATE TABLE `snp_merge` ( rsMerged INTEGER PRIMARY KEY NOT NULL, rsCurrent INTEGER NOT NULL, source_id TINYINT NOT NULL )":
-						self.log("WARNING: table '%s' schema mismatch -- repairing ..." % tblName)
-						cursor.execute("ALTER TABLE `%s`.`%s` RENAME TO `___old_%s___`" % (dbName,tblName,tblName))
-						self.createDatabaseTables(schema, dbName, tblName)
-						current[tblName]['index'] = dict()
-						columns = "rsMerged,rsCurrent,source_id"
-						cursor.execute("INSERT INTO `%s`.`%s` (%s) SELECT %s FROM `%s`.`___old_%s___`" % (dbName,tblName,columns,columns,dbName,tblName))
-						cursor.execute("DROP TABLE `%s`.`___old_%s___`" % (dbName,tblName))
-						self.log(" OK\n")
-					elif doRepair and tblName == 'snp_locus' and current[tblName]['table'] == "CREATE TABLE `snp_locus` ( rs INTEGER NOT NULL, chr TINYINT NOT NULL, pos BIGINT NOT NULL, validated TINYINT NOT NULL, source_id TINYINT NOT NULL, PRIMARY KEY (rs,chr,pos) )":
-						self.log("WARNING: table '%s' schema mismatch -- repairing ..." % tblName)
-						cursor.execute("ALTER TABLE `%s`.`%s` RENAME TO `___old_%s___`" % (dbName,tblName,tblName))
-						self.createDatabaseTables(schema, dbName, tblName)
-						current[tblName]['index'] = dict()
-						columns = "rs,chr,pos,validated,source_id"
-						cursor.execute("INSERT INTO `%s`.`%s` (%s) SELECT %s FROM `%s`.`___old_%s___`" % (dbName,tblName,columns,columns,dbName,tblName))
-						cursor.execute("DROP TABLE `%s`.`___old_%s___`" % (dbName,tblName))
-						self.log(" OK\n")
-					elif doRepair and tblName == 'snp_entrez_role' and current[tblName]['table'] == "CREATE TABLE `snp_entrez_role` ( rs INTEGER NOT NULL, entrez_id INTEGER NOT NULL, role_id INTEGER NOT NULL, source_id TINYINT NOT NULL, PRIMARY KEY (entrez_id,rs,role_id) )":
-						self.log("WARNING: table '%s' schema mismatch -- repairing ..." % tblName)
-						cursor.execute("ALTER TABLE `%s`.`%s` RENAME TO `___old_%s___`" % (dbName,tblName,tblName))
-						self.createDatabaseTables(schema, dbName, tblName)
-						current[tblName]['index'] = dict()
-						columns = "rs,entrez_id,role_id,source_id"
-						cursor.execute("INSERT INTO `%s`.`%s` (%s) SELECT %s FROM `%s`.`___old_%s___`" % (dbName,tblName,columns,columns,dbName,tblName))
-						cursor.execute("DROP TABLE `%s`.`___old_%s___`" % (dbName,tblName))
-						self.log(" OK\n")
-					elif doRepair and tblName == 'snp_biopolymer_role' and current[tblName]['table'] == "CREATE TABLE `snp_biopolymer_role` ( rs INTEGER NOT NULL, biopolymer_id INTEGER NOT NULL, role_id INTEGER NOT NULL, source_id TINYINT NOT NULL, PRIMARY KEY (rs,biopolymer_id,role_id) )":
-						self.log("WARNING: table '%s' schema mismatch -- repairing ..." % tblName)
-						cursor.execute("ALTER TABLE `%s`.`%s` RENAME TO `___old_%s___`" % (dbName,tblName,tblName))
-						self.createDatabaseTables(schema, dbName, tblName)
-						current[tblName]['index'] = dict()
-						columns = "rs,biopolymer_id,role_id,source_id"
-						cursor.execute("INSERT INTO `%s`.`%s` (%s) SELECT %s FROM `%s`.`___old_%s___`" % (dbName,tblName,columns,columns,dbName,tblName))
-						cursor.execute("DROP TABLE `%s`.`___old_%s___`" % (dbName,tblName))
 						self.log(" OK\n")
 					elif doRepair:
 						self.log("ERROR: table '%s' schema mismatch -- cannot repair\n" % tblName)
@@ -1001,7 +995,28 @@ class Database(object):
 		return ok
 	#auditDatabaseObjects()
 	
-		
+	
+	def finalizeDatabase(self):
+		self.log("discarding intermediate data ...")
+		self.dropDatabaseTables(None, 'db', ('snp_entrez_role','biopolymer_name_name','group_member_name'))
+		self.createDatabaseTables(None, 'db', ('snp_entrez_role','biopolymer_name_name','group_member_name'), True)
+		self.log(" OK\n")
+		self.setDatabaseSetting('finalized', 1)
+		self.setDatabaseSetting('optimized', 0)
+	#finalizeDatabase()
+	
+	
+	def optimizeDatabase(self):
+		self.log("updating optimizer statistics ...")
+		self._db.cursor().execute("ANALYZE `db`")
+		self.log(" OK\n")
+		self.log("compacting knowledge database file ...")
+		self.defragmentDatabase()
+		self.log(" OK\n")
+		self.setDatabaseSetting('optimized', 1)
+	#optimizeDatabase()
+	
+	
 	def defragmentDatabase(self):
 		# unfortunately sqlite's VACUUM doesn't work on attached databases,
 		# so we have to detach, make a new direct connection, then re-attach
@@ -1015,32 +1030,18 @@ class Database(object):
 	#defragmentDatabase()
 	
 	
-	def finalizeDatabase(self):
-		self.log("discarding intermediate data ...")
-		self.dropDatabaseTables(None, 'db', ('snp_entrez_role','biopolymer_name_name','group_member_name'), ignoreFinalized=True)
-		self.createDatabaseTables(None, 'db', ('snp_entrez_role','biopolymer_name_name','group_member_name'), True)
-		self.log(" OK\n")
-		self.log("updating optimizer statistics ...")
-		self._db.cursor().execute("ANALYZE `db`")
-		self.log(" OK\n")
-		self.log("compacting knowledge database file (this may take several hours!) ...")
-		self.defragmentDatabase()
-		self.log(" OK\n")
-		self.setDatabaseSetting('finalized', 1)
-	#finalizeDatabase()
-	
-	
-	def getDatabaseSetting(self, setting):
+	def getDatabaseSetting(self, setting, type=None):
 		value = None
 		if self._dbFile:
 			for row in self._db.cursor().execute("SELECT value FROM `db`.`setting` WHERE setting = ?", (setting,)):
 				value = row[0]
+		if type:
+			value = type(value) if (value != None) else type()
 		return value
 	#getDatabaseSetting()
 	
 	
 	def setDatabaseSetting(self, setting, value):
-		self.testDatabaseUpdate()
 		self._db.cursor().execute("INSERT OR REPLACE INTO `db`.`setting` (setting, value) VALUES (?, ?)", (setting,value))
 	#setDatabaseSetting()
 	
@@ -1069,16 +1070,19 @@ class Database(object):
 	#getSourceModuleOptions()
 	
 	
-	def updateDatabase(self, sources=None, sourceOptions=None, cacheOnly=False):
-		self.testDatabaseUpdate()
+	def updateDatabase(self, sources=None, sourceOptions=None, cacheOnly=False, forceUpdate=False):
+		if self.getDatabaseSetting('finalized',int):
+			raise Exception("ERROR: cannot update a finalized database")
 		if not self._updater:
 			import loki_updater
 			self._updater = loki_updater.Updater(self, self._is_test)
-		return self._updater.updateDatabase(sources, sourceOptions, cacheOnly)
+		return self._updater.updateDatabase(sources, sourceOptions, cacheOnly, forceUpdate)
 	#updateDatabase()
 	
 	
 	def prepareTableForUpdate(self, table):
+		if self.getDatabaseSetting('finalized',int):
+			raise Exception("ERROR: cannot update a finalized database")
 		if self._updater:
 			return self._updater.prepareTableForUpdate(table)
 		return None
@@ -1222,7 +1226,7 @@ class Database(object):
 	
 	
 	def getSourceIDFiles(self, sourceID):
-		sql = "SELECT filename, modified, size, md5 FROM `db`.`source_file` WHERE source_id = ?"
+		sql = "SELECT filename, COALESCE(modified,''), COALESCE(size,''), COALESCE(md5,'') FROM `db`.`source_file` WHERE source_id = ?"
 		with self._db:
 			ret = { row[0]:tuple(row[1:]) for row in self._db.cursor().execute(sql, (sourceID,)) }
 		return ret

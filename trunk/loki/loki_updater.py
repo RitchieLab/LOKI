@@ -145,10 +145,12 @@ class Updater(object):
 	#attachSourceModules()
 	
 	
-	def updateDatabase(self, sources=None, sourceOptions=None, cacheOnly=False):
-		self._loki.testDatabaseUpdate()
+	def updateDatabase(self, sources=None, sourceOptions=None, cacheOnly=False, forceUpdate=False):
 		if self._updating:
-			raise Exception('_updating set before updateDatabase()')
+			raise Exception("_updating set before updateDatabase()")
+		self._loki.testDatabaseWriteable()
+		if self._loki.getDatabaseSetting('finalized',int):
+			raise Exception("cannot update a finalized database")
 		
 		# check for extraneous options
 		self.logPush("preparing for update ...\n")
@@ -184,11 +186,6 @@ class Updater(object):
 								self.log("%s = %s\n" % (opt,val))
 							self.logPop("... OK\n")
 						
-						# store source options
-						cursor.execute("DELETE FROM `db`.`source_option` WHERE source_id = ?", (srcID,))
-						sql = "INSERT INTO `db`.`source_option` (source_id, option, value) VALUES (%d,?,?)" % srcID
-						cursor.executemany(sql, options.iteritems())
-						
 						# switch to a temp subdirectory for this source
 						path = os.path.join(iwd, srcName)
 						if not os.path.exists(path):
@@ -201,13 +198,12 @@ class Updater(object):
 							srcObj.download(options)
 							self.logPop("... OK\n")
 						
-						# store source file metadata
+						# calculate source file metadata
 						# all timestamps are assumed to be in UTC, but if a source
 						# provides file timestamps with no TZ (like via FTP) we use them
 						# as-is and assume they're supposed to be UTC
 						self.log("analyzing %s data files ..." % srcName)
-						cursor.execute("DELETE FROM `db`.`source_file` WHERE source_id = ?", (srcID,))
-						sql = "INSERT INTO `db`.`source_file` (source_id, filename, size, modified, md5) VALUES (%d,?,?,DATETIME(?,'unixepoch'),?)" % srcID
+						filehash = dict()
 						for filename in os.listdir('.'):
 							stat = os.stat(filename)
 							md5 = hashlib.md5()
@@ -216,17 +212,50 @@ class Updater(object):
 								while chunk:
 									md5.update(chunk)
 									chunk = f.read(8*1024*1024)
-							cursor.execute(sql, (filename, stat.st_size, stat.st_mtime, md5.hexdigest()))
+							filehash[filename] = (filename, long(stat.st_size), long(stat.st_mtime), md5.hexdigest())
 						self.log(" OK\n")
 						
-						# process new files
-						self.logPush("processing %s data ...\n" % srcName)
-						srcObj.update(options)
-						self.logPop("... OK\n")
+						# compare current loader version, options and file metadata to the last update
+						skip = not forceUpdate
+						last = '?'
+						if skip:
+							for row in cursor.execute("SELECT version, DATETIME(updated,'localtime') FROM `db`.`source` WHERE source_id = ?", (srcID,)):
+								skip = skip and (row[0] == srcObj.getVersionString())
+								last = row[1]
+						if skip:
+							n = 0
+							for row in cursor.execute("SELECT option, value FROM `db`.`source_option` WHERE source_id = ?", (srcID,)):
+								n += 1
+								skip = skip and (row[0] in options) and (row[1] == options[row[0]])
+							skip = skip and (n == len(options))
+						if skip:
+							n = 0
+							for row in cursor.execute("SELECT filename, size, md5 FROM `db`.`source_file` WHERE source_id = ?", (srcID,)):
+								n += 1
+								skip = skip and (row[0] in filehash) and (row[1] == filehash[row[0]][1]) and (row[2] == filehash[row[0]][3])
+							skip = skip and (n == len(filehash))
 						
-						# update source metadata
-						sql = "UPDATE `db`.`source` SET updated = DATETIME('now'), version = ? WHERE source_id = ?"
-						cursor.execute(sql, (srcObj.getVersionString(), srcID))
+						# skip the update if the current loader and all source file versions match the last update
+						if skip:
+							self.log("skipping %s update, no data or software changes since %s\n" % (srcName,last))
+						else:
+							# process new files (or old files with a new loader)
+							self.logPush("processing %s data ...\n" % srcName)
+							
+							cursor.execute("DELETE FROM `db`.`warning` WHERE source_id = ?", (srcID,))
+							srcObj.update(options)
+							cursor.execute("UPDATE `db`.`source` SET updated = DATETIME('now'), version = ? WHERE source_id = ?", (srcObj.getVersionString(), srcID))
+							
+							cursor.execute("DELETE FROM `db`.`source_option` WHERE source_id = ?", (srcID,))
+							sql = "INSERT INTO `db`.`source_option` (source_id, option, value) VALUES (%d,?,?)" % srcID
+							cursor.executemany(sql, options.iteritems())
+							
+							cursor.execute("DELETE FROM `db`.`source_file` WHERE source_id = ?", (srcID,))
+							sql = "INSERT INTO `db`.`source_file` (source_id, filename, size, modified, md5) VALUES (%d,?,?,DATETIME(?,'unixepoch'),?)" % srcID
+							cursor.executemany(sql, filehash.values())
+							
+							self.logPop("... OK\n")
+						#if skip
 					#with db transaction
 				except Exception as exc:
 					# restore indentation, no matter how far in the source was when the exception happened
@@ -251,7 +280,7 @@ class Updater(object):
 			if hgSources:
 				targetHG = max(hgSources)
 				self.log("database genome build: GRCh%s / UCSChg%s\n" % (ucscGRC.get(targetHG,'?'), targetHG))
-				targetUpdated = (int(self._loki.getDatabaseSetting('ucschg') or 0) != targetHG)
+				targetUpdated = (self._loki.getDatabaseSetting('ucschg',int) != targetHG)
 				self._loki.setDatabaseSetting('ucschg', targetHG)
 			
 			# liftOver sources with old build versions, if there are any
@@ -311,9 +340,11 @@ class Updater(object):
 				#self.log("MEMORY: %d bytes (%d peak)\n" % self._loki.getDatabaseMemoryUsage()) #DEBUG
 			
 			# reindex all remaining tables
-			self.log("finalizing update ...")
+			self.log("finishing update ...")
 			if self._tablesDeindexed:
 				self._loki.createDatabaseIndecies(None, 'db', self._tablesDeindexed)
+			if self._tablesUpdated:
+				self._loki.setDatabaseSetting('optimized',0)
 		#with db transaction
 		self.log(" OK\n")
 		self._updating = False
@@ -444,7 +475,6 @@ class Updater(object):
 	
 	def updateMergedSNPLoci(self):
 		self.log("checking for merged SNP loci ...")
-		self._loki.testDatabaseUpdate()
 		self.prepareTableForQuery('snp_locus')
 		self.prepareTableForQuery('snp_merge')
 		dbc = self._db.cursor()
@@ -501,7 +531,6 @@ JOIN `db`.`snp_merge` AS sm
 	
 	def updateMergedSNPEntrezRoles(self):
 		self.log("checking for merged SNP roles ...")
-		self._loki.testDatabaseUpdate()
 		self.prepareTableForQuery('snp_entrez_role')
 		self.prepareTableForQuery('snp_merge')
 		dbc = self._db.cursor()
@@ -548,7 +577,6 @@ JOIN `db`.`snp_merge` AS sm
 	def resolveBiopolymerNames(self):
 		#TODO: iterative?
 		self.log("resolving biopolymer names ...")
-		self._loki.testDatabaseUpdate()
 		dbc = self._db.cursor()
 		
 		# calculate confidence scores for each possible name match
@@ -660,7 +688,6 @@ FROM (
 	
 	def resolveSNPBiopolymerRoles(self):
 		self.log("resolving SNP roles ...")
-		self._loki.testDatabaseUpdate()
 		dbc = self._db.cursor()
 		
 		typeID = self._loki.getTypeID('gene')
@@ -713,7 +740,6 @@ JOIN `db`.`biopolymer` AS b
 	
 	def resolveGroupMembers(self):
 		self.log("resolving group members ...")
-		self._loki.testDatabaseUpdate()
 		dbc = self._db.cursor()
 		
 		# calculate confidence scores for each possible name match
@@ -903,11 +929,9 @@ FROM `db`.`group_biopolymer`
 	
 	def updateBiopolymerZones(self):
 		self.log("calculating zone coverage ...")
-		self._loki.testDatabaseUpdate()
-		size = self._loki.getDatabaseSetting('zone_size')
+		size = self._loki.getDatabaseSetting('zone_size',int)
 		if not size:
 			raise Exception("ERROR: could not determine database setting 'zone_size'")
-		size = int(size)
 		dbc = self._db.cursor()
 		
 		# make sure all regions are correctly oriented

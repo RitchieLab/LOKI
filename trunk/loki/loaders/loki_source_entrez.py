@@ -2,6 +2,7 @@
 
 import collections
 import re
+import urllib
 from loki import loki_source
 
 
@@ -10,7 +11,7 @@ class Source_entrez(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.0 (2013-02-14)'
+		return '2.0.1 (2013-03-05)'
 	#getVersionString()
 	
 	
@@ -53,6 +54,20 @@ class Source_entrez(loki_source.Source):
 		})
 		self.downloadFilesFromFTP('ftp.uniprot.org', {
 			'HUMAN_9606_idmapping_selected.tab.gz': '/pub/databases/uniprot/current_release/knowledgebase/idmapping/by_organism/HUMAN_9606_idmapping_selected.tab.gz',
+		})
+		ensemblHost = self.getHTTPHeaders('www.ensembl.org','/biomart/martservice').get('location','http://www.ensembl.org').split('://',1)[1].split('/',1)[0]
+		xml = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE Query>
+<Query virtualSchemaName = "default" formatter = "TSV" header = "0" uniqueRows = "0" count = "" datasetConfigVersion = "0.6" >
+	<Dataset name = "hsapiens_gene_ensembl" interface = "default" >
+		<Filter name = "with_entrezgene" excluded = "0"/>
+		<Attribute name = "ensembl_gene_id" />
+		<Attribute name = "entrezgene" />
+	</Dataset>
+</Query>
+"""
+		self.downloadFilesFromHTTP(ensemblHost, {
+			'biomart_martservice_ensembl_entrez.txt': '/biomart/martservice?query='+urllib.quote_plus(xml),
 		})
 	#download()
 	
@@ -374,6 +389,18 @@ class Source_entrez(loki_source.Source):
 								nsNames['ensembl_pid'].add( (entrezBID[entrezID],ensemblP) )
 				#if taxonomy is 9606 (human)
 			#foreach line in ensFile
+			
+			for line in open('biomart_martservice_ensembl_entrez.txt','rU'):
+				words = line.split("\t")
+				ensemblG = words[0]
+				entrezID = int(words[1])
+				
+				while entrezID and (entrezID in entrezUpdate):
+					entrezID = entrezUpdate[entrezID]
+				
+				if entrezID and (entrezID in entrezBID):
+					nsNames['ensembl_gid'].add( (entrezBID[entrezID],ensemblG) )
+			#for line in biomart
 			
 			# print stats
 			numNames0 = numNames
