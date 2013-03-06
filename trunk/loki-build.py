@@ -60,8 +60,14 @@ if __name__ == "__main__":
 	parser.add_argument('-o', '--option', type=str, metavar=('source','optionstring'), nargs=2, action='append', default=None,
 			help="additional option(s) to pass to the specified source loader module, in the format 'option=value[,option2=value2[,...]]'"
 	)
+	parser.add_argument('-r', '--force-update', action='store_true',
+			help="update all sources even if their source data has not changed since the last update"
+	)
 	parser.add_argument('-f', '--finalize', action='store_true',
 			help="finalize the knowledge database file"
+	)
+	parser.add_argument('--no-optimize', action='store_true',
+			help="do not optimize the knowledge database file after updating"
 	)
 	parser.add_argument('-v', '--verbose', action='store_true',
 			help="print warnings and log messages"
@@ -106,7 +112,7 @@ if __name__ == "__main__":
 			memLimit = max(memLimit, m - 1024*1024*1024)
 	#if args.memory
 	
-	# instantiate database and load knowledge file, if any
+	# instantiate database object
 	db = loki_db.Database(testing=args.test_data, updating=((args.update != None) or (args.update_except != None)), memLimit=memLimit)
 	db.setVerbose(args.verbose)
 	db.attachDatabaseFile(args.knowledge)
@@ -158,6 +164,10 @@ if __name__ == "__main__":
 	# update?
 	updateOK = True
 	if (srcSet != None) or (notSet != None):
+		db.testDatabaseWriteable()
+		if db.getDatabaseSetting('finalized',int):
+			print "ERROR: cannot update a finalized database"
+			sys.exit(1)
 		if srcSet and '+' in srcSet:
 			srcSet = set()
 		srcSet = (srcSet or set(db.getSourceModules())) - (notSet or set())
@@ -194,7 +204,7 @@ if __name__ == "__main__":
 			#if fromArchive
 			
 			os.chdir(cacheDir)
-			updateOK = db.updateDatabase(srcSet, userOptions, args.cache_only)
+			updateOK = db.updateDatabase(srcSet, userOptions, args.cache_only, args.force_update)
 			os.chdir(startDir)
 			
 			# create output archive, if requested
@@ -210,11 +220,23 @@ if __name__ == "__main__":
 				print "WARNING: unable to remove temporary file '%s': %s\n" % (path,exc)
 			shutil.rmtree(cacheDir, onerror=onerror)
 	#update
-
-	# finalize?
-	if args.finalize:
-		if updateOK:
-			db.finalizeDatabase()
-		else:
-			print "WARNING: errors encountered during knowledge database update; skipping finalization step"
+	
+	if args.knowledge:
+		# finalize?
+		if args.finalize and (not db.getDatabaseSetting('finalized',int)):
+			if not updateOK:
+				print "WARNING: errors encountered during knowledge database update; skipping finalization step"
+			else:
+				db.testDatabaseWriteable()
+				db.finalizeDatabase()
+	
+		# optimize?
+		if (not args.no_optimize) and (not db.getDatabaseSetting('optimized',int)):
+			if not updateOK:
+				print "WARNING: errors encountered during knowledge database update; skipping optimization step"
+			else:
+				db.testDatabaseWriteable()
+				db.optimizeDatabase()
+	#if knowledge
+	
 #__main__
