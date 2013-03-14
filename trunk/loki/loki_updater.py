@@ -4,6 +4,7 @@ import collections
 import hashlib
 import os
 import pkgutil
+import traceback
 
 import loki_db
 import loki_source
@@ -167,102 +168,110 @@ class Updater(object):
 		self._tablesUpdated = set()
 		self._tablesDeindexed = set()
 		srcErrors = set()
-		with self._db:
-			cursor = self._db.cursor()
+		cursor = self._db.cursor()
+		cursor.execute("SAVEPOINT 'updateDatabase'")
+		try:
 			for srcName in sorted(srcSet):
+				cursor.execute("SAVEPOINT 'updateDatabase_%s'" % (srcName,))
 				try:
-					with self._db:
-						srcObj = self._sourceObjects[srcName]
-						srcID = srcObj.getSourceID()
-						
-						# validate options, if any
-						options = srcOpts.get(srcName, {})
-						if options:
-							self.logPush("validating %s options ...\n" % srcName)
-							msg = srcObj.validateOptions(options)
-							if msg != True:
-								raise Exception(msg)
-							for opt,val in options.iteritems():
-								self.log("%s = %s\n" % (opt,val))
-							self.logPop("... OK\n")
-						
-						# switch to a temp subdirectory for this source
-						path = os.path.join(iwd, srcName)
-						if not os.path.exists(path):
-							os.makedirs(path)
-						os.chdir(path)
-						
-						# download files into a local cache
-						if not cacheOnly:
-							self.logPush("downloading %s data ...\n" % srcName)
-							srcObj.download(options)
-							self.logPop("... OK\n")
-						
-						# calculate source file metadata
-						# all timestamps are assumed to be in UTC, but if a source
-						# provides file timestamps with no TZ (like via FTP) we use them
-						# as-is and assume they're supposed to be UTC
-						self.log("analyzing %s data files ..." % srcName)
-						filehash = dict()
-						for filename in os.listdir('.'):
-							stat = os.stat(filename)
-							md5 = hashlib.md5()
-							with open(filename,'rb') as f:
+					srcObj = self._sourceObjects[srcName]
+					srcID = srcObj.getSourceID()
+					
+					# validate options, if any
+					options = srcOpts.get(srcName, {})
+					if options:
+						self.logPush("validating %s options ...\n" % srcName)
+						msg = srcObj.validateOptions(options)
+						if msg != True:
+							raise Exception(msg)
+						for opt,val in options.iteritems():
+							self.log("%s = %s\n" % (opt,val))
+						self.logPop("... OK\n")
+					
+					# switch to a temp subdirectory for this source
+					path = os.path.join(iwd, srcName)
+					if not os.path.exists(path):
+						os.makedirs(path)
+					os.chdir(path)
+					
+					# download files into a local cache
+					if not cacheOnly:
+						self.logPush("downloading %s data ...\n" % srcName)
+						srcObj.download(options)
+						self.logPop("... OK\n")
+					
+					# calculate source file metadata
+					# all timestamps are assumed to be in UTC, but if a source
+					# provides file timestamps with no TZ (like via FTP) we use them
+					# as-is and assume they're supposed to be UTC
+					self.log("analyzing %s data files ..." % srcName)
+					filehash = dict()
+					for filename in os.listdir('.'):
+						stat = os.stat(filename)
+						md5 = hashlib.md5()
+						with open(filename,'rb') as f:
+							chunk = f.read(8*1024*1024)
+							while chunk:
+								md5.update(chunk)
 								chunk = f.read(8*1024*1024)
-								while chunk:
-									md5.update(chunk)
-									chunk = f.read(8*1024*1024)
-							filehash[filename] = (filename, long(stat.st_size), long(stat.st_mtime), md5.hexdigest())
-						self.log(" OK\n")
+						filehash[filename] = (filename, long(stat.st_size), long(stat.st_mtime), md5.hexdigest())
+					self.log(" OK\n")
+					
+					# compare current loader version, options and file metadata to the last update
+					skip = not forceUpdate
+					last = '?'
+					if skip:
+						for row in cursor.execute("SELECT version, DATETIME(updated,'localtime') FROM `db`.`source` WHERE source_id = ?", (srcID,)):
+							skip = skip and (row[0] == srcObj.getVersionString())
+							last = row[1]
+					if skip:
+						n = 0
+						for row in cursor.execute("SELECT option, value FROM `db`.`source_option` WHERE source_id = ?", (srcID,)):
+							n += 1
+							skip = skip and (row[0] in options) and (row[1] == options[row[0]])
+						skip = skip and (n == len(options))
+					if skip:
+						n = 0
+						for row in cursor.execute("SELECT filename, size, md5 FROM `db`.`source_file` WHERE source_id = ?", (srcID,)):
+							n += 1
+							skip = skip and (row[0] in filehash) and (row[1] == filehash[row[0]][1]) and (row[2] == filehash[row[0]][3])
+						skip = skip and (n == len(filehash))
+					
+					# skip the update if the current loader and all source file versions match the last update
+					if skip:
+						self.log("skipping %s update, no data or software changes since %s\n" % (srcName,last))
+					else:
+						# process new files (or old files with a new loader)
+						self.logPush("processing %s data ...\n" % srcName)
 						
-						# compare current loader version, options and file metadata to the last update
-						skip = not forceUpdate
-						last = '?'
-						if skip:
-							for row in cursor.execute("SELECT version, DATETIME(updated,'localtime') FROM `db`.`source` WHERE source_id = ?", (srcID,)):
-								skip = skip and (row[0] == srcObj.getVersionString())
-								last = row[1]
-						if skip:
-							n = 0
-							for row in cursor.execute("SELECT option, value FROM `db`.`source_option` WHERE source_id = ?", (srcID,)):
-								n += 1
-								skip = skip and (row[0] in options) and (row[1] == options[row[0]])
-							skip = skip and (n == len(options))
-						if skip:
-							n = 0
-							for row in cursor.execute("SELECT filename, size, md5 FROM `db`.`source_file` WHERE source_id = ?", (srcID,)):
-								n += 1
-								skip = skip and (row[0] in filehash) and (row[1] == filehash[row[0]][1]) and (row[2] == filehash[row[0]][3])
-							skip = skip and (n == len(filehash))
+						cursor.execute("DELETE FROM `db`.`warning` WHERE source_id = ?", (srcID,))
+						srcObj.update(options)
+						cursor.execute("UPDATE `db`.`source` SET updated = DATETIME('now'), version = ? WHERE source_id = ?", (srcObj.getVersionString(), srcID))
 						
-						# skip the update if the current loader and all source file versions match the last update
-						if skip:
-							self.log("skipping %s update, no data or software changes since %s\n" % (srcName,last))
-						else:
-							# process new files (or old files with a new loader)
-							self.logPush("processing %s data ...\n" % srcName)
-							
-							cursor.execute("DELETE FROM `db`.`warning` WHERE source_id = ?", (srcID,))
-							srcObj.update(options)
-							cursor.execute("UPDATE `db`.`source` SET updated = DATETIME('now'), version = ? WHERE source_id = ?", (srcObj.getVersionString(), srcID))
-							
-							cursor.execute("DELETE FROM `db`.`source_option` WHERE source_id = ?", (srcID,))
-							sql = "INSERT INTO `db`.`source_option` (source_id, option, value) VALUES (%d,?,?)" % srcID
-							cursor.executemany(sql, options.iteritems())
-							
-							cursor.execute("DELETE FROM `db`.`source_file` WHERE source_id = ?", (srcID,))
-							sql = "INSERT INTO `db`.`source_file` (source_id, filename, size, modified, md5) VALUES (%d,?,?,DATETIME(?,'unixepoch'),?)" % srcID
-							cursor.executemany(sql, filehash.values())
-							
-							self.logPop("... OK\n")
-						#if skip
-					#with db transaction
-				except Exception as exc:
-					# restore indentation, no matter how far in the source was when the exception happened
-					if self.log("ERROR: %s\n" % exc) > logIndent:
+						cursor.execute("DELETE FROM `db`.`source_option` WHERE source_id = ?", (srcID,))
+						sql = "INSERT INTO `db`.`source_option` (source_id, option, value) VALUES (%d,?,?)" % srcID
+						cursor.executemany(sql, options.iteritems())
+						
+						cursor.execute("DELETE FROM `db`.`source_file` WHERE source_id = ?", (srcID,))
+						sql = "INSERT INTO `db`.`source_file` (source_id, filename, size, modified, md5) VALUES (%d,?,?,DATETIME(?,'unixepoch'),?)" % srcID
+						cursor.executemany(sql, filehash.values())
+						
+						self.logPop("... OK\n")
+					#if skip
+					#if srcName == 'kegg':
+					#	raise Exception("TEST1")
+				except Exception:
+					srcErrors.add(srcName)
+					# restore indentation, no matter how far in the log was when the exception happened
+					if self.log("ERROR: failed to update %s\n" % (srcName,)) > logIndent:
 						while self.logPop() > logIndent:
 							pass
-					srcErrors.add(srcName)
+					self.log(traceback.format_exc(1))
+					#raise Exception("TEST2")
+					cursor.execute("ROLLBACK TRANSACTION TO SAVEPOINT 'updateDatabase_%s'" % (srcName,))
+				finally:
+					cursor.execute("RELEASE SAVEPOINT 'updateDatabase_%s'" % (srcName,))
+				#try/catch/finally
 			#foreach source
 			
 			# cross-map GRCh/UCSChg build versions for all sources
@@ -345,12 +354,23 @@ class Updater(object):
 				self._loki.createDatabaseIndecies(None, 'db', self._tablesDeindexed)
 			if self._tablesUpdated:
 				self._loki.setDatabaseSetting('optimized',0)
-		#with db transaction
-		self.log(" OK\n")
-		self._updating = False
-		self._tablesUpdated = None
-		self._tablesDeindexed = None
-		os.chdir(iwd)
+			self.log(" OK\n")
+			#raise Exception("TEST3")
+		except Exception:
+			# restore indentation, no matter how far in the log was when the exception happened
+			if self.log("ERROR: failed to update the database\n") > logIndent:
+				while self.logPop() > logIndent:
+					pass
+			self.log(traceback.format_exc(1))
+			#raise Exception("TEST4")
+			cursor.execute("ROLLBACK TRANSACTION TO SAVEPOINT 'updateDatabase'")
+		finally:
+			cursor.execute("RELEASE SAVEPOINT 'updateDatabase'")
+			self._updating = False
+			self._tablesUpdated = None
+			self._tablesDeindexed = None
+			os.chdir(iwd)
+		#try/except/finally
 		
 		# report and return
 		if srcErrors:
