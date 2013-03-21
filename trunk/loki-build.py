@@ -40,10 +40,9 @@ if __name__ == "__main__":
 	parser.add_argument('-d', '--temp-directory', type=str, metavar='dir', action='store', default=None,
 			help="a directory to use for temporary storage of downloaded or archived source data files (default: platform dependent)"
 	)
-	if 0:
-		parser.add_argument('-m', '--memory', type=str, metavar='size', default=None,
-				help="the target amount of system memory to use (not exact, allow some margin); default: ~1gb"
-		)
+#	parser.add_argument('-m', '--memory', type=str, metavar='size', default=None, #TODO
+#			help="the target amount of system memory to use (not exact, allow some margin); default: ~1gb"
+#	)
 	parser.add_argument('-l', '--list-sources', type=str, metavar='source', nargs='*', action='append', default=None,
 			help="list versions and options for the specified source loaders, or if none or '+' are specified, list all available sources"
 	)
@@ -88,32 +87,32 @@ if __name__ == "__main__":
 	# parse arguments
 	args = parser.parse_args()
 	
-	# parse memory allotment, if any
-	memLimit = 64*1024*1024 # default 64mb for sqlite (+ ~1gb for updater itself)
-	if 0 and args.memory:
-		m = args.memory.upper()
-		if m.endswith('B'):
-			m = m[:-1]
-		if m.endswith('T'):
-			m = float(m[:-1]) * 1024 * 1024 * 1024 * 1024
-		elif m.endswith('G'):
-			m = float(m[:-1]) * 1024 * 1024 * 1024
-		elif m.endswith('M'):
-			m = float(m[:-1]) * 1024 * 1024
-		elif m.endswith('K'):
-			m = float(m[:-1]) * 1024
-		else:
-			m = float(m)
-		m = long(m)
-		if m < 1024*1024*1024:
-			print "WARNING: ignoring '%s' memory allotment, the updater requires ~1gb at minimum" % args.memory
-		else:
-			print "using ~%1.1fMB of memory" % (m / (1024 * 1024))
-			memLimit = max(memLimit, m - 1024*1024*1024)
-	#if args.memory
+#	# parse memory allotment, if any
+#	memLimit = 64*1024*1024 # default 64mb for sqlite (+ ~1gb for updater itself)
+#	if args.memory:
+#		m = args.memory.upper()
+#		if m.endswith('B'):
+#			m = m[:-1]
+#		if m.endswith('T'):
+#			m = float(m[:-1]) * 1024 * 1024 * 1024 * 1024
+#		elif m.endswith('G'):
+#			m = float(m[:-1]) * 1024 * 1024 * 1024
+#		elif m.endswith('M'):
+#			m = float(m[:-1]) * 1024 * 1024
+#		elif m.endswith('K'):
+#			m = float(m[:-1]) * 1024
+#		else:
+#			m = float(m)
+#		m = long(m)
+#		if m < 1024*1024*1024:
+#			print "WARNING: ignoring '%s' memory allotment, the updater requires ~1gb at minimum" % args.memory
+#		else:
+#			print "using ~%1.1fMB of memory" % (m / (1024 * 1024))
+#			memLimit = max(memLimit, m - 1024*1024*1024)
+#	#if args.memory
 	
 	# instantiate database object
-	db = loki_db.Database(testing=args.test_data, updating=((args.update != None) or (args.update_except != None)), memLimit=memLimit)
+	db = loki_db.Database(testing=args.test_data, updating=True)
 	db.setVerbose(args.verbose)
 	db.attachDatabaseFile(args.knowledge)
 	
@@ -208,7 +207,7 @@ if __name__ == "__main__":
 			os.chdir(startDir)
 			
 			# create output archive, if requested
-			if toArchive:
+			if toArchive and not args.cache_only:
 				print "archiving source data files in '%s' ..." % toArchive
 				with tarfile.open(name=toArchive, mode='w:gz') as archive:
 					for filename in sorted(os.listdir(cacheDir)):

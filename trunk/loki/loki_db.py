@@ -17,7 +17,7 @@ class Database(object):
 	def getVersionTuple(cls):
 		# tuple = (major,minor,revision,dev,build,date)
 		# dev must be in ('a','b','rc','release') for lexicographic comparison
-		return (2,0,1,'b',1,'2013-03-14')
+		return (2,0,1,'b',2,'2013-03-21')
 	#getVersionTuple()
 	
 	
@@ -548,11 +548,10 @@ class Database(object):
 	# constructor
 	
 	
-	def __init__(self, dbFile=None, testing=False, updating=False, memLimit=None):
+	def __init__(self, dbFile=None, testing=False, updating=False, tempMem=False):
 		# initialize instance properties
 		self._is_test = testing
 		self._updating = updating
-		self._memLimit = memLimit
 		self._verbose = False
 		self._logger = None
 		self._logFile = sys.stderr
@@ -564,8 +563,7 @@ class Database(object):
 		self._updater = None
 		self._liftOverCache = dict() # { (from,to) : [] }
 		
-		self.setDatabaseMemoryLimit(self._memLimit or 0)
-		self.configureDatabase()
+		self.configureDatabase(tempMem=tempMem)
 		self.attachDatabaseFile(dbFile)
 	#__init__()
 	
@@ -673,23 +671,17 @@ class Database(object):
 	#setDatabaseMemoryLimit()
 	
 	
-	def configureDatabase(self, db=None, cacheSize=None):
+	def configureDatabase(self, db=None, tempMem=False):
 		cursor = self._db.cursor()
-		db = ("%s." % db) if db else None
-		
-		# sqlite expects cache in kibibytes, but we prefer the method argument in plain bytes
-		if not cacheSize:
-			cacheSize = -65536
-		elif cacheSize < 0:
-			cacheSize = long(cacheSize / 1024)
+		db = ("%s." % db) if db else ""
 		
 		# linux VFS doesn't usually report actual disk cluster size,
-		# so sqlite ends up using 1KB pages by default; we prefer 4kb
+		# so sqlite ends up using 1KB pages by default; we prefer 4KB
 		cursor.execute("PRAGMA %spage_size = 4096" % (db,))
 		
 		# cache_size is pages if positive, kibibytes if negative;
 		# seems to only affect write performance
-		cursor.execute("PRAGMA %scache_size = %d" % (db,cacheSize))
+		cursor.execute("PRAGMA %scache_size = -32768" % (db,))
 		
 		# for typical read-only usage, synchronization behavior is moot anyway,
 		# and while updating we're not that worried about a power failure
@@ -702,6 +694,12 @@ class Database(object):
 		# leaving it recoverable with the on-disk journal (a program crash
 		# should be fine since sqlite will rollback transactions before exiting)
 		cursor.execute("PRAGMA %sjournal_mode = MEMORY" % (db,))
+		
+		# the temp store is used for all of sqlite's internal scratch space
+		# needs, such as the TEMP database, indexing, etc; keeping it in memory
+		# is much faster, but it can get quite large
+		if tempMem and not db:
+			cursor.execute("PRAGMA temp_store = MEMORY")
 		
 		# we want EXCLUSIVE while updating since the data shouldn't be read
 		# until ready and we want the performance gain; for normal read usage,
@@ -751,7 +749,7 @@ class Database(object):
 			cursor.execute("ATTACH DATABASE ? AS `db`", (dbFile,))
 			self._dbFile = dbFile
 			self._dbNew = (0 == max(row[0] for row in cursor.execute("SELECT COUNT(1) FROM `db`.`sqlite_master`")))
-			self.configureDatabase('db', cacheSize=self._memLimit)
+			self.configureDatabase('db')
 			
 			# establish or audit database schema
 			err_msg = ""

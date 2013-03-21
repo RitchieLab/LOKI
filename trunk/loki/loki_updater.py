@@ -4,6 +4,7 @@ import collections
 import hashlib
 import os
 import pkgutil
+import sys
 import traceback
 
 import loki_db
@@ -258,20 +259,22 @@ class Updater(object):
 						
 						self.logPop("... OK\n")
 					#if skip
-					#if srcName == 'kegg':
-					#	raise Exception("TEST1")
-				except Exception:
+				except:
 					srcErrors.add(srcName)
-					# restore indentation, no matter how far in the log was when the exception happened
-					if self.log("ERROR: failed to update %s\n" % (srcName,)) > logIndent:
-						while self.logPop() > logIndent:
-							pass
-					self.log(traceback.format_exc(1))
-					#raise Exception("TEST2")
+					excType,excVal,excTrace = sys.exc_info()
+					while self.logPop() > logIndent:
+						pass
+					self.logPush("ERROR: failed to update %s\n" % (srcName,))
+					if excTrace:
+						for line in traceback.format_list(traceback.extract_tb(excTrace)[-1:]):
+							self.log(line)
+					for line in traceback.format_exception_only(excType,excVal):
+						self.log(line)
+					self.logPop()
 					cursor.execute("ROLLBACK TRANSACTION TO SAVEPOINT 'updateDatabase_%s'" % (srcName,))
 				finally:
 					cursor.execute("RELEASE SAVEPOINT 'updateDatabase_%s'" % (srcName,))
-				#try/catch/finally
+				#try/except/finally
 			#foreach source
 			
 			# cross-map GRCh/UCSChg build versions for all sources
@@ -355,14 +358,17 @@ class Updater(object):
 			if self._tablesUpdated:
 				self._loki.setDatabaseSetting('optimized',0)
 			self.log(" OK\n")
-			#raise Exception("TEST3")
-		except Exception:
-			# restore indentation, no matter how far in the log was when the exception happened
-			if self.log("ERROR: failed to update the database\n") > logIndent:
-				while self.logPop() > logIndent:
-					pass
-			self.log(traceback.format_exc(1))
-			#raise Exception("TEST4")
+		except:
+			excType,excVal,excTrace = sys.exc_info()
+			while self.logPop() > logIndent:
+				pass
+			self.logPush("ERROR: failed to update the database\n")
+			if excTrace:
+				for line in traceback.format_list(traceback.extract_tb(excTrace)[-1:]):
+					self.log(line)
+			for line in traceback.format_exception_only(excType,excVal):
+				self.log(line)
+			self.logPop()
 			cursor.execute("ROLLBACK TRANSACTION TO SAVEPOINT 'updateDatabase'")
 		finally:
 			cursor.execute("RELEASE SAVEPOINT 'updateDatabase'")
