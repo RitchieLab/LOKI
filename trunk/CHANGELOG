@@ -1,5 +1,13 @@
 CHANGELOG
 
+2.0.1b3 (2013-05-02)
+- updated pfam loader to 2.1 to handle the new release's file format
+- fixed loki-build option --temp-directory to apply to SQLite temp files
+
+2.0.1b2 (2013-03-21)
+- fixed loki-build option --archive to skip re-archive if --cache-only is used
+- fixed a bug in the stack trace output in the event of an error during update
+
 2.0.1b1 (2013-03-14)
 - fixed a bug in the updater which would mask the original error if the error-
   handler itself caused an additional error

@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import collections
 from loki import loki_source
 
 
@@ -8,15 +9,16 @@ class Source_pfam(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.0 (2013-02-14)'
+		return '2.1 (2013-05-02)'
 	#getVersionString()
 	
 	
 	def download(self, options):
 		# download the latest source files
 		self.downloadFilesFromFTP('ftp.sanger.ac.uk', {
-			'pfamA.txt.gz':    '/pub/databases/Pfam/current_release/database_files/pfamA.txt.gz',
-			'seq_info.txt.gz': '/pub/databases/Pfam/current_release/database_files/seq_info.txt.gz',
+			'pfamA.txt.gz':                      '/pub/databases/Pfam/current_release/database_files/pfamA.txt.gz',
+			'pfamA_reg_full_significant.txt.gz': '/pub/databases/Pfam/current_release/database_files/pfamA_reg_full_significant.txt.gz',
+			'pfamseq.txt.gz':                    '/pub/databases/Pfam/current_release/database_files/pfamseq.txt.gz',
 		})
 	#download()
 	
@@ -44,71 +46,87 @@ class Source_pfam(loki_source.Source):
 		# process protein families
 		self.log("processing protein families ...")
 		pfamFile = self.zfile('pfamA.txt.gz') #TODO:context manager,iterator
-		groupAcc = {}
-		accID = {}
-		accName = {}
-		accDesc = {}
+		groupFam = collections.defaultdict(set)
+		famAcc = {}
+		famID = {}
+		famName = {}
+		famDesc = {}
 		for line in pfamFile:
-			words = line.decode('latin-1').split("\t")
+			words = line.decode('latin-1').split("\t",10)
+			pfamNum = int(words[0].strip())
 			pfamAcc = words[1].strip()
 			pfamID = words[2].strip()
 			name = words[4].strip()
 			group = words[8].strip()
 			desc = words[9].strip()
 			
-			if group not in groupAcc:
-				groupAcc[group] = set()
-			groupAcc[group].add(pfamAcc)
-			accID[pfamAcc] = pfamID
-			accName[pfamAcc] = name
-			accDesc[pfamAcc] = desc
-		numGroup = len(groupAcc)
-		numAcc = len(accName)
-		self.log(" OK: %d categories, %d families\n" % (numGroup,numAcc))
+			groupFam[group].add(pfamNum)
+			famAcc[pfamNum] = pfamAcc
+			famID[pfamNum] = pfamID
+			famName[pfamNum] = name
+			famDesc[pfamNum] = desc
+		numGroup = len(groupFam)
+		numFam = len(famName)
+		self.log(" OK: %d categories, %d families\n" % (numGroup,numFam))
 		
 		# store protein families
 		self.log("writing protein families to the database ...")
-		listGroup = groupAcc.keys()
+		listGroup = groupFam.keys()
 		listGID = self.addTypedGroups(typeID['proteinfamily'], ((group,"") for group in listGroup))
 		groupGID = dict(zip(listGroup,listGID))
-		listAcc = accID.keys()
-		listGID = self.addTypedGroups(typeID['proteinfamily'], ((accName[pfamAcc],accDesc[pfamAcc]) for pfamAcc in listAcc))
-		accGID = dict(zip(listAcc,listGID))
+		listFam = famAcc.keys()
+		listGID = self.addTypedGroups(typeID['proteinfamily'], ((famName[fam],famDesc[fam]) for fam in listFam))
+		famGID = dict(zip(listFam,listGID))
 		self.log(" OK\n")
 		
 		# store protein family names
 		self.log("writing protein family names to the database ...")
 		self.addGroupNamespacedNames(namespaceID['pfam_id'], ((groupGID[group],group) for group in listGroup))
-		self.addGroupNamespacedNames(namespaceID['pfam_id'], ((accGID[pfamAcc],pfamAcc) for pfamAcc in listAcc))
-		self.addGroupNamespacedNames(namespaceID['proteinfamily'], ((accGID[pfamAcc],accID[pfamAcc]) for pfamAcc in listAcc))
-		self.addGroupNamespacedNames(namespaceID['proteinfamily'], ((accGID[pfamAcc],accName[pfamAcc]) for pfamAcc in listAcc))
+		self.addGroupNamespacedNames(namespaceID['pfam_id'], ((famGID[fam],famAcc[fam]) for fam in listFam))
+		self.addGroupNamespacedNames(namespaceID['proteinfamily'], ((famGID[fam],famID[fam]) for fam in listFam))
+		self.addGroupNamespacedNames(namespaceID['proteinfamily'], ((famGID[fam],famName[fam]) for fam in listFam))
+		famName = famDesc = None
 		self.log(" OK\n")
 		
 		# store protein family meta-group links
 		self.log("writing protein family links to the database ...")
-		for group in groupAcc:
-			self.addGroupRelationships( (accGID[pfamAcc],groupGID[group],relationshipID[''],None) for pfamAcc in groupAcc[group] )
+		for group in groupFam:
+			self.addGroupRelationships( (famGID[fam],groupGID[group],relationshipID[''],None) for fam in groupFam[group] )
+		groupFam = None
 		self.log(" OK\n")
 		
+		# process protein identifiers
+		self.log("processing protein identifiers ...")
+		seqFile = self.zfile('pfamseq.txt.gz') #TODO:context manager,iterator
+		proNames = dict()
+		for line in seqFile:
+			words = line.split("\t",10)
+			proteinNum = int(words[0])
+			uniprotID = words[1]
+			uniprotAcc = words[2]
+			species = words[9]
+			
+			if species == 'Homo sapiens (Human)':
+				proNames[proteinNum] = (uniprotID,uniprotAcc)
+		#foreach protein
+		self.log(" OK: %d proteins\n" % (len(proNames),))
+		
 		# process associations
-		self.log("processing gene associations ...")
-		assocFile = self.zfile('seq_info.txt.gz') #TODO:context manager,iterator
+		self.log("processing protein associations ...")
+		assocFile = self.zfile('pfamA_reg_full_significant.txt.gz') #TODO:context manager,iterator
 		setAssoc = set()
 		numAssoc = numID = 0
 		for line in assocFile:
-			words = line.split("\t")
-			if len(words) < 6:
-				continue
-			pfamAcc = words[0]
-			uniprotAcc = words[5]
-			uniprotID = words[6]
-			species = words[8]
+			words = line.split("\t",15)
+			pfamNum = int(words[1])
+			proteinNum = int(words[2])
+			inFull = int(words[14])
 			
-			if pfamAcc in accGID and species == 'Homo sapiens (Human)':
+			if (pfamNum in famGID) and (proteinNum in proNames) and inFull:
 				numAssoc += 1
-				numID += 2
-				setAssoc.add( (accGID[pfamAcc],numAssoc,uniprotAcc) )
-				setAssoc.add( (accGID[pfamAcc],numAssoc,uniprotID) )
+				numID += len(proNames[proteinNum])
+				for name in proNames[proteinNum]:
+					setAssoc.add( (famGID[pfamNum],numAssoc,name) )
 			#if association is ok
 		#foreach association
 		self.log(" OK: %d associations (%d identifiers)\n" % (numAssoc,numID))
