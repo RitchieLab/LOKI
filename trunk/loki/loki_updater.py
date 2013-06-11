@@ -338,6 +338,9 @@ class Updater(object):
 			if 'snp_entrez_role' in self._tablesUpdated:
 				self.cleanupSNPEntrezRoles()
 				#self.log("MEMORY: %d bytes (%d peak)\n" % self._loki.getDatabaseMemoryUsage()) #DEBUG
+			if 'snp_merge' in self._tablesUpdated or 'gwas' in self._tablesUpdated:
+				self.updateMergedGWASAnnotations()
+				#self.log("MEMORY: %d bytes (%d peak)\n" % self._loki.getDatabaseMemoryUsage()) #DEBUG
 			if 'biopolymer_name' in self._tablesUpdated or 'biopolymer_name_name' in self._tablesUpdated:
 				self.resolveBiopolymerNames()
 				#self.log("MEMORY: %d bytes (%d peak)\n" % self._loki.getDatabaseMemoryUsage()) #DEBUG
@@ -598,6 +601,28 @@ JOIN `db`.`snp_merge` AS sm
 			dbc.executemany("DELETE FROM `db`.`snp_entrez_role` WHERE _ROWID_ = ?", cull)
 		self.log(" OK: %d duplicate roles\n" % (len(cull),))
 	#cleanupSNPEntrezRoles()
+	
+	
+	def updateMergedGWASAnnotations(self):
+		self.log("checking for merged GWAS annotated SNPs ...")
+		self.prepareTableForQuery('gwas')
+		self.prepareTableForQuery('snp_merge')
+		dbc = self._db.cursor()
+		sql = """
+INSERT INTO `db`.`gwas` (rs, chr, pos, trait, snps, orbeta, allele95ci, riskAfreq, pubmed_id, source_id)
+SELECT sm.rsCurrent, w.chr, w.pos, w.trait, w.snps, w.orbeta, w.allele95ci, w.riskAfreq, w.pubmed_id, w.source_id
+FROM `db`.`gwas` AS w
+JOIN `db`.`snp_merge` AS sm
+  ON sm.rsMerged = w.rs
+"""
+		#for row in dbc.execute("EXPLAIN QUERY PLAN "+sql): #DEBUG
+		#	print row
+		dbc.execute(sql)
+		numCopied = self._db.changes()
+		if numCopied:
+			self.flagTableUpdate('gwas')
+		self.log(" OK: %d annotations copied\n" % (numCopied,))
+	#updateMergedGWASAnnotations()
 	
 	
 	def resolveBiopolymerNames(self):

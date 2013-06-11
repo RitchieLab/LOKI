@@ -270,6 +270,7 @@ class Source(object):
 			'biopolymer', 'biopolymer_name', 'biopolymer_name_name', 'biopolymer_region',
 			'group', 'group_name', 'group_group', 'group_biopolymer', 'group_member_name',
 			'chain', 'chain_data',
+			'gwas',
 		]
 		for table in tables:
 			dbc.execute("DELETE FROM `db`.`%s` WHERE source_id = %d" % (table,self.getSourceID()))
@@ -536,6 +537,18 @@ class Source(object):
 		sql = "INSERT INTO `db`.`chain_data` (chain_id,old_start,old_end,new_start,source_id) VALUES (?,?,?,?,%d)" % (self.getSourceID(),)
 		self._db.cursor().executemany(sql, chain_data_list)
 	#addChainData()
+	
+	
+	##################################################
+	# gwas data management
+	
+	
+	def addGWASAnnotations(self, gwasAnnotations):
+		# gwasAnnotations=[ (rs,chm,pos,trait,snps,orBeta,allele95ci,riskAfreq,pubmedID), ... ]
+		self.prepareTableForUpdate('gwas')
+		sql = "INSERT OR IGNORE INTO `db`.`gwas` (rs,chr,pos,trait,snps,orbeta,allele95ci,riskAfreq,pubmed_id,source_id) VALUES (?,?,?,?,?,?,?,?,?,%d)" % (self.getSourceID(),)
+		self._db.cursor().executemany(sql, gwasAnnotations)
+	#addGWASAnnotations()
 	
 	
 	##################################################
