@@ -42,7 +42,7 @@ class Source_dbsnp(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.0 (2013-02-14)'
+		return '2.1 (2013-07-17)'
 	#getVersionString()
 	
 	
@@ -229,22 +229,24 @@ CREATE TABLE [b137_SNPContigLocusId]
 """
 			self.log("processing SNP roles ...")
 			setRole = set()
-			numRole = 0
+			numRole = numOrphan = numInc = 0
 			setOrphan = set()
-			numOrphan = 0
 			funcFile = self.zfile(self._identifyLatestSNPContig(os.listdir('.')))
 			for line in funcFile:
-				words = line.split("\t")
-				rs = long(words[0])
-				entrez = int(words[5])
+				words = list(w.strip() for w in line.split("\t"))
+				rs = long(words[0]) if words[0] else None
+				entrez = int(words[5]) if words[5] else None
 				#genesymbol = words[6]
-				code = int(words[11])
+				code = int(words[11]) if words[11] else None
 				
-				try:
-					setRole.add( (rs,entrez,roleID[code]) )
-				except KeyError:
-					setOrphan.add(code)
-					numOrphan += 1
+				if rs and entrez and code:
+					try:
+						setRole.add( (rs,entrez,roleID[code]) )
+					except KeyError:
+						setOrphan.add(code)
+						numOrphan += 1
+				else:
+					numInc += 1
 				
 				# write to the database after each 2.5 million, to keep memory usage down
 				if len(setRole) >= 2500000:
@@ -268,6 +270,8 @@ CREATE TABLE [b137_SNPContigLocusId]
 			self.logPush()
 			if setOrphan:
 				self.log("WARNING: %d roles (%d codes) unrecognized\n" % (numOrphan,len(setOrphan)))
+			if numInc:
+				self.log("WARNING: %d roles incomplete\n" % (numInc,))
 			setOrphan = None
 			self.logPop()
 		#if roles

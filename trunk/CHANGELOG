@@ -1,5 +1,11 @@
 CHANGELOG
 
+2.1.0rc1 (2013-07-18)
+- updated dbsnp loader to handle incomplete SNP roles in dbSNP's data download
+
+2.1.0b1 (2013-06-11)
+- added "gwas" catalog source loader and supporting tables and methods
+
 2.0.1b3 (2013-05-02)
 - updated pfam loader to 2.1 to handle the new release's file format
 - fixed loki-build option --temp-directory to apply to SQLite temp files

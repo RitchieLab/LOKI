@@ -17,7 +17,7 @@ class Database(object):
 	def getVersionTuple(cls):
 		# tuple = (major,minor,revision,dev,build,date)
 		# dev must be in ('a','b','rc','release') for lexicographic comparison
-		return (2,1,0,'b',1,'2013-06-11')
+		return (2,1,0,'rc',1,'2013-07-18')
 	#getVersionTuple()
 	
 	
