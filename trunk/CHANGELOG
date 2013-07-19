@@ -1,5 +1,8 @@
 CHANGELOG
 
+2.1.0 (2013-07-19)
+- release
+
 2.1.0rc1 (2013-07-18)
 - updated dbsnp loader to handle incomplete SNP roles in dbSNP's data download
 
