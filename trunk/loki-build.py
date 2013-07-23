@@ -192,6 +192,7 @@ if __name__ == "__main__":
 				if os.path.exists(fromArchive) and tarfile.is_tarfile(fromArchive):
 					print "unpacking archived source data files from '%s' ..." % fromArchive
 					with tarfile.open(name=fromArchive, mode='r:*') as archive:
+						archive.errorlevel = 2
 						# the archive should only contain directories named after sources,
 						# so we can filter members by their normalized top-level directory
 						for member in archive:
@@ -217,6 +218,7 @@ if __name__ == "__main__":
 			if toArchive and not args.cache_only:
 				print "archiving source data files in '%s' ..." % toArchive
 				with tarfile.open(name=toArchive, mode='w:gz') as archive:
+					archive.errorlevel = 2
 					for filename in sorted(os.listdir(cacheDir)):
 						archive.add(os.path.join(cacheDir, filename), arcname=filename)
 				print "... OK"
