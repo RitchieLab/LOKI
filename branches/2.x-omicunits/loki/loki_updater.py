@@ -2,8 +2,11 @@
 
 import collections
 import hashlib
+import itertools
 import os
 import pkgutil
+import sys
+import traceback
 
 import loki_db
 import loki_source
@@ -66,6 +69,7 @@ class Updater(object):
 				#print "deindexing %s" % table #DEBUG
 				self._tablesDeindexed.add(table)
 				self._loki.dropDatabaseIndecies(None, 'db', table)
+				#TODO if table is a hybrid pre/post-proc, drop all source=0 rows now
 	#prepareTableForUpdate()
 	
 	
@@ -167,102 +171,112 @@ class Updater(object):
 		self._tablesUpdated = set()
 		self._tablesDeindexed = set()
 		srcErrors = set()
-		with self._db:
-			cursor = self._db.cursor()
+		cursor = self._db.cursor()
+		cursor.execute("SAVEPOINT 'updateDatabase'")
+		try:
 			for srcName in sorted(srcSet):
+				cursor.execute("SAVEPOINT 'updateDatabase_%s'" % (srcName,))
 				try:
-					with self._db:
-						srcObj = self._sourceObjects[srcName]
-						srcID = srcObj.getSourceID()
-						
-						# validate options, if any
-						options = srcOpts.get(srcName, {})
-						if options:
-							self.logPush("validating %s options ...\n" % srcName)
-							msg = srcObj.validateOptions(options)
-							if msg != True:
-								raise Exception(msg)
-							for opt,val in options.iteritems():
-								self.log("%s = %s\n" % (opt,val))
-							self.logPop("... OK\n")
-						
-						# switch to a temp subdirectory for this source
-						path = os.path.join(iwd, srcName)
-						if not os.path.exists(path):
-							os.makedirs(path)
-						os.chdir(path)
-						
-						# download files into a local cache
-						if not cacheOnly:
-							self.logPush("downloading %s data ...\n" % srcName)
-							srcObj.download(options)
-							self.logPop("... OK\n")
-						
-						# calculate source file metadata
-						# all timestamps are assumed to be in UTC, but if a source
-						# provides file timestamps with no TZ (like via FTP) we use them
-						# as-is and assume they're supposed to be UTC
-						self.log("analyzing %s data files ..." % srcName)
-						filehash = dict()
-						for filename in os.listdir('.'):
-							stat = os.stat(filename)
-							md5 = hashlib.md5()
-							with open(filename,'rb') as f:
+					srcObj = self._sourceObjects[srcName]
+					srcID = srcObj.getSourceID()
+					
+					# validate options, if any
+					options = srcOpts.get(srcName, {})
+					if options:
+						self.logPush("validating %s options ...\n" % srcName)
+						msg = srcObj.validateOptions(options)
+						if msg != True:
+							raise Exception(msg)
+						for opt,val in options.iteritems():
+							self.log("%s = %s\n" % (opt,val))
+						self.logPop("... OK\n")
+					
+					# switch to a temp subdirectory for this source
+					path = os.path.join(iwd, srcName)
+					if not os.path.exists(path):
+						os.makedirs(path)
+					os.chdir(path)
+					
+					# download files into a local cache
+					if not cacheOnly:
+						self.logPush("downloading %s data ...\n" % srcName)
+						srcObj.download(options)
+						self.logPop("... OK\n")
+					
+					# calculate source file metadata
+					# all timestamps are assumed to be in UTC, but if a source
+					# provides file timestamps with no TZ (like via FTP) we use them
+					# as-is and assume they're supposed to be UTC
+					self.log("analyzing %s data files ..." % srcName)
+					filehash = dict()
+					for filename in os.listdir('.'):
+						stat = os.stat(filename)
+						md5 = hashlib.md5()
+						with open(filename,'rb') as f:
+							chunk = f.read(8*1024*1024)
+							while chunk:
+								md5.update(chunk)
 								chunk = f.read(8*1024*1024)
-								while chunk:
-									md5.update(chunk)
-									chunk = f.read(8*1024*1024)
-							filehash[filename] = (filename, long(stat.st_size), long(stat.st_mtime), md5.hexdigest())
-						self.log(" OK\n")
+						filehash[filename] = (filename, long(stat.st_size), long(stat.st_mtime), md5.hexdigest())
+					self.log(" OK\n")
+					
+					# compare current loader version, options and file metadata to the last update
+					skip = not forceUpdate
+					last = '?'
+					if skip:
+						for row in cursor.execute("SELECT version, DATETIME(updated,'localtime') FROM `db`.`source` WHERE source_id = ?", (srcID,)):
+							skip = skip and (row[0] == srcObj.getVersionString())
+							last = row[1]
+					if skip:
+						n = 0
+						for row in cursor.execute("SELECT option, value FROM `db`.`source_option` WHERE source_id = ?", (srcID,)):
+							n += 1
+							skip = skip and (row[0] in options) and (row[1] == options[row[0]])
+						skip = skip and (n == len(options))
+					if skip:
+						n = 0
+						for row in cursor.execute("SELECT filename, size, md5 FROM `db`.`source_file` WHERE source_id = ?", (srcID,)):
+							n += 1
+							skip = skip and (row[0] in filehash) and (row[1] == filehash[row[0]][1]) and (row[2] == filehash[row[0]][3])
+						skip = skip and (n == len(filehash))
+					
+					# skip the update if the current loader and all source file versions match the last update
+					if skip:
+						self.log("skipping %s update, no data or software changes since %s\n" % (srcName,last))
+					else:
+						# process new files (or old files with a new loader)
+						self.logPush("processing %s data ...\n" % srcName)
 						
-						# compare current loader version, options and file metadata to the last update
-						skip = not forceUpdate
-						last = '?'
-						if skip:
-							for row in cursor.execute("SELECT version, DATETIME(updated,'localtime') FROM `db`.`source` WHERE source_id = ?", (srcID,)):
-								skip = skip and (row[0] == srcObj.getVersionString())
-								last = row[1]
-						if skip:
-							n = 0
-							for row in cursor.execute("SELECT option, value FROM `db`.`source_option` WHERE source_id = ?", (srcID,)):
-								n += 1
-								skip = skip and (row[0] in options) and (row[1] == options[row[0]])
-							skip = skip and (n == len(options))
-						if skip:
-							n = 0
-							for row in cursor.execute("SELECT filename, size, md5 FROM `db`.`source_file` WHERE source_id = ?", (srcID,)):
-								n += 1
-								skip = skip and (row[0] in filehash) and (row[1] == filehash[row[0]][1]) and (row[2] == filehash[row[0]][3])
-							skip = skip and (n == len(filehash))
+						cursor.execute("DELETE FROM `db`.`warning` WHERE source_id = ?", (srcID,))
+						srcObj.update(options)
+						cursor.execute("UPDATE `db`.`source` SET updated = DATETIME('now'), version = ? WHERE source_id = ?", (srcObj.getVersionString(), srcID))
 						
-						# skip the update if the current loader and all source file versions match the last update
-						if skip:
-							self.log("skipping %s update, no data or software changes since %s\n" % (srcName,last))
-						else:
-							# process new files (or old files with a new loader)
-							self.logPush("processing %s data ...\n" % srcName)
-							
-							cursor.execute("DELETE FROM `db`.`warning` WHERE source_id = ?", (srcID,))
-							srcObj.update(options)
-							cursor.execute("UPDATE `db`.`source` SET updated = DATETIME('now'), version = ? WHERE source_id = ?", (srcObj.getVersionString(), srcID))
-							
-							cursor.execute("DELETE FROM `db`.`source_option` WHERE source_id = ?", (srcID,))
-							sql = "INSERT INTO `db`.`source_option` (source_id, option, value) VALUES (%d,?,?)" % srcID
-							cursor.executemany(sql, options.iteritems())
-							
-							cursor.execute("DELETE FROM `db`.`source_file` WHERE source_id = ?", (srcID,))
-							sql = "INSERT INTO `db`.`source_file` (source_id, filename, size, modified, md5) VALUES (%d,?,?,DATETIME(?,'unixepoch'),?)" % srcID
-							cursor.executemany(sql, filehash.values())
-							
-							self.logPop("... OK\n")
-						#if skip
-					#with db transaction
-				except Exception as exc:
-					# restore indentation, no matter how far in the source was when the exception happened
-					if self.log("ERROR: %s\n" % exc) > logIndent:
-						while self.logPop() > logIndent:
-							pass
+						cursor.execute("DELETE FROM `db`.`source_option` WHERE source_id = ?", (srcID,))
+						sql = "INSERT INTO `db`.`source_option` (source_id, option, value) VALUES (%d,?,?)" % srcID
+						cursor.executemany(sql, options.iteritems())
+						
+						cursor.execute("DELETE FROM `db`.`source_file` WHERE source_id = ?", (srcID,))
+						sql = "INSERT INTO `db`.`source_file` (source_id, filename, size, modified, md5) VALUES (%d,?,?,DATETIME(?,'unixepoch'),?)" % srcID
+						cursor.executemany(sql, filehash.values())
+						
+						self.logPop("... OK\n")
+					#if skip
+				except:
 					srcErrors.add(srcName)
+					excType,excVal,excTrace = sys.exc_info()
+					while self.logPop() > logIndent:
+						pass
+					self.logPush("ERROR: failed to update %s\n" % (srcName,))
+					if excTrace:
+						for line in traceback.format_list(traceback.extract_tb(excTrace)[-1:]):
+							self.log(line)
+					for line in traceback.format_exception_only(excType,excVal):
+						self.log(line)
+					self.logPop()
+					cursor.execute("ROLLBACK TRANSACTION TO SAVEPOINT 'updateDatabase_%s'" % (srcName,))
+				finally:
+					cursor.execute("RELEASE SAVEPOINT 'updateDatabase_%s'" % (srcName,))
+				#try/except/finally
 			#foreach source
 			
 			# cross-map GRCh/UCSChg build versions for all sources
@@ -309,35 +323,52 @@ class Updater(object):
 				#foreach old build
 			#if any old builds
 			
-			# post-process as needed
+			# post-process as needed #TODO
 			#self.log("MEMORY: %d bytes (%d peak)\n" % self._loki.getDatabaseMemoryUsage()) #DEBUG
+			nameUIDs = None
+			import time
 			if 'snp_merge' in self._tablesUpdated:
+				t0 = time.time()
 				self.cleanupSNPMerges()
-				#self.log("MEMORY: %d bytes (%d peak)\n" % self._loki.getDatabaseMemoryUsage()) #DEBUG
+				self.log("(%ds)\n" % (time.time()-t0))
 			if 'snp_merge' in self._tablesUpdated or 'snp_locus' in self._tablesUpdated:
+				t0 = time.time()
 				self.updateMergedSNPLoci()
-				#self.log("MEMORY: %d bytes (%d peak)\n" % self._loki.getDatabaseMemoryUsage()) #DEBUG
+				self.log("(%ds)\n" % (time.time()-t0))
 			if 'snp_locus' in self._tablesUpdated:
+				t0 = time.time()
 				self.cleanupSNPLoci()
-				#self.log("MEMORY: %d bytes (%d peak)\n" % self._loki.getDatabaseMemoryUsage()) #DEBUG
+				self.log("(%ds)\n" % (time.time()-t0))
 			if 'snp_merge' in self._tablesUpdated or 'snp_entrez_role' in self._tablesUpdated:
+				t0 = time.time()
 				self.updateMergedSNPEntrezRoles()
-				#self.log("MEMORY: %d bytes (%d peak)\n" % self._loki.getDatabaseMemoryUsage()) #DEBUG
+				self.log("(%ds)\n" % (time.time()-t0))
 			if 'snp_entrez_role' in self._tablesUpdated:
+				t0 = time.time()
 				self.cleanupSNPEntrezRoles()
-				#self.log("MEMORY: %d bytes (%d peak)\n" % self._loki.getDatabaseMemoryUsage()) #DEBUG
-			if 'biopolymer_name' in self._tablesUpdated or 'biopolymer_name_name' in self._tablesUpdated:
-				self.resolveBiopolymerNames()
-				#self.log("MEMORY: %d bytes (%d peak)\n" % self._loki.getDatabaseMemoryUsage()) #DEBUG
-			if 'biopolymer_name' in self._tablesUpdated or 'snp_entrez_role' in self._tablesUpdated:
-				self.resolveSNPBiopolymerRoles()
-				#self.log("MEMORY: %d bytes (%d peak)\n" % self._loki.getDatabaseMemoryUsage()) #DEBUG
-			if 'biopolymer_name' in self._tablesUpdated or 'group_member_name' in self._tablesUpdated:
-				self.resolveGroupMembers()
-				#self.log("MEMORY: %d bytes (%d peak)\n" % self._loki.getDatabaseMemoryUsage()) #DEBUG
-			if 'biopolymer_region' in self._tablesUpdated:
-				self.updateBiopolymerZones()
-				#self.log("MEMORY: %d bytes (%d peak)\n" % self._loki.getDatabaseMemoryUsage()) #DEBUG
+				self.log("(%ds)\n" % (time.time()-t0))
+			if 'region' in self._tablesUpdated:
+				t0 = time.time()
+				self.updateRegionZones()
+				self.log("(%ds)\n" % (time.time()-t0))
+			if 'unit_name_name' in self._tablesUpdated:
+				t0 = time.time()
+				self.defineOmicUnits()
+				self.log("(%ds)\n" % (time.time()-t0))
+			if 'unit_name' in self._tablesUpdated or 'snp_entrez_role' in self._tablesUpdated:
+				t0 = time.time()
+				nameUIDs = self.resolveSNPUnitRoles(nameUIDs)
+				self.log("(%ds)\n" % (time.time()-t0))
+			if 'unit_name' in self._tablesUpdated or 'region_name' in self._tablesUpdated:
+				t0 = time.time()
+				nameUIDs = self.resolveRegionUnits(nameUIDs)
+				self.log("(%ds)\n" % (time.time()-t0))
+			if 'unit_name' in self._tablesUpdated or 'group_member_name' in self._tablesUpdated:
+				t0 = time.time()
+				nameUIDs = self.resolveGroupMembers(nameUIDs)
+				self.log("(%ds)\n" % (time.time()-t0))
+			#self.log("MEMORY: %d bytes (%d peak)\n" % self._loki.getDatabaseMemoryUsage()) #DEBUG
+			nameUIDs = None
 			
 			# reindex all remaining tables
 			self.log("finishing update ...")
@@ -345,12 +376,26 @@ class Updater(object):
 				self._loki.createDatabaseIndecies(None, 'db', self._tablesDeindexed)
 			if self._tablesUpdated:
 				self._loki.setDatabaseSetting('optimized',0)
-		#with db transaction
-		self.log(" OK\n")
-		self._updating = False
-		self._tablesUpdated = None
-		self._tablesDeindexed = None
-		os.chdir(iwd)
+			self.log(" OK\n")
+		except:
+			excType,excVal,excTrace = sys.exc_info()
+			while self.logPop() > logIndent:
+				pass
+			self.logPush("ERROR: failed to update the database\n")
+			if excTrace:
+				for line in traceback.format_list(traceback.extract_tb(excTrace)[-1:]):
+					self.log(line)
+			for line in traceback.format_exception_only(excType,excVal):
+				self.log(line)
+			self.logPop()
+			cursor.execute("ROLLBACK TRANSACTION TO SAVEPOINT 'updateDatabase'")
+		finally:
+			cursor.execute("RELEASE SAVEPOINT 'updateDatabase'")
+			self._updating = False
+			self._tablesUpdated = None
+			self._tablesDeindexed = None
+			os.chdir(iwd)
+		#try/except/finally
 		
 		# report and return
 		if srcErrors:
@@ -371,24 +416,24 @@ class Updater(object):
 		tally = dict()
 		trash = set()
 		
-		# identify range of _ROWID_ in snp_locus
+		# identify range of IDs
 		# (two separate queries is faster because a simple MIN() or MAX() only peeks at the index;
 		# SQLite isn't clever enough to do that for both at the same time, it does a table scan instead)
-		firstRowID = min(row[0] for row in cursor.execute("SELECT MIN(_ROWID_) FROM `db`.`snp_locus`"))
-		lastRowID = max(row[0] for row in cursor.execute("SELECT MAX(_ROWID_) FROM `db`.`snp_locus`"))
+		firstID = min(row[0] for row in cursor.execute("SELECT MIN(_ROWID_) FROM `db`.`snp_locus`"))
+		lastID = max(row[0] for row in cursor.execute("SELECT MAX(_ROWID_) FROM `db`.`snp_locus`"))
 		
 		# define a callback to store loci that can't be lifted over, for later deletion
 		def errorCallback(region):
 			trash.add( (region[0],) )
 		
 		# we can't SELECT and UPDATE the same table at the same time,
-		# so read in batches of 2.5 million at a time based on _ROWID_
-		minRowID = firstRowID
-		maxRowID = minRowID + 2500000 - 1
-		while minRowID <= lastRowID:
+		# so read in batches of 2.5 million at a time based on ID
+		minID = firstID
+		maxID = minID + 2500000 - 1
+		while minID <= lastID:
 			sql = "SELECT _ROWID_, chr, pos FROM `db`.`snp_locus`"
 			sql += " WHERE (_ROWID_ BETWEEN ? AND ?) AND source_id IN (%s)" % (','.join(str(i) for i in sourceIDs))
-			oldLoci = list(cursor.execute(sql, (minRowID,maxRowID)))
+			oldLoci = list(cursor.execute(sql, (minID,maxID)))
 			newLoci = self._loki.generateLiftOverLoci(oldHG, newHG, oldLoci, tally, errorCallback)
 			sql = "UPDATE OR REPLACE `db`.`snp_locus` SET chr = ?2, pos = ?3 WHERE _ROWID_ = ?1"
 			cursor.executemany(sql, newLoci)
@@ -397,8 +442,8 @@ class Updater(object):
 			if trash:
 				cursor.executemany("DELETE FROM `db`.`snp_locus` WHERE _ROWID_ = ?", trash)
 				trash.clear()
-			minRowID = maxRowID + 1
-			maxRowID = minRowID + 2500000 - 1
+			minID = maxID + 1
+			maxID = minID + 2500000 - 1
 		#foreach batch
 		
 		self.log(" OK: %d loci lifted over, %d dropped\n" % (numLift,numNull))
@@ -407,41 +452,41 @@ class Updater(object):
 	
 	def liftOverRegions(self, oldHG, newHG, sourceIDs):
 		self.log("lifting over regions from hg%d to hg%d ..." % (oldHG,newHG))
-		self.prepareTableForUpdate('biopolymer_region')
+		self.prepareTableForUpdate('region')
 		cursor = self._db.cursor()
 		numLift = numNull = 0
 		tally = dict()
 		trash = set()
 		
-		# identify range of _ROWID_ in biopolymer_region
+		# identify range of IDs
 		# (two separate queries is faster because a simple MIN() or MAX() only peeks at the index;
 		# SQLite isn't clever enough to do that for both at the same time, it does a table scan instead)
-		firstRowID = min(row[0] for row in cursor.execute("SELECT MIN(_ROWID_) FROM `db`.`biopolymer_region`"))
-		lastRowID = max(row[0] for row in cursor.execute("SELECT MAX(_ROWID_) FROM `db`.`biopolymer_region`"))
+		firstID = min(row[0] for row in cursor.execute("SELECT MIN(region_id) FROM `db`.`region`"))
+		lastID = max(row[0] for row in cursor.execute("SELECT MAX(region_id) FROM `db`.`region`"))
 		
 		# define a callback to store regions that can't be lifted over, for later deletion
 		def errorCallback(region):
 			trash.add( (region[0],) )
 		
 		# we can't SELECT and UPDATE the same table at the same time,
-		# so read in batches of 2.5 million at a time based on _ROWID_
-		# (for regions this will probably be all of them in one go, but just in case)
-		minRowID = firstRowID
-		maxRowID = minRowID + 2500000 - 1
-		while minRowID <= lastRowID:
-			sql = "SELECT _ROWID_, chr, posMin, posMax FROM `db`.`biopolymer_region`"
-			sql += " WHERE (_ROWID_ BETWEEN ? AND ?) AND source_id IN (%s)" % (','.join(str(i) for i in sourceIDs))
-			oldRegions = list(cursor.execute(sql, (minRowID,maxRowID)))
+		# so read in batches of 2.5 million at a time based on ID
+		# (this will probably be all of them in one go, but just in case)
+		minID = firstID
+		maxID = minID + 2500000 - 1
+		while minID <= lastID:
+			sql = "SELECT region_id, chr, posMin, posMax FROM `db`.`region`"
+			sql += " WHERE (region_id BETWEEN ? AND ?) AND source_id IN (%s)" % (','.join(str(i) for i in sourceIDs))
+			oldRegions = list(cursor.execute(sql, (minID,maxID)))
 			newRegions = self._loki.generateLiftOverRegions(oldHG, newHG, oldRegions, tally, errorCallback)
-			sql = "UPDATE OR REPLACE `db`.`biopolymer_region` SET chr = ?2, posMin = ?3, posMax = ?4 WHERE _ROWID_ = ?1"
+			sql = "UPDATE OR REPLACE `db`.`region` SET chr = ?2, posMin = ?3, posMax = ?4 WHERE region_id = ?1"
 			cursor.executemany(sql, newRegions)
 			numLift += tally['lift']
 			numNull += tally['null']
 			if trash:
-				cursor.executemany("DELETE FROM `db`.`biopolymer_region` WHERE _ROWID_ = ?", trash)
+				cursor.executemany("DELETE FROM `db`.`region` WHERE region_id = ?", trash)
 				trash.clear()
-			minRowID = maxRowID + 1
-			maxRowID = minRowID + 2500000 - 1
+			minID = maxID + 1
+			maxID = minID + 2500000 - 1
 		#foreach batch
 		
 		self.log(" OK: %d regions lifted over, %d dropped\n" % (numLift,numNull))
@@ -460,12 +505,6 @@ class Updater(object):
 		#	print row
 		for row in dbc.execute(sql):
 			cull.update( (long(i),) for i in row[0].split(',')[1:] )
-		#TODO
-		#last = None
-		#for row in dbc.execute("SELECT _ROWID_, rsMerged FROM `db`.`snp_merge` ORDER BY rsMerged"):
-		#	if last == row[1]:
-		#		cull.add(row[0:1])
-		#	last = row[1]
 		if cull:
 			self.flagTableUpdate('snp_merge')
 			dbc.executemany("DELETE FROM `db`.`snp_merge` WHERE _ROWID_ = ?", cull)
@@ -499,7 +538,7 @@ JOIN `db`.`snp_merge` AS sm
 		self.log("verifying SNP loci ...")
 		self.prepareTableForQuery('snp_locus')
 		dbc = self._db.cursor()
-		# for each set of ROWIDs which constitute a duplicated snp-locus, cull all but one
+		# for each set of ROWIDs which constitute a duplicated snp-locus, cull all but one;
 		# but, make sure that if any of the originals were validated, the remaining one is also
 		valid = set()
 		cull = set()
@@ -511,17 +550,8 @@ JOIN `db`.`snp_merge` AS sm
 			if row[1]:
 				valid.add( (long(rowids[0]),) )
 			cull.update( (long(i),) for i in rowids[1:] )
-		#TODO
-		#last = None
-		#for row in dbc.execute("SELECT _ROWID_, rs||':'||chr||':'||pos, validated FROM `db`.`snp_locus` ORDER BY rs, chr, pos"):
-		#	if last == row[1]:
-		#		cull.add(row[0:1])
-		#		if row[2]:
-		#			valid.add( last.split(':') )
-		#	last = row[1]
 		if valid:
 			dbc.executemany("UPDATE `db`.`snp_locus` SET validated = 1 WHERE _ROWID_ = ?", valid)
-			#dbc.executemany("UPDATE `db`.`snp_locus` SET validated = 1 WHERE rs = ? AND chr = ? AND pos = ?", valid)
 		if cull:
 			self.flagTableUpdate('snp_locus')
 			dbc.executemany("DELETE FROM `db`.`snp_locus` WHERE _ROWID_ = ?", cull)
@@ -561,12 +591,6 @@ JOIN `db`.`snp_merge` AS sm
 		#	print row
 		for row in dbc.execute(sql):
 			cull.update( (long(i),) for i in row[0].split(',')[1:] )
-		#TODO
-		#last = None
-		#for row in dbc.execute("SELECT _ROWID_, rs||':'||entrez_id||':'||role_id FROM `db`.`snp_entrez_role` ORDER BY rs, entrez_id, role_id"):
-		#	if last == row[1]:
-		#		cull.add(row[0:1])
-		#	last = row[1]
 		if cull:
 			self.flagTableUpdate('snp_entrez_role')
 			dbc.executemany("DELETE FROM `db`.`snp_entrez_role` WHERE _ROWID_ = ?", cull)
@@ -574,171 +598,259 @@ JOIN `db`.`snp_merge` AS sm
 	#cleanupSNPEntrezRoles()
 	
 	
-	def resolveBiopolymerNames(self):
-		#TODO: iterative?
-		self.log("resolving biopolymer names ...")
+	def updateRegionZones(self):
+		self.log("calculating zone coverage ...")
+		size = self._loki.getDatabaseSetting('zone_size',int)
+		if not size:
+			raise Exception("ERROR: could not determine database setting 'zone_size'")
 		dbc = self._db.cursor()
 		
-		# calculate confidence scores for each possible name match
-		dbc.execute("""
-CREATE TEMP TABLE `temp`.`_biopolymer_name_name_score` (
-  new_namespace_id INTERGER NOT NULL,
-  new_name VARCHAR(256) NOT NULL,
-  biopolymer_id INTEGER NOT NULL,
-  polygenic TINYINT NOT NULL,
-  implication INTEGER NOT NULL,
-  PRIMARY KEY (new_namespace_id, new_name, biopolymer_id)
-)
-""")
-		self.prepareTableForQuery('biopolymer_name_name')
-		self.prepareTableForQuery('biopolymer_name')
-		self.prepareTableForQuery('biopolymer')
-		self.prepareTableForQuery('namespace')
-		dbc.execute("""
-INSERT INTO `temp`.`_biopolymer_name_name_score` (new_namespace_id, new_name, biopolymer_id, polygenic, implication)
-/* calculate implication score for each possible match for each name */
-SELECT
-  bnn.new_namespace_id,
-  bnn.new_name,
-  bn.biopolymer_id,
-  COALESCE(n.polygenic, 0) AS polygenic,
-  COUNT(1) AS implication
-FROM `db`.`biopolymer_name_name` AS bnn
-JOIN `db`.`biopolymer_name` AS bn USING (name)
-JOIN `db`.`biopolymer` AS b USING (biopolymer_id)
-LEFT JOIN `db`.`namespace` AS n
-  ON n.namespace_id = bnn.new_namespace_id
-WHERE bnn.namespace_id IN (0, bn.namespace_id)
-  AND bnn.type_id IN (0, b.type_id)
-GROUP BY bnn.new_namespace_id, bnn.new_name, bn.biopolymer_id
-""")
+		# make sure all regions are correctly oriented
+		dbc.execute("UPDATE `db`.`region` SET posMin = posMax, posMax = posMin WHERE posMin > posMax")
 		
-		# extrapolate new biopolymer_name records
-		self.prepareTableForUpdate('biopolymer_name')
-		dbc.execute("DELETE FROM `db`.`biopolymer_name` WHERE source_id = 0")
-		dbc.execute("""
-INSERT OR IGNORE INTO `db`.`biopolymer_name` (biopolymer_id, namespace_id, name, source_id)
-/* identify specific match with the best score for each name */
-SELECT
-  biopolymer_id,
-  new_namespace_id,
-  new_name,
-  0 AS source_id
-FROM (
-  /* identify names with only one best-score match */
-  SELECT
-    new_namespace_id,
-    new_name,
-    name_implication,
-    SUM(CASE WHEN implication >= name_implication THEN 1 ELSE 0 END) AS match_implication
-  FROM (
-    /* identify best score for each name */
-    SELECT
-      new_namespace_id,
-      new_name,
-      MAX(implication) AS name_implication
-    FROM `temp`.`_biopolymer_name_name_score`
-    GROUP BY new_namespace_id, new_name
-  )
-  JOIN `temp`.`_biopolymer_name_name_score` USING (new_namespace_id, new_name)
-  GROUP BY new_namespace_id, new_name
-  HAVING polygenic > 0 OR match_implication = 1
-)
-JOIN `temp`.`_biopolymer_name_name_score` USING (new_namespace_id, new_name)
-WHERE polygenic > 0 OR implication >= name_implication
-""")
+		# define zone generator
+		def _zones(size, regions):
+			# regions=[ (region_id,rtype_id,chr,posMin,posMax),... ]
+			# yields:[ (region_id,rtype_id,chr,zone),... ]
+			for r in regions:
+				for z in xrange(int(r[3]/size),int(r[4]/size)+1):
+					yield (r[0],r[1],r[2],z)
+		#_zones()
+		
+		# feed all regions through the zone generator
+		self.prepareTableForUpdate('region_zone')
+		self.prepareTableForQuery('region')
+		dbc.execute("DELETE FROM `db`.`region_zone`")
+		dbc.executemany(
+			"INSERT OR IGNORE INTO `db`.`region_zone` (region_id,rtype_id,chr,zone) VALUES (?,?,?,?)",
+			_zones(
+				size,
+				self._db.cursor().execute("SELECT region_id,rtype_id,chr,posMin,posMax FROM `db`.`region`")
+			)
+		)
 		
 		# clean up
-		dbc.execute("DROP TABLE `temp`.`_biopolymer_name_name_score`")
-		numTotal = numUnrec = numMatch = 0
-		self.prepareTableForQuery('biopolymer_name_name')
-		self.prepareTableForQuery('biopolymer_name')
-		self.prepareTableForQuery('biopolymer')
-		numTotal = numUnrec = numMatch = 0
-		for row in dbc.execute("""
-SELECT COUNT(), SUM(CASE WHEN matches < 1 THEN 1 ELSE 0 END)
-FROM (
-  SELECT COUNT(DISTINCT b.biopolymer_id) AS matches
-  FROM `db`.`biopolymer_name_name` AS bnn
-  LEFT JOIN `db`.`biopolymer_name` AS bn
-    ON bn.name = bnn.name
-    AND bnn.namespace_id IN (0, bn.namespace_id)
-  LEFT JOIN `db`.`biopolymer` AS b
-    ON b.biopolymer_id = bn.biopolymer_id
-    AND bnn.type_id IN (0, b.type_id)
-  GROUP BY bnn.new_namespace_id, bnn.new_name
-)
-"""):
-			numTotal = row[0] or 0
-			numUnrec = row[1] or 0
-		for row in dbc.execute("""
-SELECT COUNT()
-FROM (
-  SELECT 1
-  FROM `db`.`biopolymer_name`
-  WHERE source_id = 0
-  GROUP BY namespace_id, name
-)
-"""):
-			numMatch = row[0] or 0
-		numAmbig = numTotal - numUnrec - numMatch
-		self.log(" OK: %d identifiers (%d ambiguous, %d unrecognized)\n" % (numMatch,numAmbig,numUnrec))
-	#resolveBiopolymerNames()
+		self.prepareTableForQuery('region_zone')
+		for row in dbc.execute("SELECT COUNT(), COUNT(DISTINCT region_id) FROM `db`.`region_zone`"):
+			numTotal = row[0]
+			numRegions = row[1]
+		self.log(" OK: %d records (%d regions)\n" % (numTotal,numRegions))
+	#updateRegionZones()
 	
 	
-	def resolveSNPBiopolymerRoles(self):
+	def defineOmicUnits(self):
+		self.logPush("defining omic units ...")
+		self.prepareTableForUpdate('unit')
+		self.prepareTableForUpdate('unit_name')
+		cursor = self._db.cursor()
+		
+		# delete old derived records
+		self.log("deleting old records ...")
+		cursor.execute("DELETE FROM `db`.`unit` WHERE source_id = 0")
+		cursor.execute("DELETE FROM `db`.`unit_name` WHERE source_id = 0")
+		self.log(" OK\n")
+		
+		# load namespace definitions
+		nsID = dict()
+		for row in cursor.execute("SELECT namespace_id,namespace FROM `db`.`namespace`"):
+			nsID[row[1]] = row[0]
+		if 'entrez_gid' not in nsID:
+			self.logPop("... ERROR: no Entrez gene identifiers\n")
+			return
+		
+		# load the name graph
+		self.log("building identifier graph ...")
+		graph = collections.defaultdict(set)
+		numEdges = 0
+		for row in cursor.execute("SELECT namespace_id1,name1,namespace_id2,name2 FROM `db`.`unit_name_name`"):
+			n1 = (row[0],row[1])
+			n2 = (row[2],row[3])
+			if n1 != n2:
+				numEdges += 1
+				graph[n1].add(n2)
+				graph[n2].add(n1)
+		self.log(" OK: %d identifiers, %d links\n" % (len(graph),numEdges))
+		
+		# find core sets of names that should become a unit
+		self.log("searching for units ...")
+		nsOK = {nsID['entrez_gid']}
+		unitNames = list()
+		nameUnits = collections.defaultdict(set)
+		nameDist = dict()
+		queue = collections.deque()
+		for n1 in graph:
+			if (n1[0] in nsOK) and (n1 not in nameUnits):
+				unit = len(unitNames)
+				names = {n1}
+				nameUnits[n1].add(unit)
+				nameDist[n1] = 0
+				queue.appendleft(n1)
+				while queue:
+					for n2 in graph[queue.pop()]:
+						if (n2[0] in nsOK) and (n2 not in nameUnits):
+							names.add(n2)
+							nameUnits[n2].add(unit)
+							nameDist[n2] = 0
+							queue.appendleft(n2)
+				unitNames.append(names)
+		names = None
+		self.log(" OK: %d units, %d core identifiers\n" % (len(unitNames),len(nameUnits)))
+		
+		# assign additional names using a kind of multi-source breadth-first-search
+		self.log("assigning additional aliases ...")
+		for names in unitNames:
+			queue.extendleft(names)
+		while queue:
+			n1 = queue.pop()
+			units = nameUnits[n1]
+			dist = nameDist[n1] + 1
+			for n2 in graph[n1]:
+				if nameDist.get(n2,dist) == dist:
+					for unit in units:
+						unitNames[unit].add(n2)
+					nameUnits[n2] |= units
+					nameDist[n2] = dist
+					queue.appendleft(n2)
+				elif nameDist.get(n2) > dist:
+					raise Exception("BFS failure")
+		graph = nameDist = units = None
+		self.log(" OK: %d assigned identifiers\n", (len(nameUnits),))
+		
+		# load name properties
+		self.log("loading unit details ...")
+		nameProps = collections.defaultdict(lambda: collections.defaultdict(set))
+		for row in cursor.execute("SELECT namespace_id,name,property,value FROM `db`.`unit_name_property`"):
+			nameProps[(row[0],row[1])][row[2]].add(row[3])
+		self.log(" OK\n")
+		
+		# lookup properties for each nameset
+		self.log("adding details to units ...")
+		unitProps = list()
+		noneset = {None}
+		zeroset = {0}
+		for names in unitNames:
+			props = collections.defaultdict(set)
+			for n in names:
+				if n[0] == nsID['symbol']:
+					props['symbol'].add(n[1])
+				if n[0] in nsOK:
+					if n in nameProps:
+						for prop,vals in nameProps[n].iteritems():
+							props[prop] |= vals
+			utype_id = min(props['utype_id'] or zeroset)
+			label = min(props['label'] or props['symbol'])
+			desc = min(props['description'] or noneset)
+			unitProps.append( (utype_id,label,desc) )
+		unitNames = nameProps = None
+		self.log(" OK\n")
+		
+		# store units
+		self.log("storing units ...")
+		unitIDs = list()
+		for row in cursor.executemany("INSERT INTO `db`.`unit` (utype_id,label,description,source_id) VALUES (?,?,?,0); SELECT last_insert_rowid()", unitProps):
+			unitIDs.append(row[0])
+		unitProps = None
+		self.log(" OK\n")
+		
+		# store unit names
+		self.log("storing unit aliases ...")
+		for name,units in nameUnits.iteritems():
+			cursor.executemany("INSERT OR IGNORE INTO `db`.`unit_name` (unit_id,namespace_id,name,source_id) VALUES (?,?,?,0)", ((unitIDs[u],name[0],name[1]) for u in units))
+		nameUnits = unitIDs = None
+		self.log(" OK\n")
+		
+		self.logPop("... OK\n")
+	#defineOmicUnits()
+	
+	
+	def loadNameUIDs(self):
+		cursor = self._db.cursor()
+		
+		#self.log("loading unit identifiers ...")
+		nameUIDs = collections.defaultdict(set)
+		for row in cursor.execute("SELECT namespace_id,name,unit_id FROM `unit_name`"):
+			nameUIDs[(row[0],row[1])].add(row[2])
+		#self.log(" OK: %d identifiers\n" % len(nameUIDs))
+		
+		return nameUIDs
+	#loadNameUIDs()
+	
+	
+	def resolveSNPUnitRoles(self, nameUIDs=None):
 		self.log("resolving SNP roles ...")
-		dbc = self._db.cursor()
+		nameUIDs = nameUIDs or self.loadNameUIDs()
+		cursor = self._db.cursor()
 		
-		typeID = self._loki.getTypeID('gene')
+		# translate entrez_ids to unit_ids
+		self.prepareTableForUpdate('snp_unit_role')
+		cursor.execute("DELETE FROM `db`.`snp_unit_role`")
 		namespaceID = self._loki.getNamespaceID('entrez_gid')
-		if typeID and namespaceID:
-			self.prepareTableForUpdate('snp_biopolymer_role')
-			self.prepareTableForQuery('snp_entrez_role')
-			self.prepareTableForQuery('biopolymer_name')
-			dbc.execute("DELETE FROM `db`.`snp_biopolymer_role`")
-			# we have to convert entrez_id to a string because the optimizer
-			# won't use the index on biopolymer_name.name if the types don't match
-			dbc.execute("""
-INSERT INTO `db`.`snp_biopolymer_role` (rs, biopolymer_id, role_id, source_id)
-SELECT ser.rs, bn.biopolymer_id, ser.role_id, ser.source_id
-FROM `db`.`snp_entrez_role` AS ser
-JOIN `db`.`biopolymer_name` AS bn
-  ON bn.namespace_id = ? AND bn.name = ''||ser.entrez_id
-JOIN `db`.`biopolymer` AS b
-  ON b.biopolymer_id = bn.biopolymer_id AND b.type_id = ?
-""", (namespaceID,typeID))
-		#if type[gene] and namespace[entrez_gid]
+		if namespaceID:
+			def generate_rows():
+				for row in self._db.cursor().execute("SELECT rs, entrez_id, role_id, source_id FROM `db`.`snp_entrez_role`"):
+					for u in nameUIDs[(namespaceID,row[1])]:
+						yield (row[0],u,row[2],row[3])
+			cursor.executemany("INSERT INTO `db`.`snp_unit_role` (rs, unit_id, role_id, source_id) VALUES (?,?,?,?)", generate_rows())
 		
-		#TODO: warning for unknown entrez_ids
-		
-		self.prepareTableForQuery('snp_biopolymer_role')
+		# cull duplicate roles
+		self.prepareTableForQuery('snp_unit_role')
 		cull = set()
-		sql = "SELECT GROUP_CONCAT(_ROWID_) FROM `db`.`snp_biopolymer_role` GROUP BY rs, biopolymer_id, role_id HAVING COUNT() > 1"
-		#for row in dbc.execute("EXPLAIN QUERY PLAN "+sql): #DEBUG
+		sql = "SELECT GROUP_CONCAT(_ROWID_) FROM `db`.`snp_unit_role` GROUP BY rs, unit_id, role_id HAVING COUNT() > 1"
+		#for row in cursor.execute("EXPLAIN QUERY PLAN "+sql): #DEBUG
 		#	print row
-		for row in dbc.execute(sql):
+		for row in cursor.execute(sql):
 			cull.update( (long(i),) for i in row[0].split(',')[1:] )
-		#TODO
-		#last = None
-		#for row in dbc.execute("SELECT _ROWID_, rs||':'||biopolymer_id||':'||role_id FROM `db`.`snp_biopolymer_role` ORDER BY rs, biopolymer_id, role_id"):
-		#	if last == row[1]:
-		#		cull.add(row[0:1])
-		#	last = row[1]
 		if cull:
-			self.flagTableUpdate('snp_biopolymer_role')
-			dbc.executemany("DELETE FROM `db`.`snp_biopolymer_role` WHERE _ROWID_ = ?", cull)
+			self.flagTableUpdate('snp_unit_role')
+			cursor.executemany("DELETE FROM `db`.`snp_unit_role` WHERE _ROWID_ = ?", cull)
 		
 		numTotal = numSNPs = numGenes = 0
-		for row in dbc.execute("SELECT COUNT(), COUNT(DISTINCT rs), COUNT(DISTINCT biopolymer_id) FROM `db`.`snp_biopolymer_role`"):
+		for row in cursor.execute("SELECT COUNT(), COUNT(DISTINCT rs), COUNT(DISTINCT unit_id) FROM `db`.`snp_unit_role`"):
 			numTotal = row[0]
 			numSNPs = row[1]
-			numGenes = row[2]
-		self.log(" OK: %d roles (%d SNPs, %d genes)\n" % (numTotal,numSNPs,numGenes))
-	#resolveSNPBiopolymerRoles()
+			numUnits = row[2]
+		self.log(" OK: %d roles (%d SNPs, %d units)\n" % (numTotal,numSNPs,numUnits))
+		return nameUIDs
+	#resolveSNPUnitRoles()
 	
 	
-	def resolveGroupMembers(self):
+	def resolveRegionUnits(self, nameUIDs=None):
+		self.log("assigning unit regions ...")
+		nameUIDs = nameUIDs or self.loadNameUIDs()
+		self.prepareTableForQuery('region_name')
+		self.prepareTableForUpdate('unit_region')
+		cursor = self._db.cursor()
+		cursor.execute("DELETE FROM `db`.`unit_region` WHERE source_id = 0")
+		
+		# map regions to units #TODO: ambiguity?
+		unitRegions = list()
+		regionID = None
+		numAmbig = numUnrec = 0
+		emptyset = set()
+		for row in itertools.chain(cursor.execute("SELECT region_id,namespace_id,name FROM `db`.`region_name` ORDER BY region_id"), [(None,None,None)]):
+			if regionID != row[0]:
+				if regionID:
+					unitIDs = set()
+					for name in names:
+						unitIDs |= nameUIDs.get(name,emptyset)
+					if len(unitIDs) < 1:
+						numUnrec += 1
+					elif len(unitIDs) > 1:
+						numAmbig += 1
+					else:
+						unitRegions.append( (unitIDs.pop(),regionID) )
+				regionID = row[0]
+				names = set()
+			names.add( (row[1],row[2]) )
+		names = unitIDs = None
+		cursor.executemany("INSERT OR IGNORE INTO `db`.`unit_region` (unit_id,region_id,urtype_id,source_id) VALUES (?,?,0,0)", unitRegions)
+		self.log(" OK: %d regions assigned (%d ambiguous, %d unrecognized)\n" % (len(unitRegions),numAmbig,numUnrec))
+		
+		return nameUIDs
+	#resolveRegionUnits()
+	
+	
+	def resolveGroupMembers(self, nameUIDs=None): #TODO
 		self.log("resolving group members ...")
 		dbc = self._db.cursor()
 		
@@ -925,46 +1037,6 @@ FROM `db`.`group_biopolymer`
 			numUnrec = row[4]
 		self.log(" OK: %d associations (%d explicit, %d definite, %d conditional, %d unrecognized)\n" % (numTotal,numSourced,numMatch,numAmbig,numUnrec))
 	#resolveGroupMembers()
-	
-	
-	def updateBiopolymerZones(self):
-		self.log("calculating zone coverage ...")
-		size = self._loki.getDatabaseSetting('zone_size',int)
-		if not size:
-			raise Exception("ERROR: could not determine database setting 'zone_size'")
-		dbc = self._db.cursor()
-		
-		# make sure all regions are correctly oriented
-		dbc.execute("UPDATE `db`.`biopolymer_region` SET posMin = posMax, posMax = posMin WHERE posMin > posMax")
-		
-		# define zone generator
-		def _zones(size, regions):
-			# regions=[ (id,chr,posMin,posMax),... ]
-			# yields:[ (id,chr,zone),... ]
-			for r in regions:
-				for z in xrange(int(r[2]/size),int(r[3]/size)+1):
-					yield (r[0],r[1],z)
-		#_zones()
-		
-		# feed all regions through the zone generator
-		self.prepareTableForUpdate('biopolymer_zone')
-		self.prepareTableForQuery('biopolymer_region')
-		dbc.execute("DELETE FROM `db`.`biopolymer_zone`")
-		dbc.executemany(
-			"INSERT OR IGNORE INTO `db`.`biopolymer_zone` (biopolymer_id,chr,zone) VALUES (?,?,?)",
-			_zones(
-				size,
-				self._db.cursor().execute("SELECT biopolymer_id,chr,MIN(posMin),MAX(posMax) FROM `db`.`biopolymer_region` GROUP BY biopolymer_id, chr")
-			)
-		)
-		
-		# clean up
-		self.prepareTableForQuery('biopolymer_zone')
-		for row in dbc.execute("SELECT COUNT(), COUNT(DISTINCT biopolymer_id) FROM `db`.`biopolymer_zone`"):
-			numTotal = row[0]
-			numGenes = row[1]
-		self.log(" OK: %d records (%d regions)\n" % (numTotal,numGenes))
-	#updateBiopolymerZones()
 	
 	
 #Updater

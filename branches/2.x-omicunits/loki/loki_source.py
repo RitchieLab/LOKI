@@ -131,6 +131,28 @@ class Source(object):
 	# metadata management
 	
 	
+	def addGType(self, gtype):
+		return self.addGTypes([(gtype,)])[gtype]
+	#addGType()
+	
+	
+	def addGTypes(self, gtypes):
+		# gtypes=[ (gtype,), ... ]
+		dbc = self._db.cursor()
+		ret = {}
+		# use ABORT to avoid wasting autoincrements on existing rows,
+		# and execute() to avoid bailing out of executemany() due to ABORT
+		for t in gtypes:
+			try:
+				dbc.execute("INSERT OR ABORT INTO `db`.`gtype` (gtype) VALUES (LOWER(?)); SELECT LAST_INSERT_ROWID()", t)
+			except apsw.ConstraintError:
+				dbc.execute("SELECT gtype_id FROM `db`.`gtype` WHERE gtype = LOWER(?)", t[0:1])
+			for row in dbc:
+				ret[t[0]] = row[0]
+		return ret
+	#addGTypes()
+	
+	
 	def addLDProfile(self, ldprofile, description=None, metric=None, value=None):
 		return self.addLDProfiles([(ldprofile,description,metric,value)])[ldprofile]
 	#addLDProfile()
@@ -219,6 +241,28 @@ class Source(object):
 	#addRoles()
 	
 	
+	def addRType(self, rtype):
+		return self.addRTypes([(rtype,)])[rtype]
+	#addRType()
+	
+	
+	def addRTypes(self, rtypes):
+		# rtypes=[ (rtype,), ... ]
+		dbc = self._db.cursor()
+		ret = {}
+		# use ABORT to avoid wasting autoincrements on existing rows,
+		# and execute() to avoid bailing out of executemany() due to ABORT
+		for t in rtypes:
+			try:
+				dbc.execute("INSERT OR ABORT INTO `db`.`rtype` (rtype) VALUES (LOWER(?)); SELECT LAST_INSERT_ROWID()", t)
+			except apsw.ConstraintError:
+				dbc.execute("SELECT rtype_id FROM `db`.`rtype` WHERE rtype = LOWER(?)", t[0:1])
+			for row in dbc:
+				ret[t[0]] = row[0]
+		return ret
+	#addRTypes()
+	
+	
 	def addSource(self, source):
 		return self.addSources([(source,)])[source]
 	#addSource()
@@ -240,35 +284,58 @@ class Source(object):
 		return ret
 	#addSources()
 	
-		
-	def addType(self, type):
-		return self.addTypes([(type,)])[type]
-	#addType()
+	
+	def addURType(self, urtype):
+		return self.addURTypes([(urtype,)])[urtype]
+	#addURType()
 	
 	
-	def addTypes(self, types):
-		# types=[ (type,), ... ]
+	def addURTypes(self, urtypes):
+		# urtypes=[ (urtype,), ... ]
 		dbc = self._db.cursor()
 		ret = {}
 		# use ABORT to avoid wasting autoincrements on existing rows,
 		# and execute() to avoid bailing out of executemany() due to ABORT
-		for t in types:
+		for t in urtypes:
 			try:
-				dbc.execute("INSERT OR ABORT INTO `db`.`type` (type) VALUES (LOWER(?)); SELECT LAST_INSERT_ROWID()", t)
+				dbc.execute("INSERT OR ABORT INTO `db`.`urtype` (urtype) VALUES (LOWER(?)); SELECT LAST_INSERT_ROWID()", t)
 			except apsw.ConstraintError:
-				dbc.execute("SELECT type_id FROM `db`.`type` WHERE type = LOWER(?)", t[0:1])
+				dbc.execute("SELECT urtype_id FROM `db`.`urtype` WHERE urtype = LOWER(?)", t[0:1])
 			for row in dbc:
 				ret[t[0]] = row[0]
 		return ret
-	#addTypes()
+	#addURTypes()
+	
+	
+	def addUType(self, utype):
+		return self.addUTypes([(utype,)])[utype]
+	#addUType()
+	
+	
+	def addUTypes(self, utypes):
+		# utypes=[ (utype,), ... ]
+		dbc = self._db.cursor()
+		ret = {}
+		# use ABORT to avoid wasting autoincrements on existing rows,
+		# and execute() to avoid bailing out of executemany() due to ABORT
+		for t in utypes:
+			try:
+				dbc.execute("INSERT OR ABORT INTO `db`.`utype` (utype) VALUES (LOWER(?)); SELECT LAST_INSERT_ROWID()", t)
+			except apsw.ConstraintError:
+				dbc.execute("SELECT utype_id FROM `db`.`utype` WHERE utype = LOWER(?)", t[0:1])
+			for row in dbc:
+				ret[t[0]] = row[0]
+		return ret
+	#addUTypes()
 	
 	
 	def deleteAll(self):
 		dbc = self._db.cursor()
 		tables = [
 			'snp_merge', 'snp_locus', 'snp_entrez_role',
-			'biopolymer', 'biopolymer_name', 'biopolymer_name_name', 'biopolymer_region',
-			'group', 'group_name', 'group_group', 'group_biopolymer', 'group_member_name',
+			'region', 'region_name',
+			'unit', 'unit_name', 'unit_name_name', 'unit_name_property', 'unit_region',
+			'group', 'group_name', 'group_group', 'group_unit', 'group_member_name',
 			'chain', 'chain_data',
 		]
 		for table in tables:
@@ -337,71 +404,123 @@ class Source(object):
 	
 	
 	##################################################
-	# biopolymer data management
+	# region data management
 	
 	
-	def addBiopolymers(self, biopolymers):
-		# biopolymers=[ (type_id,label,description), ... ]
-		self.prepareTableForUpdate('biopolymer')
-		sql = "INSERT INTO `db`.`biopolymer` (type_id,label,description,source_id) VALUES (?,?,?,%d); SELECT last_insert_rowid()" % (self.getSourceID(),)
-		return [ row[0] for row in self._db.cursor().executemany(sql, biopolymers) ]
-	#addBiopolymers()
+	def addRegions(self, regions):
+		# regions=[ (rtype_id,chr,posMin,posMax), ... ]
+		self.prepareTableForUpdate('region')
+		sql = "INSERT INTO `db`.`region` (rtype_id,chr,posMin,posMax,source_id) VALUES (?,?,?,?,%d); SELECT last_insert_rowid()" % (self.getSourceID(),)
+		return [ row[0] for row in self._db.cursor().executemany(sql, regions) ]
+	#addRegions()
 	
 	
-	def addTypedBiopolymers(self, typeID, biopolymers):
-		# biopolymers=[ (label,description), ... ]
-		self.prepareTableForUpdate('biopolymer')
-		sql = "INSERT INTO `db`.`biopolymer` (type_id,label,description,source_id) VALUES (%d,?,?,%d); SELECT last_insert_rowid()" % (typeID,self.getSourceID(),)
-		return [ row[0] for row in self._db.cursor().executemany(sql, biopolymers) ]
-	#addTypedBiopolymers()
+	def addTypedRegions(self, rtypeID, regions):
+		# regions=[ (chr,posMin,posMax), ... ]
+		self.prepareTableForUpdate('region')
+		sql = "INSERT INTO `db`.`region` (rtype_id,chr,posMin,posMax,source_id) VALUES (%d,?,?,?,%d); SELECT last_insert_rowid()" % (rtypeID,self.getSourceID(),)
+		return [ row[0] for row in self._db.cursor().executemany(sql, regions) ]
+	#addTypedRegions()
 	
 	
-	def addBiopolymerNames(self, biopolymerNames):
-		# biopolymerNames=[ (biopolymer_id,namespace_id,name), ... ]
-		self.prepareTableForUpdate('biopolymer_name')
-		sql = "INSERT OR IGNORE INTO `db`.`biopolymer_name` (biopolymer_id,namespace_id,name,source_id) VALUES (?,?,?,%d)" % (self.getSourceID(),)
-		self._db.cursor().executemany(sql, biopolymerNames)
-	#addBiopolymerNames()
+	def addRegionNames(self, regionNames):
+		# regionNames=[ (region_id,namespace_id,name), ... ]
+		self.prepareTableForUpdate('region_name')
+		sql = "INSERT OR IGNORE INTO `db`.`region_name` (region_id,namespace_id,name,source_id) VALUES (?,?,?,%d)" % (self.getSourceID(),)
+		self._db.cursor().executemany(sql, regionNames)
+	#addRegionNames()
 	
 	
-	def addBiopolymerNamespacedNames(self, namespaceID, biopolymerNames):
-		# biopolymerNames=[ (biopolymer_id,name), ... ]
-		self.prepareTableForUpdate('biopolymer_name')
-		sql = "INSERT OR IGNORE INTO `db`.`biopolymer_name` (biopolymer_id,namespace_id,name,source_id) VALUES (?,%d,?,%d)" % (namespaceID,self.getSourceID(),)
-		self._db.cursor().executemany(sql, biopolymerNames)
-	#addBiopolymerNamespacedNames()
+	def addRegionNamespacedNames(self, namespaceID, regionNames):
+		# regionNames=[ (region_id,name), ... ]
+		self.prepareTableForUpdate('region_name')
+		sql = "INSERT OR IGNORE INTO `db`.`region_name` (region_id,namespace_id,name,source_id) VALUES (?,%d,?,%d)" % (namespaceID,self.getSourceID(),)
+		self._db.cursor().executemany(sql, regionNames)
+	#addRegionNamespacedNames()
 	
 	
-	def addBiopolymerNameNames(self, biopolymerNameNames):
-		# biopolymerNameNames=[ (old_namespace_id,old_name,old_type_id,new_namespace_id,new_name), ... ]
-		self.prepareTableForUpdate('biopolymer_name_name')
-		sql = "INSERT OR IGNORE INTO `db`.`biopolymer_name_name` (namespace_id,name,type_id,new_namespace_id,new_name,source_id) VALUES (?,?,?,?,?,%d)" % (self.getSourceID(),)
-		self._db.cursor().executemany(sql, biopolymerNameNames)
-	#addBiopolymerNameNames()
+	##################################################
+	# omic-unit data management
 	
 	
-	def addBiopolymerTypedNameNamespacedNames(self, oldTypeID, newNamespaceID, biopolymerNameNames):
-		# biopolymerNameNames=[ (old_namespace_id,old_name,new_name), ... ]
-		self.prepareTableForUpdate('biopolymer_name_name')
-		sql = "INSERT OR IGNORE INTO `db`.`biopolymer_name_name` (namespace_id,name,type_id,new_namespace_id,new_name,source_id) VALUES (?,?,%d,%d,?,%d)" % (oldTypeID,newNamespaceID,self.getSourceID(),)
-		self._db.cursor().executemany(sql, biopolymerNameNames)
-	#addBiopolymerTypedNameNamespacedNames()
+	def addUnits(self, units):
+		# units=[ (utype_id,label,description), ... ]
+		self.prepareTableForUpdate('unit')
+		sql = "INSERT INTO `db`.`unit` (utype_id,label,description,source_id) VALUES (?,?,?,%d); SELECT last_insert_rowid()" % (self.getSourceID(),)
+		return [ row[0] for row in self._db.cursor().executemany(sql, units) ]
+	#addUnits()
 	
 	
-	def addBiopolymerRegions(self, biopolymerRegions):
-		# biopolymerRegions=[ (biopolymer_id,ldprofile_id,chr,posMin,posMax), ... ]
-		self.prepareTableForUpdate('biopolymer_region')
-		sql = "INSERT OR IGNORE INTO `db`.`biopolymer_region` (biopolymer_id,ldprofile_id,chr,posMin,posMax,source_id) VALUES (?,?,?,?,?,%d)" % (self.getSourceID(),)
-		self._db.cursor().executemany(sql, biopolymerRegions)
-	#addBiopolymerRegions()
+	def addTypedUnits(self, utypeID, units):
+		# units=[ (label,description), ... ]
+		self.prepareTableForUpdate('unit')
+		sql = "INSERT INTO `db`.`unit` (utype_id,label,description,source_id) VALUES (%d,?,?,%d); SELECT last_insert_rowid()" % (utypeID,self.getSourceID(),)
+		return [ row[0] for row in self._db.cursor().executemany(sql, units) ]
+	#addTypedUnits()
 	
 	
-	def addBiopolymerLDProfileRegions(self, ldprofileID, biopolymerRegions):
-		# biopolymerRegions=[ (biopolymer_id,chr,posMin,posMax), ... ]
-		self.prepareTableForUpdate('biopolymer_region')
-		sql = "INSERT OR IGNORE INTO `db`.`biopolymer_region` (biopolymer_id,ldprofile_id,chr,posMin,posMax,source_id) VALUES (?,%d,?,?,?,%d)" % (ldprofileID,self.getSourceID(),)
-		self._db.cursor().executemany(sql, biopolymerRegions)
-	#addBiopolymerLDProfileRegions()
+	def addUnitNames(self, unitNames):
+		# unitNames=[ (unit_id,namespace_id,name), ... ]
+		self.prepareTableForUpdate('unit_name')
+		sql = "INSERT OR IGNORE INTO `db`.`unit_name` (unit_id,namespace_id,name,source_id) VALUES (?,?,?,%d)" % (self.getSourceID(),)
+		self._db.cursor().executemany(sql, unitNames)
+	#addUnitNames()
+	
+	
+	def addUnitNamespacedNames(self, namespaceID, unitNames):
+		# unitNames=[ (unit_id,name), ... ]
+		self.prepareTableForUpdate('unit_name')
+		sql = "INSERT OR IGNORE INTO `db`.`unit_name` (unit_id,namespace_id,name,source_id) VALUES (?,%d,?,%d)" % (namespaceID,self.getSourceID(),)
+		self._db.cursor().executemany(sql, unitNames)
+	#addUnitNamespacedNames()
+	
+	
+	def addUnitNameNames(self, unitNameNames):
+		# unitNameNames=[ (namespace_id1,name1,namespace_id2,name2), ... ]
+		self.prepareTableForUpdate('unit_name_name')
+		sql = "INSERT OR IGNORE INTO `db`.`unit_name_name` (namespace_id1,name1,namespace_id2,name2,source_id) VALUES (?,?,?,?,%d)" % (self.getSourceID(),)
+		self._db.cursor().executemany(sql, unitNameNames)
+	#addUnitNameNames()
+	
+	
+	def addUnitNamespacedNameNames(self, namespaceID1, namespaceID2, unitNameNames):
+		# unitNameNames=[ (name1,name2), ... ]
+		self.prepareTableForUpdate('unit_name_name')
+		sql = "INSERT OR IGNORE INTO `db`.`unit_name_name` (namespace_id1,name1,namespace_id2,name2,source_id) VALUES (%d,?,%d,?,%d)" % (namespaceID1,namespaceID2,self.getSourceID(),)
+		self._db.cursor().executemany(sql, unitNameNames)
+	#addUnitNamespacedNameNames()
+	
+	
+	def addUnitNameProperties(self, unitNameProps):
+		# unitNameProps=[ (namespace_id,name,property,value), ... ]
+		self.prepareTableForUpdate('unit_name_property')
+		sql = "INSERT OR IGNORE INTO `db`.`unit_name_property` (namespace_id,name,property,value,source_id) VALUES (?,?,?,?,%d)" % (self.getSourceID(),)
+		self._db.cursor().executemany(sql, unitNameProps)
+	#addUnitNameProperties()
+	
+	
+	def addUnitNamespacedNameProperties(self, namespaceID, prop, unitNameProps):
+		# unitNameProps=[ (name,value), ... ]
+		self.prepareTableForUpdate('unit_name_property')
+		sql = "INSERT OR IGNORE INTO `db`.`unit_name_property` (namespace_id,name,property,value,source_id) VALUES (%d,?,'%s',?,%d)" % (namespaceID,prop,self.getSourceID(),)
+		self._db.cursor().executemany(sql, unitNameProps)
+	#addUnitNamespacedNameProperties()
+	
+	
+	def addUnitRegions(self, unitRegions): #TODO ambiguity?
+		# unitRegions=[ (unit_id,region_id,urtype_id), ... ]
+		self.prepareTableForUpdate('unit_region')
+		sql = "INSERT OR IGNORE INTO `db`.`unit_region` (unit_id,region_id,urtype_id,source_id) VALUES (?,?,?,%d)" % (self.getSourceID(),)
+		self._db.cursor().executemany(sql, unitRegions)
+	#addUnitRegions()
+	
+	
+	def addTypedUnitRegions(self, urtypeID, unitRegions): #TODO ambiguity?
+		# unitRegions=[ (unit_id,region_id), ... ]
+		self.prepareTableForUpdate('unit_region')
+		sql = "INSERT OR IGNORE INTO `db`.`unit_region` (unit_id,region_id,urtype_id,source_id) VALUES (?,?,%d,%d)" % (urtypeID,self.getSourceID(),)
+		self._db.cursor().executemany(sql, unitRegions)
+	#addTypedUnitRegions()
 	
 	
 	##################################################
@@ -409,17 +528,17 @@ class Source(object):
 	
 	
 	def addGroups(self, groups):
-		# groups=[ (type_id,label,description), ... ]
+		# groups=[ (gtype_id,label,description), ... ]
 		self.prepareTableForUpdate('group')
-		sql = "INSERT INTO `db`.`group` (type_id,label,description,source_id) VALUES (?,?,?,%d); SELECT last_insert_rowid()" % (self.getSourceID(),)
+		sql = "INSERT INTO `db`.`group` (gtype_id,label,description,source_id) VALUES (?,?,?,%d); SELECT last_insert_rowid()" % (self.getSourceID(),)
 		return [ row[0] for row in self._db.cursor().executemany(sql, groups) ]
 	#addGroups()
 	
 	
-	def addTypedGroups(self, typeID, groups):
+	def addTypedGroups(self, gtypeID, groups):
 		# groups=[ (label,description), ... ]
 		self.prepareTableForUpdate('group')
-		sql = "INSERT INTO `db`.`group` (type_id,label,description,source_id) VALUES (%d,?,?,%d); SELECT last_insert_rowid()" % (typeID,self.getSourceID(),)
+		sql = "INSERT INTO `db`.`group` (gtype_id,label,description,source_id) VALUES (%d,?,?,%d); SELECT last_insert_rowid()" % (gtypeID,self.getSourceID(),)
 		return [ row[0] for row in self._db.cursor().executemany(sql, groups) ]
 	#addTypedGroups()
 	
@@ -486,28 +605,28 @@ class Source(object):
 	#addGroupSiblingRelationships()
 	
 	
-	def addGroupBiopolymers(self, groupBiopolymers):
-		# groupBiopolymers=[ (group_id,biopolymer_id), ... ]
-		self.prepareTableForUpdate('group_biopolymer')
-		sql = "INSERT OR IGNORE INTO `db`.`group_biopolymer` (group_id,biopolymer_id,specificity,implication,quality,source_id) VALUES (?,?,100,100,100,%d)" % (self.getSourceID(),)
-		self._db.cursor().executemany(sql, groupBiopolymers)
-	#addGroupBiopolymers()
+	def addGroupUnits(self, groupUnits):
+		# groupUnits=[ (group_id,unit_id), ... ]
+		self.prepareTableForUpdate('group_unit')
+		sql = "INSERT OR IGNORE INTO `db`.`group_unit` (group_id,unit_id,specificity,implication,quality,source_id) VALUES (?,?,100,100,100,%d)" % (self.getSourceID(),)
+		self._db.cursor().executemany(sql, groupUnits)
+	#addGroupUnits()
 	
 	
 	def addGroupMemberNames(self, groupMemberNames):
-		# groupMemberNames=[ (group_id,member,type_id,namespace_id,name), ... ]
+		# groupMemberNames=[ (group_id,member,namespace_id,name), ... ]
 		self.prepareTableForUpdate('group_member_name')
-		sql = "INSERT OR IGNORE INTO `db`.`group_member_name` (group_id,member,type_id,namespace_id,name,source_id) VALUES (?,?,?,?,?,%d)" % (self.getSourceID(),)
+		sql = "INSERT OR IGNORE INTO `db`.`group_member_name` (group_id,member,namespace_id,name,source_id) VALUES (?,?,?,?,%d)" % (self.getSourceID(),)
 		self._db.cursor().executemany(sql, groupMemberNames)
 	#addGroupMemberNames()
 	
 	
-	def addGroupMemberTypedNamespacedNames(self, typeID, namespaceID, groupMemberNames):
+	def addGroupMemberNamespacedNames(self, namespaceID, groupMemberNames):
 		# groupMemberNames=[ (group_id,member,name), ... ]
 		self.prepareTableForUpdate('group_member_name')
-		sql = "INSERT OR IGNORE INTO `db`.`group_member_name` (group_id,member,type_id,namespace_id,name,source_id) VALUES (?,?,%d,%d,?,%d)" % (typeID,namespaceID,self.getSourceID(),)
+		sql = "INSERT OR IGNORE INTO `db`.`group_member_name` (group_id,member,namespace_id,name,source_id) VALUES (?,?,%d,?,%d)" % (namespaceID,self.getSourceID(),)
 		self._db.cursor().executemany(sql, groupMemberNames)
-	#addGroupMemberTypedNamespacedNames()
+	#addGroupMemberNamespacedNames()
 	
 	
 	##################################################
@@ -735,7 +854,7 @@ class Source(object):
 		locSize = {}
 		locTime = {}
 		for (locPath, remFile) in remFiles.iteritems():
-			remDirs.add(remFile[0:remFile.rfind('/')])
+			remDirs.add(remFile[0:(remFile.rfind('/')+1)])
 			
 			remSize[remFile] = None
 			remTime[remFile] = None
@@ -751,9 +870,9 @@ class Source(object):
 		# format, but most servers return "ls -l"-ish space-delimited columns
 		# (permissions) (?) (user) (group) (size) (month) (day) (year-or-time) (filename)
 		now = datetime.datetime.utcnow()
-		def ftpDirCB(rem_dir, line):
+		def ftpDirCB(remDir, line):
 			words = line.split()
-			remFn = rem_dir + "/" + words[8]
+			remFn = remDir + words[8]
 			if len(words) >= 9 and remFn in remSize:
 				remSize[remFn] = long(words[4])
 				timestamp = ' '.join(words[5:8])
@@ -783,18 +902,20 @@ class Source(object):
 		# download files as needed
 		self.logPush("downloading changed files ...\n")
 		for locPath in sorted(remFiles.keys()):
-			if remSize[remFiles[locPath]] == locSize[locPath] and remTime[remFiles[locPath]] <= locTime[locPath]:
+			remPath = remFiles[locPath]
+			if remSize[remPath] == locSize[locPath] and remTime[remPath] and remTime[remPath] <= locTime[locPath]:
 				self.log("%s: up to date\n" % locPath)
 			else:
 				self.log("%s: downloading ..." % locPath)
 				#TODO: download to temp file, then rename?
 				with open(locPath, 'wb') as locFile:
 					#ftp.cwd(remFiles[locPath][0:remFiles[locPath].rfind('/')])
-					ftp.retrbinary('RETR '+remFiles[locPath], locFile.write)
+					ftp.retrbinary('RETR '+remPath, locFile.write)
 				#TODO: verify file size and retry a few times if necessary
 				self.log(" OK\n")
-			modTime = time.mktime(remTime[remFiles[locPath]].utctimetuple())
-			os.utime(locPath, (modTime,modTime))
+				if remTime[remPath]:
+					modTime = time.mktime(remTime[remPath].utctimetuple())
+					os.utime(locPath, (modTime,modTime))
 		
 		# disconnect from source server
 		try:
@@ -815,7 +936,7 @@ class Source(object):
 	#getHTTPHeaders()
 	
 	
-	def downloadFilesFromHTTP(self, remHost, remFiles):
+	def downloadFilesFromHTTP(self, remHost, remFiles, alwaysDownload=False):
 		# remFiles={'filename.ext':'/path/on/remote/host/to/filename.ext',...}
 		
 		# check local file sizes and times
@@ -834,29 +955,31 @@ class Source(object):
 				locTime[locPath] = datetime.datetime.fromtimestamp(stat.st_mtime)
 		
 		# check remote file sizes and times
-		self.log("identifying changed files ...")
-		for locPath in remFiles:
-			try:
-				http = httplib.HTTPConnection(remHost)
-				http.request('HEAD', remFiles[locPath])
-				response = http.getresponse()
-			except IOError as e:
-				self.log(" ERROR: %s" % e)
-				return False
-			
-			content_length = response.getheader('content-length')
-			if content_length:
-				remSize[locPath] = long(content_length)
-			
-			last_modified = response.getheader('last-modified')
-			if last_modified:
+		if not alwaysDownload:
+			self.log("identifying changed files ...")
+			for locPath in remFiles:
 				try:
-					remTime[locPath] = datetime.datetime.strptime(last_modified,'%a, %d %b %Y %H:%M:%S %Z')
-				except ValueError:
-					remTime[locPath] = datetime.datetime.utcnow()
+					http = httplib.HTTPConnection(remHost)
+					http.request('HEAD', remFiles[locPath])
+					response = http.getresponse()
+				except IOError as e:
+					self.log(" ERROR: %s" % e)
+					return False
 			
-			http.close()
-		self.log(" OK\n")
+				content_length = response.getheader('content-length')
+				if content_length:
+					remSize[locPath] = long(content_length)
+			
+				last_modified = response.getheader('last-modified')
+				if last_modified:
+					try:
+						remTime[locPath] = datetime.datetime.strptime(last_modified,'%a, %d %b %Y %H:%M:%S %Z')
+					except ValueError:
+						remTime[locPath] = datetime.datetime.utcnow()
+			
+				http.close()
+			self.log(" OK\n")
+		#if not alwaysDownload
 		
 		# download files as needed
 		self.logPush("downloading changed files ...\n")

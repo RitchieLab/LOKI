@@ -43,6 +43,8 @@ class Source_go(loki_source.Source):
 			('gene',),
 		])
 		
+		#TODO: store 'molecular process' etc as separate group types, to allow filtering by same in biofilter
+		
 		# process ontology terms
 		self.log("processing ontology terms ...")
 		# file format specification: http://www.geneontology.org/GO.format.obo-1_2.shtml

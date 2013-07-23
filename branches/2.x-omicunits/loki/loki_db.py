@@ -17,7 +17,7 @@ class Database(object):
 	def getVersionTuple(cls):
 		# tuple = (major,minor,revision,dev,build,date)
 		# dev must be in ('a','b','rc','release') for lexicographic comparison
-		return (2,0,1,'a',1,'2013-03-01')
+		return (2,1,0,'a',1,'2013-03-18')
 	#getVersionTuple()
 	
 	
@@ -94,7 +94,7 @@ class Database(object):
 )
 """,
 				'data': [
-					('schema','3'),
+					('schema','4'),
 					('ucschg','0'),
 					('zone_size','100000'),
 					('optimized','0'),
@@ -128,6 +128,17 @@ class Database(object):
 				],
 				'index': {}
 			}, #.db.grch_ucschg
+			
+			
+			'gtype': {
+				'table': """
+(
+  gtype_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+  gtype VARCHAR(32) UNIQUE NOT NULL
+)
+""",
+				'index': {}
+			}, #.db.gtype
 			
 			
 			'ldprofile': {
@@ -181,6 +192,17 @@ class Database(object):
 			}, #.db.role
 			
 			
+			'rtype': {
+				'table': """
+(
+  rtype_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+  rtype VARCHAR(32) UNIQUE NOT NULL
+)
+""",
+				'index': {}
+			}, #.db.rtype
+			
+			
 			'source': {
 				'table': """
 (
@@ -225,15 +247,26 @@ class Database(object):
 			}, #.db.source_file
 			
 			
-			'type': {
+			'urtype': {
 				'table': """
 (
-  type_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-  type VARCHAR(32) UNIQUE NOT NULL
+  urtype_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+  urtype VARCHAR(32) UNIQUE NOT NULL
 )
 """,
 				'index': {}
-			}, #.db.type
+			}, #.db.urtype
+			
+			
+			'utype': {
+				'table': """
+(
+  utype_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+  utype VARCHAR(32) UNIQUE NOT NULL
+)
+""",
+				'index': {}
+			}, #.db.utype
 			
 			
 			'warning': {
@@ -302,108 +335,162 @@ class Database(object):
 			}, #.db.snp_entrez_role
 			
 			
-			'snp_biopolymer_role': {
+			'snp_unit_role': {
 				'table': """
 (
   rs INTEGER NOT NULL,
-  biopolymer_id INTEGER NOT NULL,
+  unit_id INTEGER NOT NULL,
   role_id INTEGER NOT NULL,
   source_id TINYINT NOT NULL
 )
 """,
 				'index': {
-					'snp_biopolymer_role__rs_biopolymer_role': '(rs,biopolymer_id,role_id)',
-					'snp_biopolymer_role__biopolymer_rs_role': '(biopolymer_id,rs,role_id)',
+					'snp_unit_role__rs_unit_role': '(rs,unit_id,role_id)',
+					'snp_unit_role__unit_rs_role': '(unit_id,rs,role_id)',
 				}
-			}, #.db.snp_biopolymer_role
+			}, #.db.snp_unit_role
 			
 			
 			##################################################
-			# biopolymer tables
+			# region tables
 			
 			
-			'biopolymer': {
+			'region': {
 				'table': """
 (
-  biopolymer_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-  type_id TINYINT NOT NULL,
+  region_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+  rtype_id TINYINT NOT NULL,
+  chr TINYINT NOT NULL,
+  posMin BIGINT NOT NULL,
+  posMax BIGINT NOT NULL,
+  source_id TINYINT NOT NULL
+)
+""",
+				'index': {
+					'region__chr_min': '(chr,posMin)',
+					'region__chr_max': '(chr,posMax)',
+				}
+			}, #.db.region
+			
+			
+			'region_zone': {
+				'table': """
+(
+  region_id INTEGER NOT NULL,
+  rtype_id TINYINT NOT NULL,
+  chr TINYINT NOT NULL,
+  zone INTEGER NOT NULL,
+  PRIMARY KEY (region_id,rtype_id,chr,zone)
+)
+""",
+				'index': {
+					'region_zone__chr_zone_rtype,region': '(chr,zone,rtype_id,region_id)',
+				}
+			}, #.db.region_zone
+			
+			
+			'region_name': {
+				'table': """
+(
+  region_id INTEGER NOT NULL,
+  namespace_id INTEGER NOT NULL,
+  name VARCHAR(256) NOT NULL,
+  source_id TINYINT NOT NULL,
+  PRIMARY KEY (region_id,namespace_id,name)
+)
+""",
+				'index': {
+					'region_name__name_namespace_region': '(name,namespace_id,region_id)',
+				}
+			}, #.db.region_name
+			
+			
+			##################################################
+			# omic-unit tables
+			
+			
+			'unit': {
+				'table': """
+(
+  unit_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+  utype_id TINYINT NOT NULL,
   label VARCHAR(64) NOT NULL,
   description VARCHAR(256),
   source_id TINYINT NOT NULL
 )
 """,
 				'index': {
-					'biopolymer__type': '(type_id)',
-					'biopolymer__label_type': '(label,type_id)',
+					'unit__type': '(utype_id)',
+					'unit__label_type': '(label,utype_id)',
 				}
-			}, #.db.biopolymer
+			}, #.db.unit
 			
 			
-			'biopolymer_name': {
+			'unit_region': { #TODO: ambiguity?
 				'table': """
 (
-  biopolymer_id INTEGER NOT NULL,
+  unit_id INTEGER NOT NULL,
+  region_id INTEGER NOT NULL,
+  urtype_id TINYINT NOT NULL,
+  source_id TINYINT NOT NULL,
+  PRIMARY KEY (unit_id,region_id)
+)
+""",
+				'index': {
+					'unit_region__region_unit': '(region_id,unit_id)',
+				}
+			}, #.db.unit_region
+			
+			
+			'unit_name': { #TODO: ambiguity?
+				'table': """
+(
+  unit_id INTEGER NOT NULL,
   namespace_id INTEGER NOT NULL,
   name VARCHAR(256) NOT NULL,
   source_id TINYINT NOT NULL,
-  PRIMARY KEY (biopolymer_id,namespace_id,name)
+  PRIMARY KEY (unit_id,namespace_id,name)
 )
 """,
 				'index': {
-					'biopolymer_name__name_namespace_biopolymer': '(name,namespace_id,biopolymer_id)',
+					'unit_name__name_namespace_unit': '(name,namespace_id,unit_id)',
 				}
-			}, #.db.biopolymer_name
+			}, #.db.unit_name
 			
 			
-			'biopolymer_name_name': {
-				# PRIMARY KEY column order satisfies the need to GROUP BY new_namespace_id, new_name
+			'unit_name_name': {
 				'table': """
 (
+  _ROWID_ INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+  namespace_id1 INTEGER NOT NULL,
+  name1 VARCHAR(256) NOT NULL,
+  namespace_id2 INTEGER NOT NULL,
+  name2 VARCHAR(256) NOT NULL,
+  source_id TINYINT NOT NULL
+)
+""",
+				'index': {
+					'unit_name_name__namespace1_name1_namespace2_name2': '(namespace_id1,name1,namespace_id2,name2)',
+					'unit_name_name__namespace2_name2_namespace1_name1': '(namespace_id2,name2,namespace_id1,name1)',
+				}
+			}, #.db.unit_name_name
+			
+			
+			'unit_name_property': {
+				'table': """
+(
+  _ROWID_ INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
   namespace_id INTEGER NOT NULL,
   name VARCHAR(256) NOT NULL,
-  type_id TINYINT NOT NULL,
-  new_namespace_id INTEGER NOT NULL,
-  new_name VARCHAR(256) NOT NULL,
-  source_id TINYINT NOT NULL,
-  PRIMARY KEY (new_namespace_id,new_name,type_id,namespace_id,name)
-)
-""",
-				'index': {}
-			}, #.db.biopolymer_name_name
-			
-			
-			'biopolymer_region': {
-				'table': """
-(
-  biopolymer_id INTEGER NOT NULL,
-  ldprofile_id INTEGER NOT NULL,
-  chr TINYINT NOT NULL,
-  posMin BIGINT NOT NULL,
-  posMax BIGINT NOT NULL,
-  source_id TINYINT NOT NULL,
-  PRIMARY KEY (biopolymer_id,ldprofile_id,chr,posMin,posMax)
+  property VARCHAR(16) NOT NULL,
+  value VARCHAR(256) NOT NULL,
+  source_id TINYINT NOT NULL
 )
 """,
 				'index': {
-					'biopolymer_region__ldprofile_chr_min': '(ldprofile_id,chr,posMin)',
-					'biopolymer_region__ldprofile_chr_max': '(ldprofile_id,chr,posMax)',
+					'unit_name_property__namespace_name': '(namespace_id,name)',
 				}
-			}, #.db.biopolymer_region
-			
-			
-			'biopolymer_zone': {
-				'table': """
-(
-  biopolymer_id INTEGER NOT NULL,
-  chr TINYINT NOT NULL,
-  zone INTEGER NOT NULL,
-  PRIMARY KEY (biopolymer_id,chr,zone)
-)
-""",
-				'index': {
-					'biopolymer_zone__zone': '(chr,zone,biopolymer_id)',
-				}
-			}, #.db.biopolymer_zone
+			}, #.db.unit_name_property
 			
 			
 			##################################################
@@ -414,34 +501,17 @@ class Database(object):
 				'table': """
 (
   group_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-  type_id TINYINT NOT NULL,
+  gtype_id TINYINT NOT NULL,
   label VARCHAR(64) NOT NULL,
   description VARCHAR(256),
   source_id TINYINT NOT NULL
 )
 """,
 				'index': {
-					'group__type': '(type_id)',
-					'group__label_type': '(label,type_id)',
+					'group__gtype': '(gtype_id)',
+					'group__label_gtype': '(label,gtype_id)',
 				}
 			}, #.db.group
-			
-			
-			'group_name': {
-				'table': """
-(
-  group_id INTEGER NOT NULL,
-  namespace_id INTEGER NOT NULL,
-  name VARCHAR(256) NOT NULL,
-  source_id TINYINT NOT NULL,
-  PRIMARY KEY (group_id,namespace_id,name)
-)
-""",
-				'index': {
-					'group_name__name_namespace_group': '(name,namespace_id,group_id)',
-					'group_name__source_name': '(source_id,name)',
-				}
-			}, #.db.group_name
 			
 			
 			'group_group': {
@@ -462,22 +532,38 @@ class Database(object):
 			}, #.db.group_group
 			
 			
-			'group_biopolymer': {
+			'group_unit': {
 				'table': """
 (
   group_id INTEGER NOT NULL,
-  biopolymer_id INTEGER NOT NULL,
+  unit_id INTEGER NOT NULL,
   specificity TINYINT NOT NULL,
   implication TINYINT NOT NULL,
   quality TINYINT NOT NULL,
   source_id TINYINT NOT NULL,
-  PRIMARY KEY (group_id,biopolymer_id,source_id)
+  PRIMARY KEY (group_id,unit_id)
 )
 """,
 				'index': {
-					'group_biopolymer__biopolymer': '(biopolymer_id,group_id)',
+					'group_unit__unit_group': '(unit_id,group_id)',
 				}
-			}, #.db.group_biopolymer
+			}, #.db.group_unit
+			
+			
+			'group_name': {
+				'table': """
+(
+  group_id INTEGER NOT NULL,
+  namespace_id INTEGER NOT NULL,
+  name VARCHAR(256) NOT NULL,
+  source_id TINYINT NOT NULL,
+  PRIMARY KEY (group_id,namespace_id,name)
+)
+""",
+				'index': {
+					'group_name__name_namespace_group': '(name,namespace_id,group_id)',
+				}
+			}, #.db.group_name
 			
 			
 			'group_member_name': {
@@ -485,11 +571,10 @@ class Database(object):
 (
   group_id INTEGER NOT NULL,
   member INTEGER NOT NULL,
-  type_id TINYINT NOT NULL,
   namespace_id INTEGER NOT NULL,
   name VARCHAR(256) NOT NULL,
   source_id TINYINT NOT NULL,
-  PRIMARY KEY (group_id,member,type_id,namespace_id,name)
+  PRIMARY KEY (group_id,member,namespace_id,name)
 )
 """,
 				'index': {}
@@ -548,11 +633,10 @@ class Database(object):
 	# constructor
 	
 	
-	def __init__(self, dbFile=None, testing=False, updating=False, memLimit=None):
+	def __init__(self, dbFile=None, testing=False, updating=False, tempMem=False):
 		# initialize instance properties
 		self._is_test = testing
 		self._updating = updating
-		self._memLimit = memLimit
 		self._verbose = False
 		self._logger = None
 		self._logFile = sys.stderr
@@ -564,8 +648,7 @@ class Database(object):
 		self._updater = None
 		self._liftOverCache = dict() # { (from,to) : [] }
 		
-		self.setDatabaseMemoryLimit(self._memLimit or 0)
-		self.configureDatabase()
+		self.configureDatabase(tempMem=tempMem)
 		self.attachDatabaseFile(dbFile)
 	#__init__()
 	
@@ -673,23 +756,17 @@ class Database(object):
 	#setDatabaseMemoryLimit()
 	
 	
-	def configureDatabase(self, db=None, cacheSize=None):
+	def configureDatabase(self, db=None, tempMem=False):
 		cursor = self._db.cursor()
-		db = ("%s." % db) if db else None
-		
-		# sqlite expects cache in kibibytes, but we prefer the method argument in plain bytes
-		if not cacheSize:
-			cacheSize = -65536
-		elif cacheSize < 0:
-			cacheSize = long(cacheSize / 1024)
+		db = ("%s." % db) if db else ""
 		
 		# linux VFS doesn't usually report actual disk cluster size,
-		# so sqlite ends up using 1KB pages by default; we prefer 4kb
+		# so sqlite ends up using 1KB pages by default; we prefer 4KB
 		cursor.execute("PRAGMA %spage_size = 4096" % (db,))
 		
 		# cache_size is pages if positive, kibibytes if negative;
 		# seems to only affect write performance
-		cursor.execute("PRAGMA %scache_size = %d" % (db,cacheSize))
+		cursor.execute("PRAGMA %scache_size = -32768" % (db,))
 		
 		# for typical read-only usage, synchronization behavior is moot anyway,
 		# and while updating we're not that worried about a power failure
@@ -702,6 +779,12 @@ class Database(object):
 		# leaving it recoverable with the on-disk journal (a program crash
 		# should be fine since sqlite will rollback transactions before exiting)
 		cursor.execute("PRAGMA %sjournal_mode = MEMORY" % (db,))
+		
+		# the temp store is used for all of sqlite's internal scratch space
+		# needs, such as the TEMP database, indexing, etc; keeping it in memory
+		# is much faster, but it can get quite large
+		if tempMem and not db:
+			cursor.execute("PRAGMA temp_store = MEMORY")
 		
 		# we want EXCLUSIVE while updating since the data shouldn't be read
 		# until ready and we want the performance gain; for normal read usage,
@@ -751,7 +834,7 @@ class Database(object):
 			cursor.execute("ATTACH DATABASE ? AS `db`", (dbFile,))
 			self._dbFile = dbFile
 			self._dbNew = (0 == max(row[0] for row in cursor.execute("SELECT COUNT(1) FROM `db`.`sqlite_master`")))
-			self.configureDatabase('db', cacheSize=self._memLimit)
+			self.configureDatabase('db')
 			
 			# establish or audit database schema
 			err_msg = ""
@@ -903,6 +986,10 @@ class Database(object):
 			self.setDatabaseSetting('schema', 3)
 			self.log(" OK\n")
 		#schema<3
+		
+		if self.getDatabaseSetting('schema',int) < 4:
+			raise Exception("update to db schema version 4 not yet implemented")
+		#schema<4
 	#updateDatabaseSchema()
 	
 	
@@ -998,8 +1085,8 @@ class Database(object):
 	
 	def finalizeDatabase(self):
 		self.log("discarding intermediate data ...")
-		self.dropDatabaseTables(None, 'db', ('snp_entrez_role','biopolymer_name_name','group_member_name'))
-		self.createDatabaseTables(None, 'db', ('snp_entrez_role','biopolymer_name_name','group_member_name'), True)
+		self.dropDatabaseTables(None, 'db', ('snp_entrez_role','region_name','unit_name_name','group_member_name'))
+		self.createDatabaseTables(None, 'db', ('snp_entrez_role','region_name','unit_name_name','group_member_name'), True)
 		self.log(" OK\n")
 		self.setDatabaseSetting('finalized', 1)
 		self.setDatabaseSetting('optimized', 0)
@@ -1113,6 +1200,21 @@ class Database(object):
 	#getUCSChgByGRCh()
 	
 	
+	def getGTypeID(self, gtype):
+		return self.getGTypeIDs([gtype])[gtype]
+	#getGTypeID()
+	
+	
+	def getGTypeIDs(self, gtypes):
+		if not self._dbFile:
+			return { t:None for t in gtypes }
+		sql = "SELECT i.gtype, gt.gtype_id FROM (SELECT ? AS gtype) AS i LEFT JOIN `db`.`gtype` AS gt ON gt.gtype = LOWER(i.gtype)"
+		with self._db:
+			ret = { row[0]:row[1] for row in self._db.cursor().executemany(sql, itertools.izip(gtypes)) }
+		return ret
+	#getGTypeIDs()
+	
+	
 	def getLDProfileID(self, ldprofile):
 		return self.getLDProfileIDs([ldprofile])[ldprofile]
 	#getLDProfileID()
@@ -1187,6 +1289,21 @@ class Database(object):
 	#getRoleIDs()
 	
 	
+	def getRTypeID(self, rtype):
+		return self.getRTypeIDs([rtype])[rtype]
+	#getRTypeID()
+	
+	
+	def getRTypeIDs(self, rtypes):
+		if not self._dbFile:
+			return { t:None for t in rtypes }
+		sql = "SELECT i.rtype, rt.rtype_id FROM (SELECT ? AS rtype) AS i LEFT JOIN `db`.`rtype` AS rt ON rt.rtype = LOWER(i.rtype)"
+		with self._db:
+			ret = { row[0]:row[1] for row in self._db.cursor().executemany(sql, itertools.izip(rtypes)) }
+		return ret
+	#getRTypeIDs()
+	
+	
 	def getSourceID(self, source):
 		return self.getSourceIDs([source])[source]
 	#getSourceID()
@@ -1233,19 +1350,34 @@ class Database(object):
 	#getSourceIDFiles()
 	
 	
-	def getTypeID(self, type):
-		return self.getTypeIDs([type])[type]
-	#getTypeID()
+	def getURTypeID(self, urtype):
+		return self.getURTypeIDs([urtype])[urtype]
+	#getURTypeID()
 	
 	
-	def getTypeIDs(self, types):
+	def getURTypeIDs(self, urtypes):
 		if not self._dbFile:
-			return { t:None for t in types }
-		sql = "SELECT i.type, t.type_id FROM (SELECT ? AS type) AS i LEFT JOIN `db`.`type` AS t ON t.type = LOWER(i.type)"
+			return { t:None for t in urtypes }
+		sql = "SELECT i.rtype, urt.urtype_id FROM (SELECT ? AS urtype) AS i LEFT JOIN `db`.`urtype` AS urt ON urt.urtype = LOWER(i.urtype)"
 		with self._db:
-			ret = { row[0]:row[1] for row in self._db.cursor().executemany(sql, itertools.izip(types)) }
+			ret = { row[0]:row[1] for row in self._db.cursor().executemany(sql, itertools.izip(urtypes)) }
 		return ret
-	#getTypeIDs()
+	#getURTypeIDs()
+	
+	
+	def getUTypeID(self, rtype):
+		return self.getUTypeIDs([utype])[utype]
+	#getUTypeID()
+	
+	
+	def getUTypeIDs(self, utypes):
+		if not self._dbFile:
+			return { t:None for t in utypes }
+		sql = "SELECT i.utype, ut.utype_id FROM (SELECT ? AS utype) AS i LEFT JOIN `db`.`utype` AS ut ON ut.utype = LOWER(i.utype)"
+		with self._db:
+			ret = { row[0]:row[1] for row in self._db.cursor().executemany(sql, itertools.izip(utypes)) }
+		return ret
+	#getUTypeIDs()
 	
 	
 	##################################################
@@ -1330,21 +1462,28 @@ LEFT JOIN `db`.`snp_locus` AS sl
 	
 	
 	##################################################
-	# biopolymer data retrieval
+	# region data retrieval
 	
 	
-	def generateBiopolymersByIDs(self, ids):
+	#TODO
+	
+	
+	##################################################
+	# omic-unit data retrieval
+	
+	
+	def generateUnitsByIDs(self, ids):
 		# ids=[ id, ... ]
-		# yield:[ (id,type_id,label,description), ... ]
-		sql = "SELECT biopolymer_id, type_id, label, description FROM `db`.`biopolymer` WHERE biopolymer_id = ?"
+		# yield:[ (id,utype_id,label,description), ... ]
+		sql = "SELECT unit_id, utype_id, label, description FROM `db`.`unit` WHERE unit_id = ?"
 		return self._db.cursor().executemany(sql, itertools.izip(ids))
-	#generateBiopolymersByIDs()
+	#generateUnitsByIDs()
 	
 	
-	def _lookupBiopolymerIDs(self, typeID, identifiers, minMatch, maxMatch, tally, errorCallback):
-		# typeID=int or Falseish for any
+	def _lookupUnitIDs(self, utypeID, identifiers, minMatch, maxMatch, tally, errorCallback):
+		# utypeID=int or Falseish for any
 		# identifiers=[ (namespace,name), ... ]
-		#   namespace='' for any, '-' for labels, '=' for biopolymer_id
+		#   namespace='' for any, '-' for labels, '=' for unit_id
 		# minMatch=int or Falseish for none
 		# maxMatch=int or Falseish for none
 		# tally=dict() or None
@@ -1352,28 +1491,28 @@ LEFT JOIN `db`.`snp_locus` AS sl
 		# yields (namespace,name,id)
 		
 		sql = """
-SELECT i.namespace, i.identifier, COALESCE(bID.biopolymer_id,bLabel.biopolymer_id,bName.biopolymer_id) AS biopolymer_id
+SELECT i.namespace, i.identifier, COALESCE(uID.unit_id,uLabel.unit_id,uName.unit_id) AS unit_id
 FROM (SELECT ?1 AS namespace, ?2 AS identifier) AS i
-LEFT JOIN `db`.`biopolymer` AS bID
+LEFT JOIN `db`.`unit` AS uID
   ON i.namespace = '='
-  AND bID.biopolymer_id = 1*i.identifier
-  AND ( ({0} IS NULL) OR (bID.type_id = {0}) )
-LEFT JOIN `db`.`biopolymer` AS bLabel
+  AND uID.unit_id = 1*i.identifier
+  AND ( ({0} IS NULL) OR (uID.utype_id = {0}) )
+LEFT JOIN `db`.`unit` AS uLabel
   ON i.namespace = '-'
-  AND bLabel.label = i.identifier
-  AND ( ({0} IS NULL) OR (bLabel.type_id = {0}) )
+  AND uLabel.label = i.identifier
+  AND ( ({0} IS NULL) OR (uLabel.utype_id = {0}) )
 LEFT JOIN `db`.`namespace` AS n
   ON i.namespace NOT IN ('=','-')
   AND n.namespace = COALESCE(NULLIF(LOWER(TRIM(i.namespace)),''),n.namespace)
-LEFT JOIN `db`.`biopolymer_name` AS bn
+LEFT JOIN `db`.`unit_name` AS un
   ON i.namespace NOT IN ('=','-')
-  AND bn.name = i.identifier
-  AND bn.namespace_id = n.namespace_id
-LEFT JOIN `db`.`biopolymer` AS bName
+  AND un.name = i.identifier
+  AND un.namespace_id = n.namespace_id
+LEFT JOIN `db`.`unit` AS uName
   ON i.namespace NOT IN ('=','-')
-  AND bName.biopolymer_id = bn.biopolymer_id
-  AND ( ({0} IS NULL) OR (bName.type_id = {0}) )
-""".format(int(typeID) if typeID else "NULL")
+  AND uName.unit_id = un.unit_id
+  AND ( ({0} IS NULL) OR (uName.utype_id = {0}) )
+""".format(int(utypeID) if utypeID else "NULL")
 		
 		identifier = matches = None
 		numZero = numOne = numMany = 0
@@ -1402,62 +1541,63 @@ LEFT JOIN `db`.`biopolymer` AS bName
 			tally['zero'] = numZero
 			tally['one']  = numOne
 			tally['many'] = numMany
-	#_lookupBiopolymerIDs()
+	#_lookupUnitIDs()
 	
 	
-	def generateBiopolymerIDsByIdentifiers(self, identifiers, minMatch=1, maxMatch=1, tally=None, errorCallback=None):
+	def generateUnitIDsByIdentifiers(self, identifiers, minMatch=1, maxMatch=1, tally=None, errorCallback=None):
 		# identifiers=[ (namespace,name), ... ]
-		return self._lookupBiopolymerIDs(None, identifiers, minMatch, maxMatch, tally, errorCallback)
-	#generateBiopolymerIDsByIdentifiers()
+		return self._lookupUnitIDs(None, identifiers, minMatch, maxMatch, tally, errorCallback)
+	#generateUnitIDsByIdentifiers()
 	
 	
-	def generateTypedBiopolymerIDsByIdentifiers(self, typeID, identifiers, minMatch=1, maxMatch=1, tally=None, errorCallback=None):
+	def generateTypedUnitIDsByIdentifiers(self, utypeID, identifiers, minMatch=1, maxMatch=1, tally=None, errorCallback=None):
 		# identifiers=[ (namespace,name), ... ]
-		return self._lookupBiopolymerIDs(typeID, identifiers, minMatch, maxMatch, tally, errorCallback)
-	#generateTypedBiopolymerIDsByIdentifiers()
+		return self._lookupUnitIDs(utypeID, identifiers, minMatch, maxMatch, tally, errorCallback)
+	#generateTypedUnitIDsByIdentifiers()
 	
 	
-	def _searchBiopolymerIDs(self, typeID, texts):
+	def _searchUnitIDs(self, utypeID, texts):
+		# utypeID=int or Falseish for any
 		# texts=[ (text,), ... ]
 		# yields (label,id)
 		
 		sql = """
-SELECT b.label, b.biopolymer_id
-FROM `db`.`biopolymer` AS b
-LEFT JOIN `db`.`biopolymer_name` AS bn USING (biopolymer_id)
+SELECT u.label, u.unit_id
+FROM `db`.`unit` AS u
+LEFT JOIN `db`.`unit_name` AS un USING (unit_id)
 WHERE
   (
-    b.label LIKE '%'||?1||'%'
-    OR b.description LIKE '%'||?1||'%'
-    OR bn.name LIKE '%'||?1||'%'
+    u.label LIKE '%'||?1||'%'
+    OR u.description LIKE '%'||?1||'%'
+    OR un.name LIKE '%'||?1||'%'
   )
 """
 		
-		if typeID:
+		if utypeID:
 			sql += """
-  AND b.type_id = %d
-""" % typeID
-		#if typeID
+  AND u.utype_id = %d
+""" % utypeID
+		#if utypeID
 		
 		sql += """
-GROUP BY b.biopolymer_id
+GROUP BY u.unit_id
 """
 		
 		return self._db.cursor().executemany(sql, texts)
-	#_searchBiopolymerIDs()
+	#_searchUnitIDs()
 	
 	
-	def generateBiopolymerIDsBySearch(self, searches):
-		return self._searchBiopolymerIDs(None, itertools.izip(searches))
-	#generateBiopolymerIDsBySearch()
+	def generateUnitIDsBySearch(self, searches):
+		return self._searchUnitIDs(None, itertools.izip(searches))
+	#generateUnitIDsBySearch()
 	
 	
-	def generateTypedBiopolymerIDsBySearch(self, typeID, searches):
-		return self._searchBiopolymerIDs(typeID, itertools.izip(searches))
-	#generateTypedBiopolymerIDsBySearch()
+	def generateTypedUnitIDsBySearch(self, utypeID, searches):
+		return self._searchUnitIDs(utypeID, itertools.izip(searches))
+	#generateTypedUnitIDsBySearch()
 	
 	
-	def generateBiopolymerNameStats(self, namespaceID=None, typeID=None):
+	def generateUnitNameStats(self, namespaceID=None, utypeID=None):
 		sql = """
 SELECT
   `namespace`,
@@ -1465,23 +1605,23 @@ SELECT
   SUM(CASE WHEN matches = 1 THEN 1 ELSE 0 END) AS `unique`,
   SUM(CASE WHEN matches > 1 THEN 1 ELSE 0 END) AS `ambiguous`
 FROM (
-  SELECT bn.namespace_id, bn.name, COUNT(DISTINCT bn.biopolymer_id) AS matches
-  FROM `db`.`biopolymer_name` AS bn
+  SELECT un.namespace_id, un.name, COUNT(DISTINCT un.unit_id) AS matches
+  FROM `db`.`unit_name` AS un
 """
 		
-		if typeID:
+		if utypeID:
 			sql += """
-  JOIN `db`.`biopolymer` AS b
-    ON b.biopolymer_id = bn.biopolymer_id AND b.type_id = %d
-""" % typeID
+  JOIN `db`.`unit` AS u
+    ON u.unit_id = un.unit_id AND u.utype_id = %d
+""" % utypeID
 		
 		if namespaceID:
 			sql += """
-  WHERE bn.namespace_id = %d
+  WHERE un.namespace_id = %d
 """ % namespaceID
 		
 		sql += """
-  GROUP BY bn.namespace_id, bn.name
+  GROUP BY un.namespace_id, un.name
 )
 JOIN `db`.`namespace` AS n USING (namespace_id)
 GROUP BY namespace_id
@@ -1489,7 +1629,7 @@ GROUP BY namespace_id
 		
 		for row in self._db.cursor().execute(sql):
 			yield row
-	#generateBiopolymerNameStats()
+	#generateUnitNameStats()
 	
 	
 	##################################################
@@ -1498,14 +1638,14 @@ GROUP BY namespace_id
 	
 	def generateGroupsByIDs(self, ids):
 		# ids=[ id, ... ]
-		# yield:[ (id,type_id,label,description), ... ]
-		sql = "SELECT group_id, type_id, label, description FROM `db`.`group` WHERE group_id = ?"
+		# yield:[ (id,gtype_id,label,description), ... ]
+		sql = "SELECT group_id, gtype_id, label, description FROM `db`.`group` WHERE group_id = ?"
 		return self._db.cursor().executemany(sql, itertools.izip(ids))
 	#generateGroupsByIDs()
 	
 	
-	def _lookupGroupIDs(self, typeID, identifiers, minMatch, maxMatch, tally, errorCallback):
-		# typeID=int or Falseish for any
+	def _lookupGroupIDs(self, gtypeID, identifiers, minMatch, maxMatch, tally, errorCallback):
+		# gtypeID=int or Falseish for any
 		# identifiers=[ (namespace,name), ... ]
 		#   namespace='' for any, '-' for labels, '=' for group_id
 		# minMatch=int or Falseish for none
@@ -1520,11 +1660,11 @@ FROM (SELECT ?1 AS namespace, ?2 AS identifier) AS i
 LEFT JOIN `db`.`group` AS gID
   ON i.namespace = '='
   AND gID.group_id = 1*i.identifier
-  AND ( ({0} IS NULL) OR (gID.type_id = {0}) )
+  AND ( ({0} IS NULL) OR (gID.gtype_id = {0}) )
 LEFT JOIN `db`.`group` AS gLabel
   ON i.namespace = '-'
   AND gLabel.label = i.identifier
-  AND ( ({0} IS NULL) OR (gLabel.type_id = {0}) )
+  AND ( ({0} IS NULL) OR (gLabel.gtype_id = {0}) )
 LEFT JOIN `db`.`namespace` AS n
   ON i.namespace NOT IN ('=','-')
   AND n.namespace = COALESCE(NULLIF(LOWER(TRIM(i.namespace)),''),n.namespace)
@@ -1535,8 +1675,8 @@ LEFT JOIN `db`.`group_name` AS gn
 LEFT JOIN `db`.`group` AS gName
   ON i.namespace NOT IN ('=','-')
   AND gName.group_id = gn.group_id
-  AND ( ({0} IS NULL) OR (gName.type_id = {0}) )
-""".format(int(typeID) if typeID else "NULL")
+  AND ( ({0} IS NULL) OR (gName.gtype_id = {0}) )
+""".format(int(gtypeID) if gtypeID else "NULL")
 		
 		identifier = matches = None
 		numZero = numOne = numMany = 0
@@ -1574,13 +1714,14 @@ LEFT JOIN `db`.`group` AS gName
 	#generateGroupIDsByIdentifiers()
 	
 	
-	def generateTypedGroupIDsByIdentifiers(self, typeID, identifiers, minMatch=1, maxMatch=1, tally=None, errorCallback=None):
+	def generateTypedGroupIDsByIdentifiers(self, gtypeID, identifiers, minMatch=1, maxMatch=1, tally=None, errorCallback=None):
 		# identifiers=[ (namespace,name), ... ]
-		return self._lookupGroupIDs(typeID, identifiers, minMatch, maxMatch, tally, errorCallback)
+		return self._lookupGroupIDs(gtypeID, identifiers, minMatch, maxMatch, tally, errorCallback)
 	#generateTypedGroupIDsByIdentifiers()
 	
 	
-	def _searchGroupIDs(self, typeID, texts):
+	def _searchGroupIDs(self, gtypeID, texts):
+		# gtypeID=int or Falseish for any
 		# texts=[ (text,), ... ]
 		# yields (label,id)
 		
@@ -1596,11 +1737,11 @@ WHERE
   )
 """
 		
-		if typeID:
+		if gtypeID:
 			sql += """
-  AND g.type_id = %d
-""" % typeID
-		#if typeID
+  AND g.gtype_id = %d
+""" % gtypeID
+		#if gtypeID
 		
 		sql += """
 GROUP BY g.group_id
@@ -1615,12 +1756,12 @@ GROUP BY g.group_id
 	#generateGroupIDsBySearch()
 	
 	
-	def generateTypedGroupIDsBySearch(self, typeID, searches):
-		return self._searchGroupIDs(typeID, itertools.izip(searches))
+	def generateTypedGroupIDsBySearch(self, gtypeID, searches):
+		return self._searchGroupIDs(gtypeID, itertools.izip(searches))
 	#generateTypedGroupIDsBySearch()
 	
 	
-	def generateGroupNameStats(self, namespaceID=None, typeID=None):
+	def generateGroupNameStats(self, namespaceID=None, gtypeID=None):
 		sql = """
 SELECT
   `namespace`,
@@ -1632,11 +1773,11 @@ FROM (
   FROM `db`.`group_name` AS gn
 """
 		
-		if typeID:
+		if gtypeID:
 			sql += """
   JOIN `db`.`group` AS g
-    ON g.group_id = gn.group_id AND g.type_id = %d
-""" % typeID
+    ON g.group_id = gn.group_id AND g.gtype_id = %d
+""" % gtypeID
 		
 		if namespaceID:
 			sql += """
