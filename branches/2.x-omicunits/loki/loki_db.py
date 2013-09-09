@@ -17,7 +17,7 @@ class Database(object):
 	def getVersionTuple(cls):
 		# tuple = (major,minor,revision,dev,build,date)
 		# dev must be in ('a','b','rc','release') for lexicographic comparison
-		return (2,1,0,'a',1,'2013-03-18')
+		return (2,1,0,'release','','2013-07-19')
 	#getVersionTuple()
 	
 	
@@ -579,6 +579,33 @@ class Database(object):
 """,
 				'index': {}
 			}, #.db.group_member_name
+			
+			
+			##################################################
+			# gwas tables
+			
+			
+			'gwas': {
+				'table': """
+(
+  gwas_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+  rs INTEGER,
+  chr TINYINT,
+  pos BIGINT,
+  trait VARCHAR(256) NOT NULL,
+  snps VARCHAR(256),
+  orbeta VARCHAR(8),
+  allele95ci VARCHAR(16),
+  riskAfreq VARCAHR(16),
+  pubmed_id INTEGER,
+  source_id TINYINT NOT NULL
+)
+""",
+				'index': {
+					'gwas__rs': '(rs)',
+					'gwas__chr_pos': '(chr,pos)',
+				}
+			}, #.db.gwas
 			
 			
 			##################################################

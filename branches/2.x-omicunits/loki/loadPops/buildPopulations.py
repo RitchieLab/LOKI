@@ -7,7 +7,8 @@ import itertools
 import gzip
 import re
 import shutil
-from ftplib import FTP
+from ftplib import FTP as ftplib__FTP
+from ftplib import all_errors as ftplib__all_errors
 from optparse import OptionParser
 
 def downloadFile(ftp_obj, fn):
@@ -40,7 +41,7 @@ def downloadFile(ftp_obj, fn):
 			if ftp_sz == f_inf.st_size:
 				retry = False
 			
-		except ftplib.all_errors, e:
+		except ftplib__all_errors:
 			f.close()
 			ftp_obj.connect(ftp_obj.host)
 			ftp_obj.login()
@@ -55,7 +56,7 @@ def downloadFiles(population):
 	Downloads and unzips the HapMap files from the given population
 	(population must be a 3-letter code used by HapMap)
 	"""
-	f_srv = FTP("ftp.ncbi.nlm.nih.gov")
+	f_srv = ftplib__FTP("ftp.ncbi.nlm.nih.gov")
 	f_srv.login()
 	f_srv.cwd("hapmap/ld_data/latest")
 	
@@ -111,7 +112,7 @@ def genPops(popList, dprimes, rsquared, opts):
 	os.chdir(datadir)
 	
 	# download the chain file
-	f_srv = FTP("hgdownload.cse.ucsc.edu")
+	f_srv = ftplib__FTP("hgdownload.cse.ucsc.edu")
 	f_srv.login("anonymous")
 	f_srv.cwd("goldenPath/hg18/liftOver")
 	chainfn = "hg18ToHg19.over.chain.gz"

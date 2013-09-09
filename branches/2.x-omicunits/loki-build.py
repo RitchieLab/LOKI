@@ -111,6 +111,13 @@ if __name__ == "__main__":
 #			memLimit = max(memLimit, m - 1024*1024*1024)
 #	#if args.memory
 	
+	# set $TMPDIR so sqlite will use it for vacuum etc.
+	if args.temp_directory:
+		if not os.path.isdir(args.temp_directory):
+			print "ERROR: '%s' is not a directory"
+			sys.exit(1)
+		os.environ['TMPDIR'] = os.path.abspath(args.temp_directory)
+	
 	# instantiate database object
 	db = loki_db.Database(testing=args.test_data, updating=True)
 	db.setVerbose(args.verbose)
@@ -179,12 +186,13 @@ if __name__ == "__main__":
 		if args.temp_directory:
 			print "using temporary directory '%s'" % cacheDir
 		
-		# try/finally to make sure we clean up the tempdir at the end
+		# try/finally to make sure we clean up the cache dir at the end
 		try:
 			if fromArchive:
 				if os.path.exists(fromArchive) and tarfile.is_tarfile(fromArchive):
 					print "unpacking archived source data files from '%s' ..." % fromArchive
 					with tarfile.open(name=fromArchive, mode='r:*') as archive:
+						archive.errorlevel = 2
 						# the archive should only contain directories named after sources,
 						# so we can filter members by their normalized top-level directory
 						for member in archive:
@@ -210,14 +218,15 @@ if __name__ == "__main__":
 			if toArchive and not args.cache_only:
 				print "archiving source data files in '%s' ..." % toArchive
 				with tarfile.open(name=toArchive, mode='w:gz') as archive:
+					archive.errorlevel = 2
 					for filename in sorted(os.listdir(cacheDir)):
 						archive.add(os.path.join(cacheDir, filename), arcname=filename)
 				print "... OK"
 		finally:
-			# clean up temp directory
-			def onerror(func, path, exc):
+			# clean up cache directory
+			def rmtree_error(func, path, exc):
 				print "WARNING: unable to remove temporary file '%s': %s\n" % (path,exc)
-			shutil.rmtree(cacheDir, onerror=onerror)
+			shutil.rmtree(cacheDir, onerror=rmtree_error)
 	#update
 	
 	if args.knowledge:
@@ -237,5 +246,5 @@ if __name__ == "__main__":
 				db.testDatabaseWriteable()
 				db.optimizeDatabase()
 	#if knowledge
-	
 #__main__
+

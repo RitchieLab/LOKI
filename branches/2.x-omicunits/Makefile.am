@@ -35,13 +35,13 @@ bin_SCRIPTS=loki/loadPops/buildPopulations.py
 
 if LOKI_INSTALL
 VAR_FILES=knowledge.bio
-LOKI_FLAGS="-u -v"
+LOKI_FLAGS=-u -v
 else
 VAR_FILES=test.bio
 LOKI_FLAGS=-t -u -v
 endif
 
-LOKI_CMDS=$(srcdir)/loki-build.py -k $(VAR_FILES) $(LOKI_FLAGS); if test "$$?" -ne 0 -a -f "$(VAR_FILES)" ; then mv "$(VAR_FILES)" "$(VAR_FILES).error"; fi
+LOKI_CMDS=$(srcdir)/loki-build.py -k $(VAR_FILES) $(LOKI_FLAGS); if test "${?}" -ne 0 -a -f "$(VAR_FILES)" ; then mv "$(VAR_FILES)" "$(VAR_FILES).error"; fi
 
 knowledge.bio: liblokiupdate.la .creation
 	$(LOKI_CMDS)
