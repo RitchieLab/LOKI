@@ -54,7 +54,11 @@ class Source_hgnc(loki_source.Source):
 		humanHGNC = set()
 		with open('hgnc_downloads__all_approved.txt','rU') as datafile:
 			header = datafile.next().rstrip()
-			if not header.startswith("HGNC ID	Approved Symbol	Approved Name	Status	Locus Type	Locus Group	Previous Symbols	Previous Names	Synonyms	Name Synonyms	Chromosome	Date Approved	Date Modified	Date Symbol Changed	Date Name Changed	Accession Numbers	Enzyme IDs	Entrez Gene ID	Ensembl Gene ID	Mouse Genome Database ID	Specialist Database Links	Specialist Database IDs	Pubmed IDs	RefSeq IDs	Gene Family Tag	Gene family description	Record Type	Primary IDs	Secondary IDs	CCDS IDs	VEGA IDs	Locus Specific Databases	Entrez Gene ID	OMIM ID	RefSeq	UniProt ID	Ensembl ID"):
+			if header.startswith("HGNC ID\tApproved Symbol\tApproved Name\tStatus\tLocus Type\tLocus Group\tPrevious Symbols\tPrevious Names\tSynonyms\tName Synonyms\tChromosome\tDate Approved\tDate Modified\tDate Symbol Changed\tDate Name Changed\tAccession Numbers\tEnzyme IDs\tEntrez Gene ID\tEnsembl Gene ID\tMouse Genome Database ID\tSpecialist Database Links\tSpecialist Database IDs\tPubmed IDs\tRefSeq IDs\tGene Family Tag\tGene family description\tRecord Type\tPrimary IDs\tSecondary IDs\tCCDS IDs\tVEGA IDs\tLocus Specific Databases\tEntrez Gene ID\tOMIM ID\tRefSeq\tUniProt ID\tEnsembl ID"):
+				pass
+			elif header.startswith("HGNC ID\tApproved Symbol\tApproved Name\tStatus\tLocus Type\tLocus Group\tPrevious Symbols\tPrevious Names\tSynonyms\tName Synonyms\tChromosome\tDate Approved\tDate Modified\tDate Symbol Changed\tDate Name Changed\tAccession Numbers\tEnzyme IDs\tEntrez Gene ID\tEnsembl Gene ID\tMouse Genome Database ID\tSpecialist Database Links\tSpecialist Database IDs\tPubmed IDs\tRefSeq IDs\tGene Family Tag\tGene family description\tRecord Type\tPrimary IDs\tSecondary IDs\tCCDS IDs\tVEGA IDs\tLocus Specific Databases\tEntrez Gene ID(supplied by NCBI)\tOMIM ID(supplied by NCBI)\tRefSeq(supplied by NCBI)\tUniProt ID(supplied by UniProt)\tEnsembl ID(supplied by Ensembl)"):
+				pass
+			else:
 				self.log(" ERROR: unrecognized file header\n")
 				self.log("%s\n" % header)
 				return False
