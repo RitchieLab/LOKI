@@ -6,7 +6,7 @@ import urllib
 from loki import loki_source
 
 
-class Source_entrez(loki_source.Source):
+class Source_uniprot(loki_source.Source):
 	
 	
 	@classmethod
@@ -15,64 +15,15 @@ class Source_entrez(loki_source.Source):
 	#getVersionString()
 	
 	
-	@classmethod
-	def getOptions(cls):
-		return {
-			'locus-tags'    : "[yes|no]  --  include a gene's 'Locus Tag' as an alias (default: no)",
-			'favor-primary' : "[yes|no]  --  reduce symbol ambiguity by favoring primary symbols (default: yes)",
-			'favor-hist'    : "[yes|no]  --  reduce symbol ambiguity by favoring primary symbols (default: yes)",
-		}
-	#getOptions()
-	
-	
-	def validateOptions(self, options):
-		for o,v in options.iteritems():
-			v = v.strip().lower()
-			if o in ('locus-tags','favor-primary','favor-hist'):
-				if 'yes'.startswith(v):
-					v = 'yes'
-				elif 'no'.startswith(v):
-					v = 'no'
-				else:
-					return "%s must be 'yes' or 'no'" % o
-			else:
-				return "unknown option '%s'" % o
-			options[o] = v
-		return True
-	#validateOptions()
-	
-	
 	def download(self, options):
 		# download the latest source files
-		self.downloadFilesFromFTP('ftp.ncbi.nih.gov', {
-			'Homo_sapiens.gene_info.gz':       '/gene/DATA/GENE_INFO/Mammalia/Homo_sapiens.gene_info.gz',
-			'gene2refseq.gz':                  '/gene/DATA/gene2refseq.gz',
-			'gene_history.gz':                 '/gene/DATA/gene_history.gz',
-			'gene2ensembl.gz':                 '/gene/DATA/gene2ensembl.gz',
-			'gene2unigene':                    '/gene/DATA/gene2unigene',
-			'gene_refseq_uniprotkb_collab.gz': '/gene/DATA/gene_refseq_uniprotkb_collab.gz',
-		})
 		self.downloadFilesFromFTP('ftp.uniprot.org', {
 			'HUMAN_9606_idmapping_selected.tab.gz': '/pub/databases/uniprot/current_release/knowledgebase/idmapping/by_organism/HUMAN_9606_idmapping_selected.tab.gz',
-		})
-		ensemblHost = self.getHTTPHeaders('www.ensembl.org','/biomart/martservice').get('location','http://www.ensembl.org').split('://',1)[1].split('/',1)[0]
-		xml = """<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE Query>
-<Query virtualSchemaName = "default" formatter = "TSV" header = "0" uniqueRows = "0" count = "" datasetConfigVersion = "0.6" >
-	<Dataset name = "hsapiens_gene_ensembl" interface = "default" >
-		<Filter name = "with_entrezgene" excluded = "0"/>
-		<Attribute name = "ensembl_gene_id" />
-		<Attribute name = "entrezgene" />
-	</Dataset>
-</Query>
-"""
-		self.downloadFilesFromHTTP(ensemblHost, {
-			'biomart_martservice_ensembl_entrez.txt': '/biomart/martservice?query='+urllib.quote_plus(xml),
 		})
 	#download()
 	
 	
-	def update(self, options):
+	def update(self, options): #TODO
 		# clear out all old data from this source
 		self.log("deleting old records from the database ...")
 		self.deleteAll()

@@ -149,7 +149,7 @@ class Source_ensembl(loki_source.Source):
 		self.log("processing genomic regions ...")
 		rtypeRegions = collections.defaultdict(set)
 		regionGenes = set()
-		datafile = self.zfile('Homo_sapiens.GRCh37.70.gtf.gz') #TODO:context manager,iterator
+		datafile = self.zfile('Homo_sapiens.GRCh37.73.gtf.gz') #TODO:context manager,iterator
 		for line in datafile:
 			words = [ w.strip() for w in line.split("\t") ]
 			chm = words[0]
