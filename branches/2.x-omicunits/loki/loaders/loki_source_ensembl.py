@@ -18,7 +18,7 @@ class Source_ensembl(loki_source.Source):
 	def download(self, options):
 		# download the latest source files
 		self.downloadFilesFromFTP('ftp.ensembl.org', { #TODO callback to find latest file
-			'Homo_sapiens.GRCh37.70.gtf.gz': '/pub/current_gtf/homo_sapiens/Homo_sapiens.GRCh37.70.gtf.gz'
+			'Homo_sapiens.GRCh37.73.gtf.gz': '/pub/current_gtf/homo_sapiens/Homo_sapiens.GRCh37.73.gtf.gz'
 		})
 		# www.ensembl.org will redirect to whichever mirror they think is closest,
 		# but our download functions don't yet understand redirects, so test it
@@ -95,14 +95,20 @@ class Source_ensembl(loki_source.Source):
 		
 		# process genes
 		self.log("processing genes ...")
+		numInc = 0
 		with open('biomart_martservice_ensg_desc.txt','rU') as datafile:
 			header = datafile.next().rstrip()
-			if not header.startswith("Ensembl Gene ID	Associated Gene Name	Description	HGNC symbol	WikiGene Name	UniProt Gene Name"):
-				self.log(" ERROR: unrecognized file header\n")
-				self.log("%s\n" % header)
-				return False
+#			if not header.startswith("Ensembl Gene ID	Associated Gene Name	Description	HGNC symbol	WikiGene Name	UniProt Gene Name"):
+#				self.log(" ERROR: unrecognized file header\n")
+#				self.log("%s\n" % header)
+#				return False
 			for line in datafile:
 				words = [ w.strip() for w in line.split("\t") ]
+				if len(words) == 5:
+					words.insert(1,None)
+				elif len(words) < 6:
+					numInc += 1
+					continue
 				ensg = words[0]
 				symbol = words[1]
 				desc = words[2].split('[',1)[0].strip()
@@ -134,6 +140,10 @@ class Source_ensembl(loki_source.Source):
 		numNames0 = numNames
 		numNames = sum(len(names) for names in nsNames.itervalues())
 		self.log(" OK: %d genes, %d identifiers\n" % (len(ensgLabel),numNames-numNames0))
+		self.logPush()
+		if numInc:
+			self.log("WARNING: %d incomplete records\n" % (numInc,))
+		self.logPop()
 		
 		# process gene regions (no header!)
 		self.log("processing genomic regions ...")
@@ -204,6 +214,7 @@ class Source_ensembl(loki_source.Source):
 		
 		# process gene identifiers
 		self.log("processing gene identifiers ...")
+		numInc = 0
 		with open('biomart_martservice_ensg_refs.txt','rU') as datafile:
 			header = datafile.next().rstrip()
 			if not header.startswith("Ensembl Gene ID	CCDS ID	EntrezGene ID	HGNC ID(s)"):
@@ -212,6 +223,9 @@ class Source_ensembl(loki_source.Source):
 				return False
 			for line in datafile:
 				words = [ w.strip() for w in line.split("\t") ]
+				if len(words) < 4:
+					numInc += 1
+					continue
 				ensg = words[0]
 				ccdsGID = words[1]
 				entrezGID = words[2]
@@ -232,9 +246,14 @@ class Source_ensembl(loki_source.Source):
 		numNames0 = numNames
 		numNames = sum(len(names) for names in nsNames.itervalues())
 		self.log(" OK: %d identifiers\n" % (numNames-numNames0,))
+		self.logPush()
+		if numInc:
+			self.log("WARNING: %d incomplete records\n" % (numInc,))
+		self.logPop()
 		
 		# process protein identifiers
 		self.log("processing protein identifiers ...")
+		numInc = 0
 		with open('biomart_martservice_ensp_refs.txt','rU') as datafile:
 			header = datafile.next().rstrip()
 			if not header.startswith("Ensembl Protein ID	RefSeq Protein ID [e.g. NP_001005353]	UniProt/SwissProt ID	UniProt/SwissProt Accession"):
@@ -243,6 +262,9 @@ class Source_ensembl(loki_source.Source):
 				return False
 			for line in datafile:
 				words = [ w.strip() for w in line.split("\t") ]
+				if len(words) < 4:
+					numInc += 1
+					continue
 				ensp = words[0]
 				refseqPID = words[1]
 				uniprotPID = words[2]
@@ -263,6 +285,10 @@ class Source_ensembl(loki_source.Source):
 		numNames0 = numNames
 		numNames = sum(len(names) for names in nsNames.itervalues())
 		self.log(" OK: %d identifiers\n" % (numNames-numNames0,))
+		self.logPush()
+		if numInc:
+			self.log("WARNING: %d incomplete records\n" % (numInc,))
+		self.logPop()
 		
 		# store identifiers
 		self.log("storing identifier references ...")

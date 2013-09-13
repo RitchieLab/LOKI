@@ -17,7 +17,7 @@ class Database(object):
 	def getVersionTuple(cls):
 		# tuple = (major,minor,revision,dev,build,date)
 		# dev must be in ('a','b','rc','release') for lexicographic comparison
-		return (2,1,0,'release','','2013-07-19')
+		return (3,0,0,'a',1,'2013-09-01')
 	#getVersionTuple()
 	
 	
@@ -28,6 +28,7 @@ class Database(object):
 		# dev must be > 'rc' for releases for lexicographic comparison,
 		# but we don't need to actually print 'release' in the version string
 		v[3] = '' if v[3] > 'rc' else v[3]
+		v[4] = v[4] or ''
 		return "%d.%d.%d%s%s (%s)" % tuple(v)
 	#getVersionString()
 	
@@ -130,7 +131,7 @@ class Database(object):
 			}, #.db.grch_ucschg
 			
 			
-			'gtype': {
+			'gtype': { # grouptype
 				'table': """
 (
   gtype_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -192,7 +193,7 @@ class Database(object):
 			}, #.db.role
 			
 			
-			'rtype': {
+			'rtype': { # regiontype
 				'table': """
 (
   rtype_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -247,7 +248,7 @@ class Database(object):
 			}, #.db.source_file
 			
 			
-			'urtype': {
+			'urtype': { #unitregiontype
 				'table': """
 (
   urtype_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -258,7 +259,7 @@ class Database(object):
 			}, #.db.urtype
 			
 			
-			'utype': {
+			'utype': { #unittype
 				'table': """
 (
   utype_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -406,6 +407,45 @@ class Database(object):
 			
 			
 			##################################################
+			# proto-unit tables
+			
+			
+			'name_name': {
+				'table': """
+(
+  _ROWID_ INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+  namespace_id1 INTEGER NOT NULL,
+  name1 VARCHAR(256) NOT NULL,
+  namespace_id2 INTEGER NOT NULL,
+  name2 VARCHAR(256) NOT NULL,
+  source_id TINYINT NOT NULL
+)
+""",
+				'index': {
+					'name_name__namespace1_name1_namespace2_name2': '(namespace_id1,name1,namespace_id2,name2)',
+					'name_name__namespace2_name2_namespace1_name1': '(namespace_id2,name2,namespace_id1,name1)',
+				}
+			}, #.db.name_name
+			
+			
+			'name_property': {
+				'table': """
+(
+  _ROWID_ INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+  namespace_id INTEGER NOT NULL,
+  name VARCHAR(256) NOT NULL,
+  property VARCHAR(16) NOT NULL,
+  value VARCHAR(256) NOT NULL,
+  source_id TINYINT NOT NULL
+)
+""",
+				'index': {
+					'name_property__namespace_name': '(namespace_id,name)',
+				}
+			}, #.db.name_property
+			
+			
+			##################################################
 			# omic-unit tables
 			
 			
@@ -426,22 +466,6 @@ class Database(object):
 			}, #.db.unit
 			
 			
-			'unit_region': { #TODO: ambiguity?
-				'table': """
-(
-  unit_id INTEGER NOT NULL,
-  region_id INTEGER NOT NULL,
-  urtype_id TINYINT NOT NULL,
-  source_id TINYINT NOT NULL,
-  PRIMARY KEY (unit_id,region_id)
-)
-""",
-				'index': {
-					'unit_region__region_unit': '(region_id,unit_id)',
-				}
-			}, #.db.unit_region
-			
-			
 			'unit_name': { #TODO: ambiguity?
 				'table': """
 (
@@ -458,39 +482,20 @@ class Database(object):
 			}, #.db.unit_name
 			
 			
-			'unit_name_name': {
+			'unit_region': { #TODO: ambiguity?
 				'table': """
 (
-  _ROWID_ INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-  namespace_id1 INTEGER NOT NULL,
-  name1 VARCHAR(256) NOT NULL,
-  namespace_id2 INTEGER NOT NULL,
-  name2 VARCHAR(256) NOT NULL,
-  source_id TINYINT NOT NULL
+  unit_id INTEGER NOT NULL,
+  region_id INTEGER NOT NULL,
+  urtype_id TINYINT NOT NULL,
+  source_id TINYINT NOT NULL,
+  PRIMARY KEY (unit_id,region_id)
 )
 """,
 				'index': {
-					'unit_name_name__namespace1_name1_namespace2_name2': '(namespace_id1,name1,namespace_id2,name2)',
-					'unit_name_name__namespace2_name2_namespace1_name1': '(namespace_id2,name2,namespace_id1,name1)',
+					'unit_region__region_unit': '(region_id,unit_id)',
 				}
-			}, #.db.unit_name_name
-			
-			
-			'unit_name_property': {
-				'table': """
-(
-  _ROWID_ INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-  namespace_id INTEGER NOT NULL,
-  name VARCHAR(256) NOT NULL,
-  property VARCHAR(16) NOT NULL,
-  value VARCHAR(256) NOT NULL,
-  source_id TINYINT NOT NULL
-)
-""",
-				'index': {
-					'unit_name_property__namespace_name': '(namespace_id,name)',
-				}
-			}, #.db.unit_name_property
+			}, #.db.unit_region
 			
 			
 			##################################################
@@ -1030,9 +1035,9 @@ class Database(object):
 			if tblName not in current:
 				current[tblName] = {'table':None, 'index':{}}
 			if objType == 'table':
-				current[tblName]['table'] = " ".join(objDef.strip().split())
+				current[tblName]['table'] = " ".join(objDef.strip().replace('"','`').split())
 			elif objType == 'index':
-				current[tblName]['index'][idxName] = " ".join(objDef.strip().split())
+				current[tblName]['index'][idxName] = " ".join(objDef.strip().replace('"','`').split())
 		tblEmpty = dict()
 		for tblName in current:
 			tblEmpty[tblName] = True
@@ -1064,6 +1069,8 @@ class Database(object):
 						self.log(" OK\n")
 					elif doRepair:
 						self.log("ERROR: table '%s' schema mismatch -- cannot repair\n" % tblName)
+					#	print current[tblName]['table']
+					#	print ("CREATE TABLE `%s` %s" % (tblName, " ".join(schema[tblName]['table'].strip().split())))
 						ok = False
 					else:
 						self.log("ERROR: table '%s' schema mismatch\n" % tblName)
@@ -1112,8 +1119,8 @@ class Database(object):
 	
 	def finalizeDatabase(self):
 		self.log("discarding intermediate data ...")
-		self.dropDatabaseTables(None, 'db', ('snp_entrez_role','region_name','unit_name_name','group_member_name'))
-		self.createDatabaseTables(None, 'db', ('snp_entrez_role','region_name','unit_name_name','group_member_name'), True)
+		self.dropDatabaseTables(None, 'db', ('snp_entrez_role','region_name','name_name','group_member_name'))
+		self.createDatabaseTables(None, 'db', ('snp_entrez_role','region_name','name_name','group_member_name'), True)
 		self.log(" OK\n")
 		self.setDatabaseSetting('finalized', 1)
 		self.setDatabaseSetting('optimized', 0)

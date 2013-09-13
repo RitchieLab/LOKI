@@ -323,56 +323,54 @@ class Updater(object):
 				#foreach old build
 			#if any old builds
 			
-			# post-process as needed #TODO
+			# post-process as needed
 			#self.log("MEMORY: %d bytes (%d peak)\n" % self._loki.getDatabaseMemoryUsage()) #DEBUG
-			nameUIDs = None
 			import time
-			if 'snp_merge' in self._tablesUpdated:
+			if ('snp_merge' in self._tablesUpdated):
 				t0 = time.time()
 				self.cleanupSNPMerges()
 				self.log("(%ds)\n" % (time.time()-t0))
-			if 'snp_merge' in self._tablesUpdated or 'snp_locus' in self._tablesUpdated:
+			if ('snp_merge' in self._tablesUpdated) or ('snp_locus' in self._tablesUpdated):
 				t0 = time.time()
 				self.updateMergedSNPLoci()
 				self.log("(%ds)\n" % (time.time()-t0))
-			if 'snp_locus' in self._tablesUpdated:
+			if ('snp_locus' in self._tablesUpdated):
 				t0 = time.time()
 				self.cleanupSNPLoci()
 				self.log("(%ds)\n" % (time.time()-t0))
-			if 'snp_merge' in self._tablesUpdated or 'snp_entrez_role' in self._tablesUpdated:
+			if ('snp_merge' in self._tablesUpdated) or ('snp_entrez_role' in self._tablesUpdated):
 				t0 = time.time()
 				self.updateMergedSNPEntrezRoles()
 				self.log("(%ds)\n" % (time.time()-t0))
-			if 'snp_entrez_role' in self._tablesUpdated:
+			if ('snp_entrez_role' in self._tablesUpdated):
 				t0 = time.time()
 				self.cleanupSNPEntrezRoles()
 				self.log("(%ds)\n" % (time.time()-t0))
-			if 'snp_merge' in self._tablesUpdated or 'gwas' in self._tablesUpdated:
+			if ('snp_merge' in self._tablesUpdated) or ('gwas' in self._tablesUpdated):
 				t0 = time.time()
 				self.updateMergedGWASAnnotations()
 				self.log("(%ds)\n" % (time.time()-t0))
-			if 'region' in self._tablesUpdated:
+			if ('region' in self._tablesUpdated):
 				t0 = time.time()
 				self.updateRegionZones()
 				self.log("(%ds)\n" % (time.time()-t0))
-			if 'unit_name_name' in self._tablesUpdated:
+			if 1 or ('region' in self._tablesUpdated) or ('region_name' in self._tablesUpdated) or ('name_name' in self._tablesUpdated):
 				t0 = time.time()
 				self.defineOmicUnits()
 				self.log("(%ds)\n" % (time.time()-t0))
-			if 'unit_name' in self._tablesUpdated or 'snp_entrez_role' in self._tablesUpdated:
+			if ('unit_name' in self._tablesUpdated) or ('snp_entrez_role' in self._tablesUpdated):
 				t0 = time.time()
-				nameUIDs = self.resolveSNPUnitRoles(nameUIDs)
+				self.resolveSNPUnitRoles()
 				self.log("(%ds)\n" % (time.time()-t0))
-			if 'unit_name' in self._tablesUpdated or 'region_name' in self._tablesUpdated:
+			if ('unit_name' in self._tablesUpdated) or ('region_name' in self._tablesUpdated):
 				t0 = time.time()
-				nameUIDs = self.resolveRegionUnits(nameUIDs)
+				self.resolveUnitRegions()
 				self.log("(%ds)\n" % (time.time()-t0))
-			if 'unit_name' in self._tablesUpdated or 'group_member_name' in self._tablesUpdated:
+			if ('unit_name' in self._tablesUpdated) or ('group_member_name' in self._tablesUpdated):
 				t0 = time.time()
-				nameUIDs = self.resolveGroupMembers(nameUIDs)
+				self.resolveGroupMembers()
 				self.log("(%ds)\n" % (time.time()-t0))
 			#self.log("MEMORY: %d bytes (%d peak)\n" % self._loki.getDatabaseMemoryUsage()) #DEBUG
-			nameUIDs = None
 			
 			# reindex all remaining tables
 			self.log("finishing update ...")
@@ -666,6 +664,9 @@ JOIN `db`.`snp_merge` AS sm
 	
 	def defineOmicUnits(self):
 		self.logPush("defining omic units ...")
+		self.prepareTableForQuery('region')
+		self.prepareTableForQuery('region_name')
+		self.prepareTableForQuery('name_property')
 		self.prepareTableForUpdate('unit')
 		self.prepareTableForUpdate('unit_name')
 		cursor = self._db.cursor()
@@ -677,97 +678,186 @@ JOIN `db`.`snp_merge` AS sm
 		self.log(" OK\n")
 		
 		# load namespace definitions
+		nsName = dict()
 		nsID = dict()
 		for row in cursor.execute("SELECT namespace_id,namespace FROM `db`.`namespace`"):
+			nsName[row[0]] = row[1]
 			nsID[row[1]] = row[0]
-		if 'entrez_gid' not in nsID:
-			self.logPop("... ERROR: no Entrez gene identifiers\n")
-			return
+		nsCore = set()
+		if 'entrez_gid' in nsID:
+			nsCore.add(nsID['entrez_gid'])
+		if 'ensembl_gid' in nsID:
+			nsCore.add(nsID['ensembl_gid'])
+		if not nsCore:
+			self.logPop("... ERROR: unit definition requires entrez or ensembl identifiers")
+			return False
 		
 		# load the name graph
 		self.log("building identifier graph ...")
+		nameNamespaceID = list()
+		nameName = list()
+		nameNum = dict()
 		graph = collections.defaultdict(set)
 		numEdges = 0
-		for row in cursor.execute("SELECT namespace_id1,name1,namespace_id2,name2 FROM `db`.`unit_name_name`"):
-			n1 = (row[0],row[1])
-			n2 = (row[2],row[3])
+		for row in cursor.execute("SELECT namespace_id1,name1,namespace_id2,name2 FROM `db`.`name_name`"):
+			name1 = (row[0],row[1])
+			n1 = nameNum.get(name1)
+			if n1 == None:
+				n1 = nameNum[name1] = len(nameNamespaceID)
+				nameNamespaceID.append(row[0])
+				nameName.append(row[1])
+			name2 = (row[2],row[3])
+			n2 = nameNum.get(name2)
+			if n2 == None:
+				n2 = nameNum[name2] = len(nameNamespaceID)
+				nameNamespaceID.append(row[2])
+				nameName.append(row[3])
 			if n1 != n2:
 				numEdges += 1
 				graph[n1].add(n2)
 				graph[n2].add(n1)
+		#for row in cursor
 		self.log(" OK: %d identifiers, %d links\n" % (len(graph),numEdges))
 		
-		# find core sets of names that should become a unit
-		self.log("searching for units ...")
-		nsOK = {nsID['entrez_gid']}
-		unitNames = list()
-		nameUnits = collections.defaultdict(set)
-		nameDist = dict()
-		queue = collections.deque()
-		for n1 in graph:
-			if (n1[0] in nsOK) and (n1 not in nameUnits):
-				unit = len(unitNames)
-				names = {n1}
-				nameUnits[n1].add(unit)
-				nameDist[n1] = 0
-				queue.appendleft(n1)
-				while queue:
-					for n2 in graph[queue.pop()]:
-						if (n2[0] in nsOK) and (n2 not in nameUnits):
-							names.add(n2)
-							nameUnits[n2].add(unit)
-							nameDist[n2] = 0
-							queue.appendleft(n2)
-				unitNames.append(names)
-		names = None
-		self.log(" OK: %d units, %d core identifiers\n" % (len(unitNames),len(nameUnits)))
+		# load name properties
+		self.log("loading identifier properties ...")
+		namePropValues = collections.defaultdict(lambda: collections.defaultdict(set))
+		for row in cursor.execute("SELECT namespace_id,name,property,value FROM `db`.`name_property`"):
+			name = (row[0],row[1])
+			n = nameNum.get(name)
+			if n == None:
+				n = nameNum[name] = len(nameNamespaceID)
+				nameNamespaceID.append(row[0])
+				nameName.append(row[1])
+				graph[n] = set()
+			namePropValues[n][row[2]].add(row[3])
+		self.log(" OK: %d identifiers\n" % (len(namePropValues),))
 		
-		# assign additional names using a kind of multi-source breadth-first-search
-		self.log("assigning additional aliases ...")
-		for names in unitNames:
-			queue.extendleft(names)
+		# load regions associated with any of the core namespaces
+		self.log("loading core regions ...")
+		nameRegions = collections.defaultdict(set)
+		for row in cursor.execute("""
+SELECT rn.namespace_id, rn.name, r.chr, r.posMin, r.posMax
+FROM `db`.`region_name` AS rn
+JOIN `db`.`region` AS r USING (region_id)
+WHERE rn.namespace_id IN (%s)"""
+				% ",".join(str(i) for i in nsCore)
+		):
+			name = (row[0],row[1])
+			n = nameNum.get(name)
+			if n == None:
+				n = nameNum[name] = len(nameNamespaceID)
+				nameNamespaceID.append(row[0])
+				nameName.append(row[1])
+				graph[n] = set()
+			nameRegions[n].add( (row[2],row[3],row[4]) )
+		#for row in cursor
+		self.log(" OK: %d identifiers\n" % (len(nameRegions),))
+		
+		# find core sets of names that could become a unit
+		self.log("searching for candidate units ...")
+		coreNames = list()
+		nameFlag = set()
+		stack = list()
+		for n1 in graph:
+			if (nameNamespaceID[n1] in nsCore) and (n1 not in nameFlag):
+				names = {n1}
+				nameFlag.add(n1)
+				stack.append(n1)
+				while stack:
+					for n2 in graph[stack.pop()]:
+						if (nameNamespaceID[n2] in nsCore) and (n2 not in names):
+							names.add(n2)
+							nameFlag.add(n2)
+							stack.append(n2)
+				coreNames.append(names)
+		#for n1 in graph
+		self.log(" OK: %d candidates, %d core identifiers\n" % (len(coreNames),len(nameFlag)))
+		nameFlag = None
+		
+		# split cores according to region gap rules
+		self.log("analyzing candidate unit regions ...")
+		unitNames = list()
+		numNone = numChr = numGap = 0
+		while coreNames:
+			names = coreNames.pop()
+			regions = list()
+			for n in names:
+				regions.extend( (r+(n,)) for r in nameRegions[n] )
+			if not regions:
+				numNone += 1
+				unitNames.append(names) #TODO: configurable keep-noregion
+				continue
+			regions.sort()
+			names = set()
+			uC = uR = None
+			for rC,rL,rR,rN in itertools.chain(regions, [(0,0,0,None)]):
+				if (uC != rC) or (uR + 25000 < rL): #TODO: configurable gap limit
+					if names:
+						if rN == None:
+							pass
+						elif uC != rC:
+							numChr += 1
+						else:
+							numGap += 1
+						unitNames.append(names)
+						names = set()
+					uC,uR = rC,rR
+				else:
+					uR = max(uR,rR)
+				names.add(rN)
+			#for r in regions
+		#while coreNames
+		nameUnits = collections.defaultdict(set)
+		for u,names in enumerate(unitNames):
+			for n in names:
+				nameUnits[n].add(u)
+		self.log(" OK: %d omic-units (%d no-region, %d chr-splits, %d gap-splits)\n" % (len(unitNames),numNone,numChr,numGap))
+		nameRegions = coreNames = None
+		
+		# assign additional names using a kind of multi-source breadth-first-search #TODO: ambiguity?
+		self.log("assigning aliases to units ...")
+		nameDist = {n:0 for n in nameUnits}
+		queue = collections.deque(nameUnits)
 		while queue:
 			n1 = queue.pop()
 			units = nameUnits[n1]
 			dist = nameDist[n1] + 1
 			for n2 in graph[n1]:
 				if nameDist.get(n2,dist) == dist:
-					for unit in units:
-						unitNames[unit].add(n2)
+					for u in units:
+						unitNames[u].add(n2)
 					nameUnits[n2] |= units
 					nameDist[n2] = dist
 					queue.appendleft(n2)
 				elif nameDist.get(n2) > dist:
 					raise Exception("BFS failure")
-		graph = nameDist = units = None
-		self.log(" OK: %d assigned identifiers\n", (len(nameUnits),))
+		graph = None
+		self.log(" OK: %d identifiers\n" % (len(nameUnits),))
 		
-		# load name properties
-		self.log("loading unit details ...")
-		nameProps = collections.defaultdict(lambda: collections.defaultdict(set))
-		for row in cursor.execute("SELECT namespace_id,name,property,value FROM `db`.`unit_name_property`"):
-			nameProps[(row[0],row[1])][row[2]].add(row[3])
-		self.log(" OK\n")
-		
-		# lookup properties for each nameset
+		# assign properties for each nameset
 		self.log("adding details to units ...")
 		unitProps = list()
-		noneset = {None}
-		zeroset = {0}
+		zeroset = {(0,0)}
+		noneset = {(None,None)}
 		for names in unitNames:
-			props = collections.defaultdict(set)
+			utype_id = list()
+			label = list()
+			desc = list()
+			symbol = list()
 			for n in names:
-				if n[0] == nsID['symbol']:
-					props['symbol'].add(n[1])
-				if n[0] in nsOK:
-					if n in nameProps:
-						for prop,vals in nameProps[n].iteritems():
-							props[prop] |= vals
-			utype_id = min(props['utype_id'] or zeroset)
-			label = min(props['label'] or props['symbol'])
-			desc = min(props['description'] or noneset)
+				d = nameDist[n]
+				if n in namePropValues:
+					utype_id.extend( (d,v) for v in namePropValues[n]['utype_id'] )
+					label.extend( (d,v) for v in namePropValues[n]['label'] )
+					desc.extend( (d,v) for v in namePropValues[n]['description'] )
+				if nameNamespaceID[n] == nsID['symbol']:
+					symbol.append( (d,nameName[n]) )
+			utype_id = min(utype_id or zeroset)[1]
+			label = min(label or symbol or noneset)[1] or min(names)
+			desc = min(desc or noneset)[1]
 			unitProps.append( (utype_id,label,desc) )
-		unitNames = nameProps = None
+		nameDist = namePropValues = zeroset = noneset = None
 		self.log(" OK\n")
 		
 		# store units
@@ -776,13 +866,15 @@ JOIN `db`.`snp_merge` AS sm
 		for row in cursor.executemany("INSERT INTO `db`.`unit` (utype_id,label,description,source_id) VALUES (?,?,?,0); SELECT last_insert_rowid()", unitProps):
 			unitIDs.append(row[0])
 		unitProps = None
-		self.log(" OK\n")
+		self.log(" OK: %d units\n" % (len(unitIDs),))
 		
 		# store unit names
 		self.log("storing unit aliases ...")
-		for name,units in nameUnits.iteritems():
-			cursor.executemany("INSERT OR IGNORE INTO `db`.`unit_name` (unit_id,namespace_id,name,source_id) VALUES (?,?,?,0)", ((unitIDs[u],name[0],name[1]) for u in units))
-		nameUnits = unitIDs = None
+		for u,names in enumerate(unitNames):
+			cursor.executemany("INSERT OR IGNORE INTO `db`.`unit_name` (unit_id,namespace_id,name,source_id) VALUES (?,?,?,0)", ((unitIDs[u],nameNamespaceID[n],nameName[n]) for n in names))
+		#for name,units in nameUnits.iteritems():
+		#	cursor.executemany("INSERT OR IGNORE INTO `db`.`unit_name` (unit_id,namespace_id,name,source_id) VALUES (?,?,?,0)", ((unitIDs[u],name[0],name[1]) for u in units))
+		nameUnits = unitNames = unitIDs = None
 		self.log(" OK\n")
 		
 		self.logPop("... OK\n")
@@ -794,7 +886,7 @@ JOIN `db`.`snp_merge` AS sm
 		
 		#self.log("loading unit identifiers ...")
 		nameUIDs = collections.defaultdict(set)
-		for row in cursor.execute("SELECT namespace_id,name,unit_id FROM `unit_name`"):
+		for row in cursor.execute("SELECT namespace_id,name,unit_id FROM `db`.`unit_name`"):
 			nameUIDs[(row[0],row[1])].add(row[2])
 		#self.log(" OK: %d identifiers\n" % len(nameUIDs))
 		
@@ -840,10 +932,11 @@ JOIN `db`.`snp_merge` AS sm
 	#resolveSNPUnitRoles()
 	
 	
-	def resolveRegionUnits(self, nameUIDs=None):
+	def resolveUnitRegions(self, nameUIDs=None):
 		self.log("assigning unit regions ...")
 		nameUIDs = nameUIDs or self.loadNameUIDs()
 		self.prepareTableForQuery('region_name')
+		self.prepareTableForQuery('unit_name')
 		self.prepareTableForUpdate('unit_region')
 		cursor = self._db.cursor()
 		cursor.execute("DELETE FROM `db`.`unit_region` WHERE source_id = 0")
@@ -851,32 +944,31 @@ JOIN `db`.`snp_merge` AS sm
 		# map regions to units #TODO: ambiguity?
 		unitRegions = list()
 		regionID = None
-		numAmbig = numUnrec = 0
+		numSingle = numAmbig = numUnrec = 0
 		emptyset = set()
 		for row in itertools.chain(cursor.execute("SELECT region_id,namespace_id,name FROM `db`.`region_name` ORDER BY region_id"), [(None,None,None)]):
 			if regionID != row[0]:
 				if regionID:
 					unitIDs = set()
-					for name in names:
-						unitIDs |= nameUIDs.get(name,emptyset)
+					unitIDs.update( *(nameUIDs.get(name,emptyset) for name in names) )
 					if len(unitIDs) < 1:
 						numUnrec += 1
 					elif len(unitIDs) > 1:
 						numAmbig += 1
 					else:
-						unitRegions.append( (unitIDs.pop(),regionID) )
+						numSingle += 1
+					unitRegions.extend( (u,regionID) for u in unitIDs )
 				regionID = row[0]
 				names = set()
 			names.add( (row[1],row[2]) )
-		names = unitIDs = None
 		cursor.executemany("INSERT OR IGNORE INTO `db`.`unit_region` (unit_id,region_id,urtype_id,source_id) VALUES (?,?,0,0)", unitRegions)
-		self.log(" OK: %d regions assigned (%d ambiguous, %d unrecognized)\n" % (len(unitRegions),numAmbig,numUnrec))
+		self.log(" OK: %d regions assigned (%d definite, %d ambiguous, %d unrecognized)\n" % (len(unitRegions),numSingle,numAmbig,numUnrec))
 		
 		return nameUIDs
-	#resolveRegionUnits()
+	#resolveUnitRegions()
 	
 	
-	def resolveGroupMembers(self, nameUIDs=None): #TODO
+	def resolveGroupMembers(self, nameUIDs=None):
 		self.log("resolving group members ...")
 		dbc = self._db.cursor()
 		
@@ -885,23 +977,22 @@ JOIN `db`.`snp_merge` AS sm
 CREATE TEMP TABLE `temp`.`_group_member_name_score` (
   group_id INTERGER NOT NULL,
   member INTEGER NOT NULL,
-  biopolymer_id INTEGER NOT NULL,
+  unit_id INTEGER NOT NULL,
   polynames INTEGER NOT NULL,
   implication INTEGER NOT NULL,
   quality INTEGER NOT NULL
 )
 """)
 		self.prepareTableForQuery('group_member_name')
-		self.prepareTableForQuery('biopolymer_name')
-		self.prepareTableForQuery('biopolymer')
+		self.prepareTableForQuery('unit_name')
 		self.prepareTableForQuery('namespace')
 		dbc.execute("""
-INSERT INTO `temp`.`_group_member_name_score` (group_id, member, biopolymer_id, polynames, implication, quality)
+INSERT INTO `temp`.`_group_member_name_score` (group_id, member, unit_id, polynames, implication, quality)
 /* calculate implication and quality scores for each possible match for each member */
 SELECT
   group_id,
   member,
-  biopolymer_id,
+  unit_id,
   polynames,
   COUNT(DISTINCT gmn_rowid) AS implication,
   (CASE WHEN polynames > 0 THEN 1000 * COUNT(DISTINCT gmn_rowid) ELSE SUM(1000 / match_count) END) AS quality
@@ -913,9 +1004,8 @@ FROM (
     gmn.member,
     gmn.namespace_id,
     gmn.name,
-    gmn.type_id,
     polynames,
-    COUNT(DISTINCT bn.biopolymer_id) AS match_count
+    COUNT(DISTINCT un.unit_id) AS match_count
   FROM (
     /* count the number of matchable polyregion names for each member */
     SELECT
@@ -923,41 +1013,35 @@ FROM (
       gmn.member,
       COUNT(DISTINCT (CASE WHEN n.polygenic > 0 THEN gmn._ROWID_ ELSE NULL END)) AS polynames
     FROM `db`.`group_member_name` AS gmn
-    JOIN `db`.`biopolymer_name` AS bn USING (name)
-    JOIN `db`.`biopolymer` AS b USING (biopolymer_id)
+    JOIN `db`.`unit_name` AS un USING (name)
     LEFT JOIN `db`.`namespace` AS n
       ON n.namespace_id = gmn.namespace_id
-    WHERE gmn.namespace_id IN (0, bn.namespace_id)
-      AND gmn.type_id IN (0, b.type_id)
+    WHERE gmn.namespace_id IN (0, un.namespace_id)
     GROUP BY gmn.group_id, gmn.member
   )
   JOIN `db`.`group_member_name` AS gmn USING (group_id, member)
-  JOIN `db`.`biopolymer_name` AS bn USING (name)
-  JOIN `db`.`biopolymer` AS b USING (biopolymer_id)
+  JOIN `db`.`unit_name` AS un USING (name)
   LEFT JOIN `db`.`namespace` AS n
     ON n.namespace_id = gmn.namespace_id
-  WHERE gmn.namespace_id IN (0, bn.namespace_id)
-    AND gmn.type_id IN (0, b.type_id)
+  WHERE gmn.namespace_id IN (0, un.namespace_id)
     AND (n.polygenic > 0 OR polynames = 0)
   GROUP BY gmn.group_id, gmn.member, gmn.namespace_id, gmn.name
 ) AS gmn
-JOIN `db`.`biopolymer_name` AS bn USING (name)
-JOIN `db`.`biopolymer` AS b USING (biopolymer_id)
-WHERE gmn.namespace_id IN (0, bn.namespace_id)
-  AND gmn.type_id IN (0, b.type_id)
-GROUP BY group_id, member, biopolymer_id
+JOIN `db`.`unit_name` AS un USING (name)
+WHERE gmn.namespace_id IN (0, un.namespace_id)
+GROUP BY group_id, member, unit_id
 """)
-		dbc.execute("CREATE INDEX `temp`.`_group_member_name_score__group_member_biopolymer` ON `_group_member_name_score` (group_id, member, biopolymer_id)")
+		dbc.execute("CREATE INDEX `temp`.`_group_member_name_score__group_member_unit` ON `_group_member_name_score` (group_id, member, unit_id)")
 		
-		# generate group_biopolymer assignments with confidence scores
-		self.prepareTableForUpdate('group_biopolymer')
-		dbc.execute("DELETE FROM `db`.`group_biopolymer` WHERE source_id = 0")
+		# generate group_unit assignments with confidence scores
+		self.prepareTableForUpdate('group_unit')
+		dbc.execute("DELETE FROM `db`.`group_unit` WHERE source_id = 0")
 		dbc.execute("""
-/* group-biopolymer assignments with confidence scores */
-INSERT INTO `db`.`group_biopolymer` (group_id, biopolymer_id, specificity, implication, quality, source_id)
+/* group-unit assignments with confidence scores */
+INSERT INTO `db`.`group_unit` (group_id, unit_id, specificity, implication, quality, source_id)
 SELECT
   group_id,
-  biopolymer_id,
+  unit_id,
   MAX(specificity) AS specificity,
   MAX(implication) AS implication,
   MAX(quality) AS quality,
@@ -967,7 +1051,7 @@ FROM (
   SELECT
     group_id,
     member,
-    biopolymer_id,
+    unit_id,
     (CASE
       WHEN polynames THEN 100 / member_variance
       ELSE 100 / match_basic
@@ -1009,21 +1093,21 @@ FROM (
     GROUP BY group_id, member, polynames
   )
   JOIN `temp`.`_group_member_name_score` USING (group_id, member, polynames)
-  GROUP BY group_id, member, biopolymer_id
+  GROUP BY group_id, member, unit_id
 )
-GROUP BY group_id, biopolymer_id
+GROUP BY group_id, unit_id
 """)
 		
-		# generate group_biopolymer placeholders for unrecognized members
-		self.prepareTableForUpdate('group_biopolymer')
+		# generate group_unit placeholders for unrecognized members
+		self.prepareTableForUpdate('group_unit')
 		self.prepareTableForQuery('group_member_name')
-		self.prepareTableForQuery('biopolymer_name')
-		self.prepareTableForQuery('biopolymer')
+		self.prepareTableForQuery('unit_name')
+		self.prepareTableForQuery('unit')
 		dbc.execute("""
-INSERT INTO `db`.`group_biopolymer` (group_id, biopolymer_id, specificity, implication, quality, source_id)
+INSERT INTO `db`.`group_unit` (group_id, unit_id, specificity, implication, quality, source_id)
 SELECT
   group_id,
-  0 AS biopolymer_id,
+  0 AS unit_id,
   COUNT() AS specificity,
   0 AS implication,
   0 AS quality,
@@ -1031,14 +1115,11 @@ SELECT
 FROM (
   SELECT gmn.group_id
   FROM `db`.`group_member_name` AS gmn
-  LEFT JOIN `db`.`biopolymer_name` AS bn
-    ON bn.name = gmn.name
-    AND gmn.namespace_id IN (0, bn.namespace_id)
-  LEFT JOIN `db`.`biopolymer` AS b
-    ON b.biopolymer_id = bn.biopolymer_id
-    AND gmn.type_id IN (0, b.type_id)
+  LEFT JOIN `db`.`unit_name` AS un
+    ON un.name = gmn.name
+    AND gmn.namespace_id IN (0, un.namespace_id)
   GROUP BY gmn.group_id, gmn.member
-  HAVING MAX(b.biopolymer_id) IS NULL
+  HAVING MAX(un.unit_id) IS NULL
 )
 GROUP BY group_id
 """)
@@ -1046,15 +1127,15 @@ GROUP BY group_id
 		# clean up
 		dbc.execute("DROP TABLE `temp`.`_group_member_name_score`")
 		numTotal = numSourced = numMatch = numAmbig = numUnrec = 0
-		self.prepareTableForQuery('group_biopolymer')
+		self.prepareTableForQuery('group_unit')
 		for row in dbc.execute("""
 SELECT
-  COALESCE(SUM(CASE WHEN biopolymer_id > 0 THEN 1 ELSE 0 END),0) AS total,
-  COALESCE(SUM(CASE WHEN biopolymer_id > 0 AND source_id > 0 THEN 1 ELSE 0 END),0) AS sourced,
-  COALESCE(SUM(CASE WHEN biopolymer_id > 0 AND source_id = 0 AND specificity >= 100 AND implication >= 100 AND quality >= 100 THEN 1 ELSE 0 END),0) AS definite,
-  COALESCE(SUM(CASE WHEN biopolymer_id > 0 AND source_id = 0 AND (specificity < 100 OR implication < 100 OR quality < 100) THEN 1 ELSE 0 END),0) AS conditional,
-  COALESCE(SUM(CASE WHEN biopolymer_id = 0 AND source_id = 0 THEN specificity ELSE 0 END),0) AS unmatched
-FROM `db`.`group_biopolymer`
+  COALESCE(SUM(CASE WHEN unit_id > 0 THEN 1 ELSE 0 END),0) AS total,
+  COALESCE(SUM(CASE WHEN unit_id > 0 AND source_id > 0 THEN 1 ELSE 0 END),0) AS sourced,
+  COALESCE(SUM(CASE WHEN unit_id > 0 AND source_id = 0 AND specificity >= 100 AND implication >= 100 AND quality >= 100 THEN 1 ELSE 0 END),0) AS definite,
+  COALESCE(SUM(CASE WHEN unit_id > 0 AND source_id = 0 AND (specificity < 100 OR implication < 100 OR quality < 100) THEN 1 ELSE 0 END),0) AS conditional,
+  COALESCE(SUM(CASE WHEN unit_id = 0 AND source_id = 0 THEN specificity ELSE 0 END),0) AS unmatched
+FROM `db`.`group_unit`
 """):
 			numTotal = row[0]
 			numSourced = row[1]

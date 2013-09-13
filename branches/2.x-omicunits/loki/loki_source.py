@@ -334,7 +334,7 @@ class Source(object):
 		tables = [
 			'snp_merge', 'snp_locus', 'snp_entrez_role',
 			'region', 'region_name',
-			'unit', 'unit_name', 'unit_name_name', 'unit_name_property', 'unit_region',
+			'unit', 'unit_name', 'name_name', 'name_property', 'unit_region',
 			'group', 'group_name', 'group_group', 'group_unit', 'group_member_name',
 			'chain', 'chain_data',
 			'gwas',
@@ -478,32 +478,32 @@ class Source(object):
 	
 	def addUnitNameNames(self, unitNameNames):
 		# unitNameNames=[ (namespace_id1,name1,namespace_id2,name2), ... ]
-		self.prepareTableForUpdate('unit_name_name')
-		sql = "INSERT OR IGNORE INTO `db`.`unit_name_name` (namespace_id1,name1,namespace_id2,name2,source_id) VALUES (?,?,?,?,%d)" % (self.getSourceID(),)
+		self.prepareTableForUpdate('name_name')
+		sql = "INSERT OR IGNORE INTO `db`.`name_name` (namespace_id1,name1,namespace_id2,name2,source_id) VALUES (?,?,?,?,%d)" % (self.getSourceID(),)
 		self._db.cursor().executemany(sql, unitNameNames)
 	#addUnitNameNames()
 	
 	
 	def addUnitNamespacedNameNames(self, namespaceID1, namespaceID2, unitNameNames):
 		# unitNameNames=[ (name1,name2), ... ]
-		self.prepareTableForUpdate('unit_name_name')
-		sql = "INSERT OR IGNORE INTO `db`.`unit_name_name` (namespace_id1,name1,namespace_id2,name2,source_id) VALUES (%d,?,%d,?,%d)" % (namespaceID1,namespaceID2,self.getSourceID(),)
+		self.prepareTableForUpdate('name_name')
+		sql = "INSERT OR IGNORE INTO `db`.`name_name` (namespace_id1,name1,namespace_id2,name2,source_id) VALUES (%d,?,%d,?,%d)" % (namespaceID1,namespaceID2,self.getSourceID(),)
 		self._db.cursor().executemany(sql, unitNameNames)
 	#addUnitNamespacedNameNames()
 	
 	
 	def addUnitNameProperties(self, unitNameProps):
 		# unitNameProps=[ (namespace_id,name,property,value), ... ]
-		self.prepareTableForUpdate('unit_name_property')
-		sql = "INSERT OR IGNORE INTO `db`.`unit_name_property` (namespace_id,name,property,value,source_id) VALUES (?,?,?,?,%d)" % (self.getSourceID(),)
+		self.prepareTableForUpdate('name_property')
+		sql = "INSERT OR IGNORE INTO `db`.`name_property` (namespace_id,name,property,value,source_id) VALUES (?,?,?,?,%d)" % (self.getSourceID(),)
 		self._db.cursor().executemany(sql, unitNameProps)
 	#addUnitNameProperties()
 	
 	
 	def addUnitNamespacedNameProperties(self, namespaceID, prop, unitNameProps):
 		# unitNameProps=[ (name,value), ... ]
-		self.prepareTableForUpdate('unit_name_property')
-		sql = "INSERT OR IGNORE INTO `db`.`unit_name_property` (namespace_id,name,property,value,source_id) VALUES (%d,?,'%s',?,%d)" % (namespaceID,prop,self.getSourceID(),)
+		self.prepareTableForUpdate('name_property')
+		sql = "INSERT OR IGNORE INTO `db`.`name_property` (namespace_id,name,property,value,source_id) VALUES (%d,?,'%s',?,%d)" % (namespaceID,prop,self.getSourceID(),)
 		self._db.cursor().executemany(sql, unitNameProps)
 	#addUnitNamespacedNameProperties()
 	
@@ -1007,7 +1007,10 @@ class Source(object):
 					http.request('GET', remFiles[locPath])
 					response = http.getresponse()
 					while True:
-						data = response.read()
+#						try:
+						data = response.read(8*1024*1024)
+#						except httplib.IncompleteRead as e:
+#							data = e.partial
 						if not data:
 							break
 						locFile.write(data)

@@ -206,6 +206,9 @@ if __name__ == "__main__":
 							archive.extractall(cacheDir, [member])
 					#with archive
 					print "... OK"
+				elif args.cache_only:
+					print "ERROR: cannot update from --cache-only without a --from-archive"
+					sys.exit(1)
 				else:
 					print "source data archive '%s' not found, starting fresh" % fromArchive
 			#if fromArchive
