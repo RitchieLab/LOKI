@@ -8,7 +8,7 @@ class Source_kegg(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.0 (2013-02-14)'
+		return '3.0 (2013-09-16)'
 	#getVersionString()
 	
 	
@@ -96,9 +96,8 @@ class Source_kegg(loki_source.Source):
 			('pathway',    0),
 			('entrez_gid', 0),
 		])
-		typeID = self.addTypes([
+		gtypeID = self.addTypes([
 			('pathway',),
-			('gene',),
 		])
 		
 		# since download() stores SOAP result data in files that look like REST data,
@@ -123,7 +122,7 @@ class Source_kegg(loki_source.Source):
 		# store pathways
 		self.log("writing pathways to the database ...")
 		listPath = pathName.keys()
-		listGID = self.addTypedGroups(typeID['pathway'], ((pathName[pathID],None) for pathID in listPath))
+		listGID = self.addTypedGroups(gtypeID['pathway'], ((pathName[pathID],None) for pathID in listPath))
 		pathGID = dict(zip(listPath,listGID))
 		self.log(" OK\n")
 		
@@ -153,7 +152,7 @@ class Source_kegg(loki_source.Source):
 		
 		# store gene associations
 		self.log("writing gene associations to the database ...")
-		self.addGroupMemberTypedNamespacedNames(typeID['gene'], namespaceID['entrez_gid'], entrezAssoc)
+		self.addGroupMemberNamespacedNames(namespaceID['entrez_gid'], entrezAssoc)
 		self.log(" OK\n")
 	#update()
 	

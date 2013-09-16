@@ -9,7 +9,7 @@ class Source_go(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.0 (2013-02-14)'
+		return '3.0 (2013-09-16)'
 	#getVersionString()
 	
 	
@@ -38,9 +38,8 @@ class Source_go(loki_source.Source):
 		relationshipID = self.addRelationships([
 			('is_a',),
 		])
-		typeID = self.addTypes([
+		gtypeID = self.addTypes([
 			('ontology',),
-			('gene',),
 		])
 		
 		#TODO: store 'molecular process' etc as separate group types, to allow filtering by same in biofilter
@@ -136,7 +135,7 @@ class Source_go(loki_source.Source):
 		# store ontology terms
 		self.log("writing ontology terms to the database ...")
 		listGoID = goName.keys()
-		listGID = self.addTypedGroups(typeID['ontology'], ((goName[goID],goDef[goID]) for goID in listGoID))
+		listGID = self.addTypedGroups(gtypeID['ontology'], ((goName[goID],goDef[goID]) for goID in listGoID))
 		goGID = dict(zip(listGoID,listGID))
 		self.log(" OK\n")
 		
@@ -204,7 +203,7 @@ class Source_go(loki_source.Source):
 		# store gene associations
 		self.log("writing gene associations to the database ...")
 		for ns in nsAssoc:
-			self.addGroupMemberTypedNamespacedNames(typeID['gene'], namespaceID[ns], nsAssoc[ns])
+			self.addGroupMemberNamespacedNames(namespaceID[ns], nsAssoc[ns])
 		self.log(" OK\n")
 	#update()
 	

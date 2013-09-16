@@ -9,7 +9,7 @@ class Source_netpath(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.0 (2013-02-14)'
+		return '3.0 (2013-09-16)'
 	#getVersionString()
 	
 	
@@ -35,9 +35,8 @@ class Source_netpath(loki_source.Source):
 			('symbol',     0),
 			('entrez_gid', 0),
 		])
-		typeID = self.addTypes([
+		gtypeID = self.addTypes([
 			('pathway',),
-			('gene',),
 		])
 		
 		# process pathways and associations
@@ -88,7 +87,7 @@ class Source_netpath(loki_source.Source):
 		# store pathways
 		self.log("writing pathways to the database ...")
 		listPath = pathName.keys()
-		listGID = self.addTypedGroups(typeID['pathway'], ((pathName[pathID],None) for pathID in listPath))
+		listGID = self.addTypedGroups(gtypeID['pathway'], ((pathName[pathID],None) for pathID in listPath))
 		pathGID = dict(zip(listPath,listGID))
 		self.log(" OK\n")
 		
@@ -101,7 +100,7 @@ class Source_netpath(loki_source.Source):
 		# store gene associations
 		self.log("writing gene associations to the database ...")
 		for ns in nsAssoc:
-			self.addGroupMemberTypedNamespacedNames(typeID['gene'], namespaceID[ns], ((pathGID[assoc[0]],assoc[1],assoc[2]) for assoc in nsAssoc[ns]))
+			self.addGroupMemberNamespacedNames(namespaceID[ns], ((pathGID[assoc[0]],assoc[1],assoc[2]) for assoc in nsAssoc[ns]))
 		self.log(" OK\n")
 	#update()
 	

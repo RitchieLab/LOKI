@@ -9,7 +9,7 @@ class Source_biogrid(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.0 (2013-02-14)'
+		return '3.0 (2013-09-16)'
 	#getVersionString()
 	
 	
@@ -33,9 +33,8 @@ class Source_biogrid(loki_source.Source):
 			('symbol',     0),
 			('entrez_gid', 0),
 		])
-		typeID = self.addTypes([
+		gtypeID = self.addGTypes([
 			('interaction',),
-			('gene',),
 		])
 		
 		# process associations
@@ -98,7 +97,7 @@ class Source_biogrid(loki_source.Source):
 		# store interaction groups
 		self.log("writing interaction pairs to the database ...")
 		listPair = pairLabels.keys()
-		listGID = self.addTypedGroups(typeID['interaction'], (("biogrid:%s" % min(pairLabels[pair]),None) for pair in listPair))
+		listGID = self.addTypedGroups(gtypeID['interaction'], (("biogrid:%s" % min(pairLabels[pair]),None) for pair in listPair))
 		pairGID = dict(zip(listPair,listGID))
 		self.log(" OK\n")
 		
@@ -128,7 +127,7 @@ class Source_biogrid(loki_source.Source):
 			for n in xrange(1,len(pair[1])):
 				nsAssoc['symbol'].add( (pairGID[pair],numAssoc,pair[1][n]) )
 		for ns in nsAssoc:
-			self.addGroupMemberTypedNamespacedNames(typeID['gene'], namespaceID[ns], nsAssoc[ns])
+			self.addGroupMemberNamespacedNames(namespaceID[ns], nsAssoc[ns])
 		self.log(" OK\n")
 		
 		# TODO: decide if there's any value in trying to identify pseudo-pathways

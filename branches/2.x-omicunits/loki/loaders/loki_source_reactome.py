@@ -11,7 +11,7 @@ class Source_reactome(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.0 (2013-02-14)'
+		return '3.0 (2013-09-16)'
 	#getVersionString()
 	
 	
@@ -45,8 +45,7 @@ class Source_reactome(loki_source.Source):
 			('reactome_id',  0),
 		])
 		relationshipID = dict()
-		typeID = self.addTypes([
-			('gene',),
+		gtypeID = self.addTypes([
 			('pathway',),
 		])
 		
@@ -311,7 +310,7 @@ class Source_reactome(loki_source.Source):
 		
 		# store pathways
 		self.log("writing pathways to the database ...")
-		listGID = self.addTypedGroups(typeID['pathway'], (((group[1] or group[0]),(group[0] if group[1] else None)) for group in listGroup))
+		listGID = self.addTypedGroups(gtypeID['pathway'], (((group[1] or group[0]),(group[0] if group[1] else None)) for group in listGroup))
 		pathGID = { path:listGID[pathGroup[path]] for path in pathGroup }
 		reactGID = { react:listGID[reactGroup[react]] for react in reactGroup }
 		self.log(" OK\n")
@@ -325,8 +324,8 @@ class Source_reactome(loki_source.Source):
 		# store gene associations
 		self.log("writing gene associations to the database ...")
 		for ns in nsAssoc:
-			self.addGroupMemberTypedNamespacedNames(typeID['gene'], namespaceID[ns], ((pathGID[assoc[0]],assoc[1],assoc[2]) for assoc in nsAssoc[ns]['path']))
-			self.addGroupMemberTypedNamespacedNames(typeID['gene'], namespaceID[ns], ((reactGID[assoc[0]],assoc[1],assoc[2]) for assoc in nsAssoc[ns]['react']))
+			self.addGroupMemberNamespacedNames(namespaceID[ns], ((pathGID[assoc[0]],assoc[1],assoc[2]) for assoc in nsAssoc[ns]['path']))
+			self.addGroupMemberNamespacedNames(namespaceID[ns], ((reactGID[assoc[0]],assoc[1],assoc[2]) for assoc in nsAssoc[ns]['react']))
 		self.log(" OK\n")
 	#update()
 	

@@ -14,7 +14,7 @@ class Source_oreganno(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.0 (2013-02-14)'
+		return '3.0 (2013-09-16)'
 	#getVersionString()
 	
 	
@@ -44,14 +44,13 @@ class Source_oreganno(loki_source.Source):
 		])
 		
 		# Add the types of Regions
-		typeids = self.addTypes([
+		rtypeids = self.addRTypes([
 			('regulatory_region',),
-			('tfbs',),
-			('gene',)
+			('tfbs',)
 		])
 		
 		# Add the types of groups
-		group_typeid = self.addType('regulatory_group')
+		group_typeid = self.addGType('regulatory_group')
 		
 		# Add the role for regulatory
 		snp_roleid = self.addRole("regulatory", "OregAnno Regulatory Polymorphism", 1, 0)
@@ -174,7 +173,7 @@ class Source_oreganno(loki_source.Source):
 				member_num += 1
 				group_membership.append((gid, member_num, oreganno_types.get(oreg_id, 0), ns, oreg_id))
 				for external_nsid, external_val in oreg_gene.get(oreg_id,{}).iteritems():
-					gene_member.add((gid, 1, typeids['gene'], external_nsid, external_val))
+					gene_member.add((gid, 1, external_nsid, external_val))
 					
 				member_num += 1
 				for external_nsid, external_val in oreg_tfbs.get(oreg_id,{}).iteritems():
@@ -183,7 +182,7 @@ class Source_oreganno(loki_source.Source):
 			group_membership.extend(gene_member)
 			for ext_ns, d in tfbs_member.iteritems():
 				for sym, mn in d.iteritems():
-					group_membership.append((gid, mn, typeids['gene'], ext_ns, sym))
+					group_membership.append((gid, mn, ext_ns, sym))
 		
 		self.addGroupMemberNames(group_membership)
 		

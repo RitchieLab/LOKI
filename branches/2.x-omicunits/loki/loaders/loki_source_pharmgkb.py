@@ -9,7 +9,7 @@ class Source_pharmgkb(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.0 (2013-02-14)'
+		return '3.0 (2013-09-16)'
 	#getVersionString()
 	
 	
@@ -43,8 +43,7 @@ class Source_pharmgkb(loki_source.Source):
 			('uniprot_gid',  0),
 			('uniprot_pid',  1),
 		])
-		typeID = self.addTypes([
-			('gene',),
+		gtypeID = self.addTypes([
 			('pathway',),
 		])
 		
@@ -87,26 +86,26 @@ class Source_pharmgkb(loki_source.Source):
 						xrefs = words[9].strip(', \r\n').split(',') if words[9] != "" else empty
 						
 						if entrezID:
-							setNames.add( (namespaceID['entrez_gid'],entrezID,pgkbID) )
+							setNames.add( (namespaceID['pharmgkb_gid'],pgkbID,namespaceID['entrez_gid'],entrezID) )
 						if ensemblID:
-							setNames.add( (namespaceID['ensembl_gid'],ensemblID,pgkbID) )
-							setNames.add( (namespaceID['ensembl_pid'],ensemblID,pgkbID) )
+							setNames.add( (namespaceID['pharmgkb_gid'],pgkbID,namespaceID['ensembl_gid'],ensemblID) )
+							setNames.add( (namespaceID['pharmgkb_gid'],pgkbID,namespaceID['ensembl_pid'],ensemblID) )
 						if symbol:
-							setNames.add( (namespaceID['symbol'],symbol,pgkbID) )
+							setNames.add( (namespaceID['pharmgkb_gid'],pgkbID,namespaceID['symbol'],symbol) )
 						for alias in aliases:
 							#line.decode('latin-1') should handle this above
-							#setNames.add( (namespaceID['symbol'],unicode(alias.strip('" '),errors='ignore'),pgkbID) )
-							setNames.add( (namespaceID['symbol'],alias.strip('" '),pgkbID) )
+							#setNames.add( (namespaceID['pharmgkb_gid'],pgkbID,namespaceID['symbol'],unicode(alias.strip('" '),errors='ignore')) )
+							setNames.add( (namespaceID['pharmgkb_gid'],pgkbID,namespaceID['symbol'],alias.strip('" ')) )
 						for xref in xrefs:
 							try:
 								xrefDB,xrefID = xref.split(':',1)
 								if xrefDB in xrefNS:
 									for ns in xrefNS[xrefDB]:
-										setNames.add( (namespaceID[ns],xrefID,pgkbID) )
+										setNames.add( (namespaceID['pharmgkb_gid'],pgkbID,namespaceID[ns],xrefID) )
 										#line.decode('latin-1') should handle this above
 										#try:
 										#	xrefID.encode('ascii')
-										#	setNames.add( (namespaceID[ns],xrefID.decode('utf8').encode('ascii'),pgkbID) )
+										#	setNames.add( (namespaceID['pharmgkb_gid'],pgkbID,namespaceID[ns],xrefID.decode('utf8').encode('ascii')) )
 										#except:
 										#	self.log("Cannot encode gene alias")
 							except ValueError:
@@ -116,12 +115,12 @@ class Source_pharmgkb(loki_source.Source):
 				#if genes.tsv
 			#foreach file in geneZip
 		#with geneZip
-		numIDs = len(set(n[2] for n in setNames))
+		numIDs = len(set(n[1] for n in setNames))
 		self.log(" OK: %d identifiers (%d references)\n" % (numIDs,len(setNames)))
 		
 		# store gene names
 		self.log("writing gene names to the database ...")
-		self.addBiopolymerTypedNameNamespacedNames(typeID['gene'], namespaceID['pharmgkb_gid'], setNames)
+		self.addUnitNameNames(setNames)
 		self.log(" OK\n")
 		setNames = None
 		
@@ -184,7 +183,7 @@ class Source_pharmgkb(loki_source.Source):
 		# store pathways
 		self.log("writing pathways to the database ...")
 		listPath = pathDesc.keys()
-		listGID = self.addTypedGroups(typeID['pathway'], (pathDesc[path] for path in listPath))
+		listGID = self.addTypedGroups(gtypeID['pathway'], (pathDesc[path] for path in listPath))
 		pathGID = dict(zip(listPath,listGID))
 		self.log(" OK\n")
 		
@@ -197,7 +196,7 @@ class Source_pharmgkb(loki_source.Source):
 		# store gene associations
 		self.log("writing gene associations to the database ...")
 		for ns in nsAssoc:
-			self.addGroupMemberTypedNamespacedNames(typeID['gene'], namespaceID[ns], ((pathGID[a[0]],a[1],a[2]) for a in nsAssoc[ns]) )
+			self.addGroupMemberNamespacedNames(namespaceID[ns], ((pathGID[a[0]],a[1],a[2]) for a in nsAssoc[ns]) )
 		self.log(" OK\n")
 		
 		#TODO: eventually add diseases, drugs, relationships

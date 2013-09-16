@@ -35,7 +35,7 @@ class Source_mint(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.0 (2013-02-14)'
+		return '3.0 (2013-09-16)'
 	#getVersionString()
 	
 	
@@ -73,9 +73,8 @@ class Source_mint(loki_source.Source):
 			('refseq_pid',  1),
 			('uniprot_pid', 1),
 		])
-		typeID = self.addTypes([
+		gtypeID = self.addTypes([
 			('interaction',),
-			('gene',),
 		])
 		
 		# process interation groups
@@ -153,7 +152,7 @@ class Source_mint(loki_source.Source):
 		# store interaction groups
 		self.log("writing interaction groups to the database ...")
 		listMint = mintDesc.keys()
-		listGID = self.addTypedGroups(typeID['interaction'], ((mint,mintDesc[mint]) for mint in listMint))
+		listGID = self.addTypedGroups(gtypeID['interaction'], ((mint,mintDesc[mint]) for mint in listMint))
 		mintGID = dict(zip(listMint,listGID))
 		self.log(" OK\n")
 		
@@ -165,7 +164,7 @@ class Source_mint(loki_source.Source):
 		# store gene interactions
 		self.log("writing gene interactions to the database ...")
 		for ns in nsAssoc:
-			self.addGroupMemberTypedNamespacedNames(typeID['gene'], namespaceID[ns], ((mintGID[a[0]],a[1],a[2]) for a in nsAssoc[ns]))
+			self.addGroupMemberNamespacedNames(namespaceID[ns], ((mintGID[a[0]],a[1],a[2]) for a in nsAssoc[ns]))
 		self.log(" OK\n")
 	#update()
 	

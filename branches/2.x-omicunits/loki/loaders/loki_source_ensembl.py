@@ -98,15 +98,16 @@ class Source_ensembl(loki_source.Source):
 		numInc = 0
 		with open('biomart_martservice_ensg_desc.txt','rU') as datafile:
 			header = datafile.next().rstrip()
-#			if not header.startswith("Ensembl Gene ID	Associated Gene Name	Description	HGNC symbol	WikiGene Name	UniProt Gene Name"):
-#				self.log(" ERROR: unrecognized file header\n")
-#				self.log("%s\n" % header)
-#				return False
+			if not header.startswith("Ensembl Gene ID	Associated Gene Name	Description	HGNC symbol	WikiGene Name	UniProt Gene Name"):
+				self.log(" ERROR: unrecognized file header\n")
+				self.log("%s\n" % header)
+				return False
 			for line in datafile:
 				words = [ w.strip() for w in line.split("\t") ]
-				if len(words) == 5:
-					words.insert(1,None)
-				elif len(words) < 6:
+#				if len(words) == 5:
+#					words.insert(1,None)
+#				elif len(words) < 6:
+				if len(words) < 6:
 					numInc += 1
 					continue
 				ensg = words[0]

@@ -9,7 +9,7 @@ class Source_pfam(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.1 (2013-05-02)'
+		return '3.0 (2013-09-16)'
 	#getVersionString()
 	
 	
@@ -38,9 +38,8 @@ class Source_pfam(loki_source.Source):
 		relationshipID = self.addRelationships([
 			('',),
 		])
-		typeID = self.addTypes([
+		gtypeID = self.addTypes([
 			('proteinfamily',),
-			('gene',),
 		])
 		
 		# process protein families
@@ -72,10 +71,10 @@ class Source_pfam(loki_source.Source):
 		# store protein families
 		self.log("writing protein families to the database ...")
 		listGroup = groupFam.keys()
-		listGID = self.addTypedGroups(typeID['proteinfamily'], ((group,"") for group in listGroup))
+		listGID = self.addTypedGroups(gtypeID['proteinfamily'], ((group,"") for group in listGroup))
 		groupGID = dict(zip(listGroup,listGID))
 		listFam = famAcc.keys()
-		listGID = self.addTypedGroups(typeID['proteinfamily'], ((famName[fam],famDesc[fam]) for fam in listFam))
+		listGID = self.addTypedGroups(gtypeID['proteinfamily'], ((famName[fam],famDesc[fam]) for fam in listFam))
 		famGID = dict(zip(listFam,listGID))
 		self.log(" OK\n")
 		
@@ -133,7 +132,7 @@ class Source_pfam(loki_source.Source):
 		
 		# store gene associations
 		self.log("writing gene associations to the database ...")
-		self.addGroupMemberTypedNamespacedNames(typeID['gene'], namespaceID['uniprot_pid'], setAssoc)
+		self.addGroupMemberNamespacedNames(namespaceID['uniprot_pid'], setAssoc)
 		self.log(" OK\n")
 	#update()
 	
