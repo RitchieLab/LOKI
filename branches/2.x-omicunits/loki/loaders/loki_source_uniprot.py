@@ -90,15 +90,15 @@ class Source_uniprot(loki_source.Source):
 			for word14 in words[14].split(';'):
 				mimID = word14.strip() if word14 else None
 				if mimID:
-					nsNames[(nsID['uniprot_pid'],nsID['mim_id'])].add( (uniprotAcc,mimID) )
-					nsNames[(nsID['uniprot_gid'],nsID['mim_id'])].add( (uniprotID,mimID) )
+					nsNames[(nsID['uniprot_pid'],nsID['mim_gid'])].add( (uniprotAcc,mimID) )
+					nsNames[(nsID['uniprot_gid'],nsID['mim_gid'])].add( (uniprotID,mimID) )
 			#foreach mim mapping
 			for word15 in words[15].split(';'):
 				unigeneID = word15.strip() if word15 else None
 				if unigeneID:
 					nsNames[(nsID['uniprot_pid'],nsID['unigene_gid'])].add( (uniprotAcc,unigeneID) )
 					nsNames[(nsID['uniprot_gid'],nsID['unigene_gid'])].add( (uniprotID,unigeneID) )
-			#foreach mim mapping
+			#foreach unigene mapping
 			for word19 in words[19].split(';'):
 				ensemblGID = word19.strip() if word19 else None
 				if ensemblGID:
