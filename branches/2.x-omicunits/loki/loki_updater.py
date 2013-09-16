@@ -248,7 +248,8 @@ class Updater(object):
 						self.logPush("processing %s data ...\n" % srcName)
 						
 						cursor.execute("DELETE FROM `db`.`warning` WHERE source_id = ?", (srcID,))
-						srcObj.update(options)
+						if srcObj.update(options) == False:
+							raise Exception
 						cursor.execute("UPDATE `db`.`source` SET updated = DATETIME('now'), version = ? WHERE source_id = ?", (srcObj.getVersionString(), srcID))
 						
 						cursor.execute("DELETE FROM `db`.`source_option` WHERE source_id = ?", (srcID,))
