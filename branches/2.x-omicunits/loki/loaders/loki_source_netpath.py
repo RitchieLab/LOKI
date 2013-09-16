@@ -35,7 +35,7 @@ class Source_netpath(loki_source.Source):
 			('symbol',     0),
 			('entrez_gid', 0),
 		])
-		gtypeID = self.addTypes([
+		gtypeID = self.addGTypes([
 			('pathway',),
 		])
 		

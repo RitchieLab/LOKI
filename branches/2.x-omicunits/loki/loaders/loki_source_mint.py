@@ -73,7 +73,7 @@ class Source_mint(loki_source.Source):
 			('refseq_pid',  1),
 			('uniprot_pid', 1),
 		])
-		gtypeID = self.addTypes([
+		gtypeID = self.addGTypes([
 			('interaction',),
 		])
 		

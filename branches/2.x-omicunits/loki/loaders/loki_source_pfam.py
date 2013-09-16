@@ -38,7 +38,7 @@ class Source_pfam(loki_source.Source):
 		relationshipID = self.addRelationships([
 			('',),
 		])
-		gtypeID = self.addTypes([
+		gtypeID = self.addGTypes([
 			('proteinfamily',),
 		])
 		

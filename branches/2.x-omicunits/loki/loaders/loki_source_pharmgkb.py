@@ -43,7 +43,7 @@ class Source_pharmgkb(loki_source.Source):
 			('uniprot_gid',  0),
 			('uniprot_pid',  1),
 		])
-		gtypeID = self.addTypes([
+		gtypeID = self.addGTypes([
 			('pathway',),
 		])
 		

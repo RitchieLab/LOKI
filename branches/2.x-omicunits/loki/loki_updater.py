@@ -355,7 +355,7 @@ class Updater(object):
 				t0 = time.time()
 				self.updateRegionZones()
 				self.log("(%ds)\n" % (time.time()-t0))
-			if 1 or ('region' in self._tablesUpdated) or ('region_name' in self._tablesUpdated) or ('name_name' in self._tablesUpdated):
+			if ('region' in self._tablesUpdated) or ('region_name' in self._tablesUpdated) or ('name_name' in self._tablesUpdated):
 				t0 = time.time()
 				self.defineOmicUnits()
 				self.log("(%ds)\n" % (time.time()-t0))

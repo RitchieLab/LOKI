@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import collections
-import itertools
 from loki import loki_source
 
 
@@ -10,7 +9,7 @@ class Source_hgnc(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.1 (2013-03-22)'
+		return '3.0 (2013-09-16)'
 	#getVersionString()
 	
 	

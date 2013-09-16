@@ -140,9 +140,9 @@ class Source_oreganno(loki_source.Source):
 					oreganno_groups.setdefault(gene_symbol, []).append(oreg_id)
 				
 				if oreg_type == "REGULATORY REGION":
-					oreg_typeid = typeids['regulatory_region']
+					oreg_typeid = rtypeids['regulatory_region']
 				else:
-					oreg_typeid = typeids['tfbs']
+					oreg_typeid = rtypeids['tfbs']
 				
 				oreganno_types[oreg_id] = oreg_typeid
 				oreganno_regions.append((oreg_typeid, oreg_id, ''))

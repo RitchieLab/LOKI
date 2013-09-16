@@ -96,7 +96,7 @@ class Source_kegg(loki_source.Source):
 			('pathway',    0),
 			('entrez_gid', 0),
 		])
-		gtypeID = self.addTypes([
+		gtypeID = self.addGTypes([
 			('pathway',),
 		])
 		

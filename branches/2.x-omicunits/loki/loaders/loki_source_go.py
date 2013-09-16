@@ -38,7 +38,7 @@ class Source_go(loki_source.Source):
 		relationshipID = self.addRelationships([
 			('is_a',),
 		])
-		gtypeID = self.addTypes([
+		gtypeID = self.addGTypes([
 			('ontology',),
 		])
 		

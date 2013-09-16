@@ -45,7 +45,7 @@ class Source_reactome(loki_source.Source):
 			('reactome_id',  0),
 		])
 		relationshipID = dict()
-		gtypeID = self.addTypes([
+		gtypeID = self.addGTypes([
 			('pathway',),
 		])
 		

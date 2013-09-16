@@ -10,7 +10,7 @@ class Source_ccds(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.1 (2013-03-21)'
+		return '3.0 (2013-09-16)'
 	#getVersionString()
 	
 	

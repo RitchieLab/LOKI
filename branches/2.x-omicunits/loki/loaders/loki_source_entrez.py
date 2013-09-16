@@ -11,7 +11,7 @@ class Source_entrez(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.1 (2013-03-18)'
+		return '3.0 (2013-09-16)'
 	#getVersionString()
 	
 	
