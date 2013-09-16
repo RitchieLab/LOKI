@@ -105,12 +105,13 @@ class Source_uniprot(loki_source.Source):
 					nsNames[(nsID['uniprot_pid'],nsID['ensembl_gid'])].add( (uniprotAcc,ensemblGID) )
 					nsNames[(nsID['uniprot_gid'],nsID['ensembl_gid'])].add( (uniprotID,ensemblGID) )
 			#foreach ensG mapping
-			for word20 in words[20].split(';'):
-				ensemblTID = word20.strip() if word20 else None
-				if ensemblTID:
-					nsNames[(nsID['uniprot_pid'],nsID['ensembl_gid'])].add( (uniprotAcc,ensemblTID) )
-					nsNames[(nsID['uniprot_gid'],nsID['ensembl_gid'])].add( (uniprotID,ensemblTID) )
-			#foreach ensT mapping
+		#TODO: decide if ENST is useful, and if so, pull them from ensembl directly so they link to ENSGs
+		#	for word20 in words[20].split(';'):
+		#		ensemblTID = word20.strip() if word20 else None
+		#		if ensemblTID:
+		#			nsNames[(nsID['uniprot_pid'],nsID['ensembl_gid'])].add( (uniprotAcc,ensemblTID) )
+		#			nsNames[(nsID['uniprot_gid'],nsID['ensembl_gid'])].add( (uniprotID,ensemblTID) )
+		#	#foreach ensT mapping
 			for word21 in words[21].split(';'):
 				ensemblPID = word21.strip() if word21 else None
 				if ensemblPID:
