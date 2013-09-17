@@ -23,12 +23,14 @@ class Source_oreganno(loki_source.Source):
 		Download OregAnno from UCSC
 		"""
 		self.downloadFilesFromFTP(self._remHost, dict(((f, self._remPath + f) for f in self._remFiles)))
-		
+	#download()
+	
+	
 	def update(self, options):
 		"""
 		Update the database with the OregAnno data from ucsc
 		"""
-			
+		
 		self.log("deleting old records from the database ...")
 		self.deleteAll()
 		self.log(" OK\n")		
@@ -152,10 +154,11 @@ class Source_oreganno(loki_source.Source):
 	
 		self.log("Writing to database ... ")
 		self.addSNPEntrezRoles(oreganno_roles)
-		reg_ids = self.addBiopolymers(oreganno_regions)
-		self.addBiopolymerNamespacedNames(ns, ((reg_ids[i], oreganno_regions[i][1]) for i in range(len(reg_ids))))
-		bound_gen = zip(((r,) for r in reg_ids),oreganno_bounds)
-		self.addBiopolymerLDProfileRegions(ldprofile_id, ((itertools.chain(*c) for c in bound_gen)))
+	#TODO: 3.0
+	#	reg_ids = self.addBiopolymers(oreganno_regions)
+	#	self.addBiopolymerNamespacedNames(ns, ((reg_ids[i], oreganno_regions[i][1]) for i in range(len(reg_ids))))
+	#	bound_gen = zip(((r,) for r in reg_ids),oreganno_bounds)
+	#	self.addBiopolymerLDProfileRegions(ldprofile_id, ((itertools.chain(*c) for c in bound_gen)))
 		
 		# Now, add the regulation groups
 		oreg_genes = oreganno_groups.keys()
