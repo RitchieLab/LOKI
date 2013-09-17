@@ -174,7 +174,7 @@ class Source_oreganno(loki_source.Source):
 			member_num = 2
 			for oreg_id in oreganno_groups[gene_key]:
 				member_num += 1
-				group_membership.append((gid, member_num, oreganno_types.get(oreg_id, 0), ns, oreg_id))
+				group_membership.append((gid, member_num, ns, oreg_id))
 				for external_nsid, external_val in oreg_gene.get(oreg_id,{}).iteritems():
 					gene_member.add((gid, 1, external_nsid, external_val))
 					
