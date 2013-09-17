@@ -825,13 +825,17 @@ WHERE rn.namespace_id IN (%s)"""
 			units = nameUnits[n1]
 			dist = nameDist[n1] + 1
 			for n2 in graph[n1]:
-				if nameDist.get(n2,dist) == dist:
+				if n2 not in nameDist:
 					for u in units:
 						unitNames[u].add(n2)
 					nameUnits[n2] |= units
 					nameDist[n2] = dist
 					queue.appendleft(n2)
-				elif nameDist.get(n2) > dist:
+				elif nameDist[n2] == dist:
+					for u in units:
+						unitNames[u].add(n2)
+					nameUnits[n2] |= units
+				elif nameDist[n2] > dist:
 					raise Exception("BFS failure")
 		graph = None
 		self.log(" OK: %d identifiers\n" % (len(nameUnits),))
