@@ -17,6 +17,16 @@ class Updater(object):
 	
 	
 	##################################################
+	# class interrogation
+	
+	
+	@classmethod
+	def getVersionString(cls):
+		return '3.0 (2013-09-20)'
+	#getVersionString()
+	
+	
+	##################################################
 	# constructor
 	
 	
@@ -325,49 +335,56 @@ class Updater(object):
 			#if any old builds
 			
 			# post-process as needed
+			allPost = False
+			lastVers,curVers = self._loki.getDatabaseSetting('updaterVersion'),self.getVersionString()
+			if lastVers != curVers:
+				self._loki.setDatabaseSetting('updaterVersion', curVers)
+				allPost = True
+				if lastVers:
+					self.log("updater version changed from '%s' to '%s', re-running all post-processing\n" % (lastVers,curVers))
 			#self.log("MEMORY: %d bytes (%d peak)\n" % self._loki.getDatabaseMemoryUsage()) #DEBUG
 			import time
-			if ('snp_merge' in self._tablesUpdated):
+			if allPost or ('snp_merge' in self._tablesUpdated):
 				t0 = time.time()
 				self.cleanupSNPMerges()
 				self.log("(%ds)\n" % (time.time()-t0))
-			if ('snp_merge' in self._tablesUpdated) or ('snp_locus' in self._tablesUpdated):
+			if allPost or ('snp_merge' in self._tablesUpdated) or ('snp_locus' in self._tablesUpdated):
 				t0 = time.time()
 				self.updateMergedSNPLoci()
 				self.log("(%ds)\n" % (time.time()-t0))
-			if ('snp_locus' in self._tablesUpdated):
+			if allPost or ('snp_locus' in self._tablesUpdated):
 				t0 = time.time()
 				self.cleanupSNPLoci()
 				self.log("(%ds)\n" % (time.time()-t0))
-			if ('snp_merge' in self._tablesUpdated) or ('snp_entrez_role' in self._tablesUpdated):
+			if allPost or ('snp_merge' in self._tablesUpdated) or ('snp_entrez_role' in self._tablesUpdated):
 				t0 = time.time()
 				self.updateMergedSNPEntrezRoles()
 				self.log("(%ds)\n" % (time.time()-t0))
-			if ('snp_entrez_role' in self._tablesUpdated):
+			if allPost or ('snp_entrez_role' in self._tablesUpdated):
 				t0 = time.time()
 				self.cleanupSNPEntrezRoles()
 				self.log("(%ds)\n" % (time.time()-t0))
-			if ('snp_merge' in self._tablesUpdated) or ('gwas' in self._tablesUpdated):
+			if allPost or ('snp_merge' in self._tablesUpdated) or ('gwas' in self._tablesUpdated):
 				t0 = time.time()
 				self.updateMergedGWASAnnotations()
 				self.log("(%ds)\n" % (time.time()-t0))
-			if ('region' in self._tablesUpdated):
+			if allPost or ('region' in self._tablesUpdated):
 				t0 = time.time()
 				self.updateRegionZones()
 				self.log("(%ds)\n" % (time.time()-t0))
-			if ('region' in self._tablesUpdated) or ('region_name' in self._tablesUpdated) or ('name_name' in self._tablesUpdated):
+			if allPost or ('region' in self._tablesUpdated) or ('region_name' in self._tablesUpdated) or ('name_name' in self._tablesUpdated):
 				t0 = time.time()
 				self.defineOmicUnits()
 				self.log("(%ds)\n" % (time.time()-t0))
-			if ('unit_name' in self._tablesUpdated) or ('snp_entrez_role' in self._tablesUpdated):
+			if allPost or ('unit_name' in self._tablesUpdated) or ('snp_entrez_role' in self._tablesUpdated):
 				t0 = time.time()
 				self.resolveSNPUnitRoles()
 				self.log("(%ds)\n" % (time.time()-t0))
-			if ('unit_name' in self._tablesUpdated) or ('region_name' in self._tablesUpdated):
+			if allPost or ('unit_name' in self._tablesUpdated) or ('region_name' in self._tablesUpdated):
 				t0 = time.time()
 				self.resolveUnitRegions()
 				self.log("(%ds)\n" % (time.time()-t0))
-			if ('unit_name' in self._tablesUpdated) or ('group_member_name' in self._tablesUpdated):
+			if allPost or ('unit_name' in self._tablesUpdated) or ('group_member_name' in self._tablesUpdated):
 				t0 = time.time()
 				self.resolveGroupMembers()
 				self.log("(%ds)\n" % (time.time()-t0))
@@ -793,7 +810,9 @@ WHERE rn.namespace_id IN (%s)"""
 			names = set()
 			uC = uR = None
 			for rC,rL,rR,rN in itertools.chain(regions, [(0,0,0,None)]):
-				if (uC != rC) or (uR + 25000 < rL): #TODO: configurable gap limit
+				if (uC == None or uC == 23 or uC == 24) and (rC == 23 or rC == 24): #it's ok for a core to have regions on X and Y
+					uC,uR = rC,rR
+				elif (uC != rC) or (uR + 25000 < rL): #TODO: configurable gap limit
 					if names:
 						if rN == None:
 							pass
