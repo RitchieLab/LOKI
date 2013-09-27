@@ -39,7 +39,7 @@ class Source_pharmgkb(loki_source.Source):
 			('refseq_pid',   1),
 			('ensembl_gid',  0),
 			('ensembl_pid',  1),
-			('hgnc_id',      0),
+			('hgnc_gid',     0),
 			('uniprot_gid',  0),
 			('uniprot_pid',  1),
 		])
@@ -65,7 +65,7 @@ class Source_pharmgkb(loki_source.Source):
 				'refSeqRna':     ('refseq_gid',),
 				'refSeqProtein': ('refseq_pid',),
 				'ensembl':       ('ensembl_gid','ensembl_pid'),
-				'hgnc':          ('hgnc_id',),
+				'hgnc':          ('hgnc_gid',),
 				'uniProtKb':     ('uniprot_gid','uniprot_pid'),
 			}
 			for info in geneZip.infolist():
@@ -141,6 +141,7 @@ class Source_pharmgkb(loki_source.Source):
 			self.log(" OK\n")
 			self.log("processing pathways ...")
 			for info in pathZip.infolist():
+				#TODO: handle new separate-file-per-pathway format
 				if info.filename == 'pathways.tsv':
 					pathFile = pathZip.open(info,'r')
 					curPath = None

@@ -986,7 +986,7 @@ WHERE rn.namespace_id IN (%s)"""
 				names = set()
 			names.add( (row[1],row[2]) )
 		cursor.executemany("INSERT OR IGNORE INTO `db`.`unit_region` (unit_id,region_id,urtype_id,source_id) VALUES (?,?,0,0)", unitRegions)
-		self.log(" OK: %d regions assigned (%d definite, %d ambiguous, %d unrecognized)\n" % (len(unitRegions),numSingle,numAmbig,numUnrec))
+		self.log(" OK: %d assignments (%d definite, %d ambiguous, %d unrecognized)\n" % (len(unitRegions),numSingle,numAmbig,numUnrec))
 		
 		return nameUIDs
 	#resolveUnitRegions()
