@@ -9,7 +9,7 @@ class Source_go(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '3.0 (2013-09-16)'
+		return '3.0 (2013-10-07)'
 	#getVersionString()
 	
 	
@@ -42,8 +42,6 @@ class Source_go(loki_source.Source):
 			('ontology',),
 		])
 		
-		#TODO: store 'molecular process' etc as separate group types, to allow filtering by same in biofilter
-		
 		# process ontology terms
 		self.log("processing ontology terms ...")
 		# file format specification: http://www.geneontology.org/GO.format.obo-1_2.shtml
@@ -53,11 +51,9 @@ class Source_go(loki_source.Source):
 		# practice, so we'll stick with that for now
 		reTrailingEscape = re.compile('(?:^|[^\\\\])(?:\\\\\\\\)*\\\\$')
 		empty = tuple()
-		goName = {}
-		goDef = {}
+		goGroup = {}
 		goLinks = {}
-		#goNS = {}
-		#oboProps = {}
+		oboProps = {}
 		curStanza = curID = curAnon = curObs = curName = curNS = curDef = curLinks = None
 		with open('gene_ontology.1_2.obo','rU') as oboFile:
 			while True:
@@ -71,23 +67,24 @@ class Source_go(loki_source.Source):
 				
 				if line == False or tag.startswith('['):
 					if (curStanza == 'Term') and curID and (not curAnon) and (not curObs):
-						goName[curID] = curName
-						goDef[curID] = curDef
+						if curNS and (curNS not in gtypeID):
+							gtypeID[curNS] = self.addGType(curNS)
+						goGroup[curID] = (gtypeID[curNS],curName,curDef)
 						goLinks[curID] = curLinks or empty
-				#		goNS[curID] = curNS or (oboProps['default-namespace'][-1] if ('default-namespace' in oboProps) else None)
 					if line == False:
 						break
 					curStanza = tag[1:tag.index(']')]
-					curID = curAnon = curObs = curName = curNS = curDef = curLinks = None
-				#elif not curStanza:
-				#	# before the first stanza, tag-value pairs are global file properties
-				#	if tag not in oboProps:
-				#		oboProps[tag] = []
-				#	oboProps[tag].append(val)
+					curID = curAnon = curObs = curName = curDef = curLinks = None
+					curNS = oboProps['default-namespace'][-1] if ('default-namespace' in oboProps) else 'ontology'
+				elif not curStanza:
+					# before the first stanza, tag-value pairs are global file properties
+					if tag not in oboProps:
+						oboProps[tag] = []
+					oboProps[tag].append(val)
 				elif tag == 'id':
 					curID = val
-				elif tag == 'alt_id':
-					pass
+			#	elif tag == 'alt_id':
+			#		pass
 				elif tag == 'def':
 					curDef = val
 					if val.startswith('"'):
@@ -101,16 +98,18 @@ class Source_go(loki_source.Source):
 					curAnon = (val.lower().split()[0] == 'true')
 				elif tag == 'is_obsolete':
 					curObs = (val.lower().split()[0] == 'true')
-				elif tag == 'replaced_by':
-					pass
-				#elif tag == 'namespace':
-				#	curNS = val
+			#	elif tag == 'replaced_by':
+			#		pass
+				elif tag == 'namespace':
+					# one of the "biological_process", "cellular_component" and "molecular_function" root groups,
+					# which we translate to group-types
+					curNS = val
 				elif tag == 'name':
 					curName = val
-				elif tag == 'synonym':
-					pass
-				elif tag == 'xref':
-					pass
+			#	elif tag == 'synonym':
+			#		pass
+			#	elif tag == 'xref':
+			#		pass
 				elif tag == 'is_a':
 					curLinks = curLinks or set()
 					curLinks.add( (val.split()[0], relationshipID['is_a'], -1) )
@@ -128,21 +127,22 @@ class Source_go(loki_source.Source):
 					curLinks.add( (words[1], relationshipID[words[0]], contains) )
 			#foreach line
 		#with oboFile
-		numTerms = len(goName)
+		numTerms = len(goGroup)
 		numLinks = sum(len(goLinks[goID]) for goID in goLinks)
 		self.log(" OK: %d terms, %d links\n" % (numTerms,numLinks))
 		
 		# store ontology terms
 		self.log("writing ontology terms to the database ...")
-		listGoID = goName.keys()
-		listGID = self.addTypedGroups(gtypeID['ontology'], ((goName[goID],goDef[goID]) for goID in listGoID))
+		listGoID = goGroup.keys()
+		listGID = self.addGroups(goGroup[goID] for goID in listGoID)
 		goGID = dict(zip(listGoID,listGID))
+		listGoID = listGID = None
 		self.log(" OK\n")
 		
 		# store ontology term names
 		self.log("writing ontology term names to the database ...")
-		self.addGroupNamespacedNames(namespaceID['go_id'], ((goGID[goID],goID) for goID in listGoID))
-		self.addGroupNamespacedNames(namespaceID['ontology'], ((goGID[goID],goName[goID]) for goID in listGoID))
+		self.addGroupNamespacedNames(namespaceID['go_id'], ((goGID[goID],goID) for goID in goGID))
+		self.addGroupNamespacedNames(namespaceID['ontology'], ((goGID[goID],goGroup[goID][1]) for goID in goGID))
 		self.log(" OK\n")
 		
 		# store ontology term links
