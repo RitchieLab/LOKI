@@ -344,6 +344,7 @@ class Updater(object):
 					self.log("updater version changed from '%s' to '%s', re-running all post-processing\n" % (lastVers,curVers))
 			#self.log("MEMORY: %d bytes (%d peak)\n" % self._loki.getDatabaseMemoryUsage()) #DEBUG
 			import time
+			nameUIDs = None
 			if allPost or ('snp_merge' in self._tablesUpdated):
 				t0 = time.time()
 				self.cleanupSNPMerges()
@@ -378,17 +379,18 @@ class Updater(object):
 				self.log("(%ds)\n" % (time.time()-t0))
 			if allPost or ('unit_name' in self._tablesUpdated) or ('snp_entrez_role' in self._tablesUpdated):
 				t0 = time.time()
-				self.resolveSNPUnitRoles()
+				nameUIDs = self.resolveSNPUnitRoles(nameUIDs)
 				self.log("(%ds)\n" % (time.time()-t0))
 			if allPost or ('unit_name' in self._tablesUpdated) or ('region_name' in self._tablesUpdated):
 				t0 = time.time()
-				self.resolveUnitRegions()
+				nameUIDs = self.resolveUnitRegions(nameUIDs)
 				self.log("(%ds)\n" % (time.time()-t0))
 			if allPost or ('unit_name' in self._tablesUpdated) or ('group_member_name' in self._tablesUpdated):
 				t0 = time.time()
-				self.resolveGroupMembers()
+				nameUIDs = self.resolveGroupMembers(nameUIDs)
 				self.log("(%ds)\n" % (time.time()-t0))
 			#self.log("MEMORY: %d bytes (%d peak)\n" % self._loki.getDatabaseMemoryUsage()) #DEBUG
+			nameUIDs = None
 			
 			# reindex all remaining tables
 			self.log("finishing update ...")
@@ -770,6 +772,7 @@ WHERE rn.namespace_id IN (%s)"""
 				graph[n] = set()
 			nameRegions[n].add( (row[2],row[3],row[4]) )
 		#for row in cursor
+		nameNum = None
 		self.log(" OK: %d identifiers\n" % (len(nameRegions),))
 		
 		# find core sets of names that could become a unit
@@ -898,7 +901,7 @@ WHERE rn.namespace_id IN (%s)"""
 			cursor.executemany("INSERT OR IGNORE INTO `db`.`unit_name` (unit_id,namespace_id,name,source_id) VALUES (?,?,?,0)", ((unitIDs[u],nameNamespaceID[n],nameName[n]) for n in names))
 		#for name,units in nameUnits.iteritems():
 		#	cursor.executemany("INSERT OR IGNORE INTO `db`.`unit_name` (unit_id,namespace_id,name,source_id) VALUES (?,?,?,0)", ((unitIDs[u],name[0],name[1]) for u in units))
-		nameUnits = unitNames = unitIDs = None
+		nameNamespaceID = nameName = nameUnits = unitNames = unitIDs = None
 		self.log(" OK\n")
 		
 		self.logPop("... OK\n")
@@ -969,7 +972,7 @@ WHERE rn.namespace_id IN (%s)"""
 		unitRegions = list()
 		regionID = None
 		numSingle = numAmbig = numUnrec = 0
-		emptyset = set()
+		names = emptyset = set()
 		for row in itertools.chain(cursor.execute("SELECT region_id,namespace_id,name FROM `db`.`region_name` ORDER BY region_id"), [(None,None,None)]):
 			if regionID != row[0]:
 				if regionID:
@@ -992,7 +995,7 @@ WHERE rn.namespace_id IN (%s)"""
 	#resolveUnitRegions()
 	
 	
-	def resolveGroupMembers(self, nameUIDs=None):
+	def resolveGroupMembers(self, nameUIDs=None): #TODO: in python with nameUIDs instead of sql?
 		self.log("resolving group members ...")
 		dbc = self._db.cursor()
 		
