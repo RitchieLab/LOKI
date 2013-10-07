@@ -9,7 +9,7 @@ class Source_pharmgkb(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '3.0 (2013-09-16)'
+		return '3.0 (2013-10-07)'
 	#getVersionString()
 	
 	
@@ -132,6 +132,7 @@ class Source_pharmgkb(loki_source.Source):
 			'symbol':       set(),
 		}
 		numAssoc = numID = 0
+		numBadHeader = 0
 		with zipfile.ZipFile('pathways-tsv.zip','r') as pathZip:
 			err = pathZip.testzip()
 			if err:
@@ -141,8 +142,7 @@ class Source_pharmgkb(loki_source.Source):
 			self.log(" OK\n")
 			self.log("processing pathways ...")
 			for info in pathZip.infolist():
-				#TODO: handle new separate-file-per-pathway format
-				if info.filename == 'pathways.tsv':
+				if info.filename == 'pathways.tsv': # old format before around 2013-05-01
 					pathFile = pathZip.open(info,'r')
 					curPath = None
 					for line in pathFile:
@@ -176,7 +176,31 @@ class Source_pharmgkb(loki_source.Source):
 						lastline = line
 					#foreach line in pathFile
 					pathFile.close()
-				#if pathways.tsv
+				elif info.filename.startswith("PA"): # new format since around 2013-08-21
+					pathFile = pathZip.open(info,'r')
+					line = pathFile.next()
+					if not line.startswith("From\tTo\tReaction Type\tController\tControl Type\tCell Type\tPubMed Id\tGenes"):
+						numBadHeader += 1
+					else:
+						words = info.filename.split('-')
+						curPath = words[0]
+						desc = words[1].replace("_", " ")
+						pathDesc[curPath] = (desc,desc)
+						genes = set()
+						for line in pathFile:
+							line = line.decode('latin-1').rstrip("\r\n")
+							words = [ w.strip() for w in line.split("\t") ]
+							if words[7]:
+								genes.update(w.strip() for w in words[7].split(','))
+						#foreach line in pathFile
+						for symbol in genes:
+							numAssoc += 1
+							numID += 1
+							nsAssoc['symbol'].add( (curPath,numAssoc,symbol) )
+						#foreach genes
+					#if header
+					pathFile.close()
+				#if info.filename
 			#foreach file in pathZip
 		#with pathZip
 		self.log(" OK: %d pathways, %d associations (%d identifiers)\n" % (len(pathDesc),numAssoc,numID))
