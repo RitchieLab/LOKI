@@ -21,7 +21,7 @@ class Source_uniprot(loki_source.Source):
 	#download()
 	
 	
-	def update(self, options): #TODO
+	def update(self, options):
 		# clear out all old data from this source
 		self.log("deleting old records from the database ...")
 		self.deleteAll()
