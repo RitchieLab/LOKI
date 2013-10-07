@@ -2,6 +2,8 @@
 
 import collections
 import itertools
+import os
+import re
 import urllib
 from loki import loki_source
 
@@ -9,21 +11,59 @@ from loki import loki_source
 class Source_ensembl(loki_source.Source):
 	
 	
+	##################################################
+	# private class methods
+	
+	
+	def _identifyLatestFilename(self, filenames):
+		reFile = re.compile('^Homo_sapiens\\.GRCh([0-9]+)\\.([0-9]+)\\.gtf\\.gz$', re.IGNORECASE)
+		bestvers = (0,0)
+		bestfile = None
+		for filename in filenames:
+			match = reFile.match(filename)
+			if match:
+				filevers = (int(match.group(1)),int(match.group(2)))
+				if filevers > bestvers:
+					bestvers = filevers
+					bestfile = filename
+		#foreach filename
+		return bestfile
+	#_identifyLatestFilename()
+	
+	
+	##################################################
+	# source interface
+	
+	
 	@classmethod
 	def getVersionString(cls):
-		return '3.0 (2013-09-16)'
+		return '3.0 (2013-10-07)'
 	#getVersionString()
 	
 	
 	def download(self, options):
-		# download the latest source files
-		self.downloadFilesFromFTP('ftp.ensembl.org', { #TODO callback to find latest file
-			'Homo_sapiens.GRCh37.73.gtf.gz': '/pub/current_gtf/homo_sapiens/Homo_sapiens.GRCh37.73.gtf.gz'
-		})
+		# define a callback to identify the latest *-mint-human.txt file
+		def remFilesCallback(ftp):
+			remFiles = {}
+			
+			path = '/pub/current_gtf/homo_sapiens'
+			ftp.cwd(path)
+			bestfile = self._identifyLatestFilename(ftp.nlst())
+			if bestfile:
+				remFiles[bestfile] = '%s/%s' % (path,bestfile)
+			
+			return remFiles
+		#remFilesCallback
+		
+		# download the latest FTP source files
+		self.downloadFilesFromFTP('ftp.ensembl.org', remFilesCallback)
+		
 		# www.ensembl.org will redirect to whichever mirror they think is closest,
 		# but our download functions don't yet understand redirects, so test it
 		# first and then send the requests directly to the right mirror
 		ensemblHost = self.getHTTPHeaders('www.ensembl.org','/biomart/martservice').get('location','http://www.ensembl.org').split('://',1)[1].split('/',1)[0]
+		
+		# build HTTP API queries
 		xml1 = """<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE Query>
 <Query virtualSchemaName = "default" formatter = "TSV" header = "1" uniqueRows = "0" count = "" datasetConfigVersion = "0.6" >
@@ -59,6 +99,8 @@ class Source_ensembl(loki_source.Source):
 	</Dataset>
 </Query>
 """
+		
+		# download the latest HTTP source data
 		self.downloadFilesFromHTTP(ensemblHost, {
 			'biomart_martservice_ensg_desc.txt': '/biomart/martservice?query='+urllib.quote_plus(xml1),
 			'biomart_martservice_ensg_refs.txt': '/biomart/martservice?query='+urllib.quote_plus(xml2),
@@ -150,8 +192,8 @@ class Source_ensembl(loki_source.Source):
 		self.log("processing genomic regions ...")
 		rtypeRegions = collections.defaultdict(set)
 		regionGenes = set()
-		datafile = self.zfile('Homo_sapiens.GRCh37.73.gtf.gz') #TODO:context manager,iterator
-		for line in datafile:
+		regionPath = self._identifyLatestFilename(os.listdir('.'))
+		for line in self.zfile(regionPath): #TODO:context manager,iterator
 			words = [ w.strip() for w in line.split("\t") ]
 			chm = words[0]
 			if chm in self._loki.chr_num:
@@ -203,7 +245,7 @@ class Source_ensembl(loki_source.Source):
 			listR = list(regions)
 			listID = self.addTypedRegions(rtypeID[rtype], (r[1:] for r in listR))
 			regionNames.extend(itertools.izip(listID, (r[0] for r in listR)))
-		self.setSourceBuilds(37, None) #TODO
+		self.setSourceBuilds(int(re.search('GRCh([0-9]+)', regionPath).group(1)), None)
 		self.log(" OK: %d regions\n" % (len(regionNames),))
 		rtypeRegions = listR = listID = None
 		
