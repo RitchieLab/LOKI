@@ -22,7 +22,7 @@ class Updater(object):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '3.0 (2013-09-20)'
+		return '3.0.0 (2013-09-20)'
 	#getVersionString()
 	
 	

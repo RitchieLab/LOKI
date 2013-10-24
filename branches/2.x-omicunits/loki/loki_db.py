@@ -356,7 +356,7 @@ class Database(object):
 			# region tables
 			
 			
-			'region': {
+			'region': { #TODO ldprofile_id?
 				'table': """
 (
   region_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
