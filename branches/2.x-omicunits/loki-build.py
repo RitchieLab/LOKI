@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import argparse
+import collections
 import os
 import posixpath
 import shutil
@@ -135,21 +136,23 @@ if __name__ == "__main__":
 			print "source loader options:"
 		moduleVersions = db.getSourceModuleVersions(srcSet)
 		moduleOptions = db.getSourceModuleOptions(srcSet)
-		for srcName in sorted(moduleOptions.keys()):
+		srcOrder = list(s for s in moduleOptions if s != 'loki')
+		srcOrder.sort()
+		if 'loki' in moduleOptions:
+			srcOrder.append('loki')
+		for srcName in srcOrder:
 			print "  %s : %s" % (srcName,moduleVersions[srcName])
 			if moduleOptions[srcName]:
-				for srcOption in sorted(moduleOptions[srcName].keys()):
-					print "    %s = %s" % (srcOption,moduleOptions[srcName][srcOption])
+				for opt in sorted(moduleOptions[srcName].keys()):
+					print "    %s = %s" % (opt,moduleOptions[srcName][opt])
 			elif srcSet:
 				print "    <no options>"
 	
 	# pass options?
-	userOptions = {}
+	userOptions = collections.defaultdict(dict)
 	if args.option != None:
 		for optList in args.option:
 			srcName = optList[0]
-			if srcName not in userOptions:
-				userOptions[srcName] = {}
 			for optString in optList[1].split(','):
 				opt,val = optString.split('=',1)
 				userOptions[srcName][opt] = val

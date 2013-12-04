@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import collections
 import itertools
 from loki import loki_source
 
@@ -62,8 +63,8 @@ class Source_oreganno(loki_source.Source):
 		
 		# build dict of gene id->oreganno id and a dict of
 		# oreganno id->entrez id and oreganno id->ensembl id
-		oreg_gene = {}
-		oreg_tfbs = {}
+		oreg_gene = collections.defaultdict(dict)
+		oreg_tfbs = collections.defaultdict(dict)
 		oreg_snp = {}
 		link_f = self.zfile("oregannoLink.txt.gz")
 		entrez_ns = external_ns['entrez_gid']
@@ -76,18 +77,18 @@ class Source_oreganno(loki_source.Source):
 				oreg_id = fields[0]
 				if fields[2] == "EnsemblGene":
 					gene_id = fields[3].split(',')[1]
-					oreg_gene.setdefault(oreg_id,{})[ensembl_ns] = gene_id
+					oreg_gene[oreg_id][ensembl_ns] = gene_id
 				elif fields[2] == "EntrezGene":
 					gene_id = fields[3]
-					oreg_gene.setdefault(oreg_id,{})[entrez_ns] = gene_id
+					oreg_gene[oreg_id][entrez_ns] = gene_id
 			elif fields[1] == "TFbs":
 				oreg_id = fields[0]
 				if fields[2] == "EnsemblGene":
 					gene_id = fields[3].split(',')[1]
-					oreg_tfbs.setdefault(oreg_id,{})[ensembl_ns] = gene_id
+					oreg_tfbs[oreg_id][ensembl_ns] = gene_id
 				elif fields[2] == "EntrezGene":
 					gene_id = fields[3]
-					oreg_tfbs.setdefault(oreg_id,{})[entrez_ns] = gene_id
+					oreg_tfbs[oreg_id][entrez_ns] = gene_id
 			elif fields[1] == "ExtLink" and fields[2] == "dbSNP":
 				# Just store the RS# (no leading "rs")
 				oreg_snp[fields[0]] = fields[3][2:]
@@ -103,9 +104,9 @@ class Source_oreganno(loki_source.Source):
 			if fields[1] == "type":
 				oreganno_type[fields[0]] = fields[2]
 			elif fields[1] == "Gene":
-				oreg_gene.setdefault(fields[0],{})[symbol_ns] = fields[2]
+				oreg_gene[fields[0]][symbol_ns] = fields[2]
 			elif fields[1] == "TFbs":
-				oreg_tfbs.setdefault(fields[0],{})[symbol_ns] = fields[2]
+				oreg_tfbs[fields[0]][symbol_ns] = fields[2]
 				
 		
 		self.log("OK\n")
@@ -115,7 +116,7 @@ class Source_oreganno(loki_source.Source):
 		oreganno_roles = []
 		oreganno_regions = []
 		oreganno_bounds = []
-		oreganno_groups = {}
+		oreganno_groups = collections.defaultdict(list)
 		oreganno_types = {}
 		self.log("parsing regulatory regions ...")
 		snps_unmapped = 0
@@ -127,19 +128,19 @@ class Source_oreganno(loki_source.Source):
 			oreg_id = fields[4]
 			oreg_type = oreganno_type[oreg_id]
 			if chrom and oreg_type == "REGULATORY POLYMORPHISM":
-				entrez_id = oreg_gene.get(oreg_id,{}).get(entrez_ns)
+				entrez_id = oreg_gene[oreg_id].get(entrez_ns)
 				rsid = oreg_snp.get(oreg_id)
 				if entrez_id and rsid:
 					oreganno_roles.append((int(rsid), entrez_id, snp_roleid))
 				else:
 					snps_unmapped+=1
 			elif chrom and (oreg_type == "REGULATORY REGION" or oreg_type == "TRANSCRIPTION FACTOR BINDING SITE"):
-				gene_symbol = oreg_gene.get(oreg_id,{}).get(symbol_ns)
+				gene_symbol = oreg_gene[oreg_id].get(symbol_ns)
 				if not gene_symbol:
-					gene_symbol = oreg_tfbs.get(oreg_id,{}).get(symbol_ns)
+					gene_symbol = oreg_tfbs[oreg_id].get(symbol_ns)
 				
 				if gene_symbol:
-					oreganno_groups.setdefault(gene_symbol, []).append(oreg_id)
+					oreganno_groups[gene_symbol].append(oreg_id)
 				
 				if oreg_type == "REGULATORY REGION":
 					oreg_typeid = rtypeids['regulatory_region']

@@ -113,8 +113,18 @@ class Source(object):
 	#logPop()
 	
 	
+	def logIndent(self):
+		return self._loki.logIndent()
+	#logIndent()
+	
+	
 	##################################################
 	# database update
+	
+	
+	def flagTableUpdate(self, table):
+		return self._loki.flagTableUpdate(table)
+	#flagTableUpdate()
 	
 	
 	def prepareTableForUpdate(self, table):

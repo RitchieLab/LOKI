@@ -100,6 +100,7 @@ class Database(object):
 					('zone_size','100000'),
 					('optimized','0'),
 					('finalized','0'),
+					('postProcess',''),
 				],
 				'index': {}
 			}, #.db.setting
@@ -336,7 +337,7 @@ class Database(object):
 			}, #.db.snp_entrez_role
 			
 			
-			'snp_unit_role': {
+			'snp_unit_role': { # emptied and refilled from snp_entrez_role, with original source_id
 				'table': """
 (
   rs INTEGER NOT NULL,
@@ -769,6 +770,11 @@ class Database(object):
 	#logPop()
 	
 	
+	def logIndent(self):
+		return self._logIndent
+	#logIndent()
+	
+	
 	##################################################
 	# database management
 	
@@ -1199,6 +1205,13 @@ class Database(object):
 			self._updater = loki_updater.Updater(self, self._is_test)
 		return self._updater.updateDatabase(sources, sourceOptions, cacheOnly, forceUpdate)
 	#updateDatabase()
+	
+	
+	def flagTableUpdate(self, table):
+		if self._updater:
+			return self._updater.flagTableUpdate(table)
+		return None
+	#flagTableUpdate()
 	
 	
 	def prepareTableForUpdate(self, table):
