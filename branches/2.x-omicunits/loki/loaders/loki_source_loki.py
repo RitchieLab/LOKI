@@ -23,10 +23,11 @@ class Source_loki(loki_source.Source):
 	@classmethod
 	def getOptions(cls):
 		return {
-			'unit-core-ns'        : 'ns1[,ns2[...]]  --  comma-separated list of namespaces to define unit cores (default: entrez_gid,ensembl_gid)',
-			'require-unit-region' : '[yes|no]  --  require all units to have at least one region (default: no)',
-			'max-unit-gap'        : 'number  --  maximum basepair gap between regions to allow in one unit (default: 25000)',
-			'max-unit-alias-dist' : 'number  --  maximum identifier graph distance from an alias to a unit core, or 0 for no limit (default: 0)',
+			'unit-core-ns'         : 'ns1[,ns2[...]]  --  comma-separated list of namespaces to define unit cores (default: entrez_gid,ensembl_gid)',
+			'require-unit-region'  : '[yes|no]  --  require all units to have at least one region (default: no)',
+			'max-unit-gap'         : 'number  --  maximum basepair gap between regions to allow in one unit (default: 25000)',
+			'max-unit-alias-dist'  : 'number  --  maximum identifier graph distance from an alias to a unit core, or 0 for no limit (default: 0)',
+			'allow-shared-aliases' : '[yes|no]  --  allow aliases to be added to multiple equidistant unit cores (default: yes)',
 		}
 	#getOptions()
 	
@@ -39,7 +40,7 @@ class Source_loki(loki_source.Source):
 				if not v:
 					return "%s must include at least one namespace" % (o,)
 				v = ','.join(v)
-			elif o == 'require-unit-region':
+			elif o in ('require-unit-region','allow-shared-aliases'):
 				if (v == '1') or 'true'.startswith(v) or 'yes'.startswith(v):
 					v = 'yes'
 				elif (v == '0') or 'false'.startswith(v) or 'no'.startswith(v):
@@ -66,10 +67,8 @@ class Source_loki(loki_source.Source):
 	#download()
 	
 	
-	def update(self, options):
+	def update(self, options, tablesUpdated, forceUpdate):
 		cursor = self._db.cursor()
-		tablesUpdated = self._loki._updater._tablesUpdated
-		tablesDeindexed = self._loki._updater._tablesDeindexed
 		logIndent = self.logIndent()
 		
 		# cross-map GRCh/UCSChg build versions for all sources, and set the new target
@@ -104,11 +103,12 @@ class Source_loki(loki_source.Source):
 		lastPP = set(pp for pp in (self._loki.getDatabaseSetting('postProcess') or '').split(',') if pp)
 		curVers = self.getVersionString()
 		lastVers = max(row[0] for row in cursor.execute("SELECT version FROM `db`.`source` WHERE source_id = ?", (self.getSourceID(),)))
-		if 'all' in lastPP:
+		if forceUpdate:
+			self.log("force-update enabled; running all post-processing\n")
+		elif 'all' in lastPP:
 			self.log("error during prior post-process phase; re-running all post-processing\n")
 		elif lastVers != curVers:
-			if lastVers:
-				self.log("updater version changed from '%s' to '%s', re-running all post-processing\n" % (lastVers,curVers))
+			self.log("updater version changed from '%s' to '%s'; re-running all post-processing\n" % (lastVers or "(unknown)",curVers))
 		elif (lastPP - curPP):
 			self.log("invalid database post-process flags; re-running all post-processing\n")
 		else:
@@ -178,14 +178,6 @@ class Source_loki(loki_source.Source):
 				self.log("(%ds)\n" % (time.time()-t0))
 			#if pp in curPP
 		#foreach ppCallOrder
-		
-		# finalize
-		self.log("finishing update ...")
-		if tablesDeindexed:
-			self._loki.createDatabaseIndecies(None, 'db', tablesDeindexed)
-		if tablesUpdated:
-			self._loki.setDatabaseSetting('optimized',0)
-		self.log(" OK\n")
 	#update()
 	
 	
@@ -648,6 +640,7 @@ WHERE rn.namespace_id IN (%s)"""
 		# assign additional names using a kind of multi-source breadth-first-search #TODO: ambiguity?
 		self.log("assigning aliases to units ...")
 		maxDist = int(self._options.get('max-unit-alias-dist',0))
+		allowSharedAliases = self._options.get('allow-shared-aliases','yes')
 		nameDist = {n:0 for n in nameUnits}
 		queue = collections.deque(nameUnits)
 		while queue:
@@ -663,9 +656,13 @@ WHERE rn.namespace_id IN (%s)"""
 					if (dist < maxDist) or (maxDist <= 0):
 						queue.appendleft(n2)
 				elif nameDist[n2] == dist:
-					for u in units:
-						unitNames[u].add(n2)
-					nameUnits[n2] |= units
+					if allowSharedAliases:
+						for u in units:
+							unitNames[u].add(n2)
+						nameUnits[n2] |= units
+					elif (nameUnits[n2] - units):
+						nameUnits[n2].clear()
+						nameDist[n2] = -1 # so it doesn't get picked up again
 				elif nameDist[n2] > dist:
 					raise Exception("BFS failure")
 		graph = None

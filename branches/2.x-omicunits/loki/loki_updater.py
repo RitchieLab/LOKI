@@ -254,19 +254,17 @@ class Updater(object):
 					
 					# skip the update if nothing changed (but always run the post-processor, it will decide its own necessary steps)
 					if changed or (srcName == 'loki'):
-						# process new files (or old files with a new loader)
-						if (srcName == 'loki'):
-							self.logPush("performing LOKI database post-processing ...\n")
-						else:
-							self.logPush("processing %s data ...\n" % srcName)
-						
 						cursor.execute("DELETE FROM `db`.`warning` WHERE source_id = ?", (srcID,))
-						if srcObj.update(options) == False:
+						# process new files (or old files with a new loader)
+						if srcName == 'loki':
+							self.logPush("performing LOKI database post-processing ...\n")
 							# if the postprocessor has an error, just flag it so we skip optimization;
 							# don't revert the savepoint, the postprocessor handles that internally
-							if srcName == 'loki':
+							if srcObj.update(options, self._tablesUpdated, forceUpdate) == False:
 								srcErrors.add(srcName)
-							else:
+						else:
+							self.logPush("processing %s data ...\n" % srcName)
+							if srcObj.update(options) == False:
 								raise Exception
 						cursor.execute("UPDATE `db`.`source` SET updated = DATETIME('now'), version = ? WHERE source_id = ?", (srcObj.getVersionString(), srcID))
 						
@@ -301,6 +299,15 @@ class Updater(object):
 					cursor.execute("RELEASE SAVEPOINT 'updateDatabase_%s'" % (srcName,))
 				#try/except/finally
 			#foreach source
+			
+			# finalize
+			if not srcErrors:
+				self.log("finishing update ...")
+				if self._tablesDeindexed:
+					self._loki.createDatabaseIndecies(None, 'db', self._tablesDeindexed)
+				if self._tablesUpdated:
+					self._loki.setDatabaseSetting('optimized', 0)
+				self.log(" OK\n")
 		except:
 			excType,excVal,excTrace = sys.exc_info()
 			while self.logPop() > logIndent:
