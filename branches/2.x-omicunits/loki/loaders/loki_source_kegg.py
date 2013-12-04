@@ -21,6 +21,7 @@ class Source_kegg(loki_source.Source):
 	
 	
 	def validateOptions(self, options):
+		options.setdefault('api','rest')
 		for o,v in options.iteritems():
 			if o == 'api':
 				v = v.strip().lower()
@@ -40,10 +41,10 @@ class Source_kegg(loki_source.Source):
 	
 	
 	def download(self, options):
-		if (options.get('api') == 'cache'):
+		if (options['api'] == 'cache'):
 			# do nothing, update() will just expect the files to already be there
 			pass
-		elif (options.get('api') == 'soap'):
+		elif (options['api'] == 'soap'):
 			# connect to SOAP/WSDL service
 			import suds.client
 			self.log("connecting to KEGG data service ...")

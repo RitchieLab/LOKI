@@ -57,6 +57,9 @@ class Source_dbsnp(loki_source.Source):
 	
 	
 	def validateOptions(self, options):
+		options.setdefault('loci', 'all')
+		options.setdefault('merges', 'yes')
+		options.setdefault('roles', 'yes')
 		for o,v in options.iteritems():
 			v = v.strip().lower()
 			if o == 'loci':
@@ -87,10 +90,10 @@ class Source_dbsnp(loki_source.Source):
 			for chm in self._chmList:
 				remFiles['chr_%s.txt.gz' % chm] = '/snp/organisms/human_9606/chr_rpts/chr_%s.txt.gz' % chm
 			
-			if options.get('merges',True):
+			if options['merges'] == 'yes':
 				remFiles['RsMergeArch.bcp.gz'] = '/snp/organisms/human_9606/database/organism_data/RsMergeArch.bcp.gz'
 			
-			if options.get('roles',True):
+			if options['roles'] == 'yes':
 				remFiles['SnpFunctionCode.bcp.gz'] = '/snp/organisms/human_9606/database/shared_data/SnpFunctionCode.bcp.gz'
 				path = '/snp/organisms/human_9606/database/organism_data'
 				ftp.cwd(path)
@@ -113,7 +116,7 @@ class Source_dbsnp(loki_source.Source):
 		self.log(" OK\n")
 		
 		# process merge report (no header!)
-		if options.get('merges','yes') == 'yes':
+		if options['merges'] == 'yes':
 			""" /* from human_9606_table.sql.gz */
 CREATE TABLE [RsMergeArch]
 (
@@ -162,7 +165,7 @@ CREATE TABLE [RsMergeArch]
 		#if merges
 		
 		# process SNP role function codes
-		if options.get('roles','yes') == 'yes':
+		if options['roles'] == 'yes':
 			""" /* from dbSNP_main_table.sql.gz */
 CREATE TABLE [SnpFunctionCode]
 (
@@ -278,7 +281,7 @@ CREATE TABLE [b137_SNPContigLocusId]
 		
 		# process chromosome report files
 		grcBuild = None
-		snpLociValid = (options.get('loci') == 'validated')
+		snpLociValid = (options['loci'] == 'validated')
 		for fileChm in self._chmList:
 			self.log("processing chromosome %s SNPs ..." % fileChm)
 			chmFile = self.zfile('chr_%s.txt.gz' % fileChm)

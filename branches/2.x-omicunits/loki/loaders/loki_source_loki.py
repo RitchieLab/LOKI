@@ -33,13 +33,18 @@ class Source_loki(loki_source.Source):
 	
 	
 	def validateOptions(self, options):
+		options.setdefault('unit-core-ns', 'entrez_gid,ensembl_gid')
+		options.setdefault('require-unit-region', 'no')
+		options.setdefault('max-unit-gap', '25000')
+		options.setdefault('max-unit-alias-dist', '0')
+		options.setdefault('allow-shared-aliases', 'yes')
 		for o,v in options.iteritems():
 			v = v.strip().lower()
 			if o == 'unit-core-ns':
 				v = set(ns for ns in v.split(',') if ns)
 				if not v:
 					return "%s must include at least one namespace" % (o,)
-				v = ','.join(v)
+				v = ','.join(sorted(v))
 			elif o in ('require-unit-region','allow-shared-aliases'):
 				if (v == '1') or 'true'.startswith(v) or 'yes'.startswith(v):
 					v = 'yes'
@@ -67,7 +72,7 @@ class Source_loki(loki_source.Source):
 	#download()
 	
 	
-	def update(self, options, tablesUpdated, forceUpdate):
+	def update(self, options, prevOptions, tablesUpdated, forceUpdate):
 		cursor = self._db.cursor()
 		logIndent = self.logIndent()
 		
@@ -102,13 +107,15 @@ class Source_loki(loki_source.Source):
 		curPP = set(ppCallOrder)
 		lastPP = set(pp for pp in (self._loki.getDatabaseSetting('postProcess') or '').split(',') if pp)
 		curVers = self.getVersionString()
-		lastVers = max(row[0] for row in cursor.execute("SELECT version FROM `db`.`source` WHERE source_id = ?", (self.getSourceID(),)))
+		lastUpdate = None
+		for row in cursor.execute("SELECT updated, version FROM `db`.`source` WHERE source_id = ?", (self.getSourceID(),)):
+			lastUpdate = row
 		if forceUpdate:
 			self.log("force-update enabled; running all post-processing\n")
 		elif 'all' in lastPP:
 			self.log("error during prior post-process phase; re-running all post-processing\n")
-		elif lastVers != curVers:
-			self.log("updater version changed from '%s' to '%s'; re-running all post-processing\n" % (lastVers or "(unknown)",curVers))
+		elif lastUpdate and lastUpdate[0] and (lastUpdate[1] != curVers):
+			self.log("updater version changed from '%s' to '%s'; re-running all post-processing\n" % (lastUpdate[1] or "(unknown)",curVers))
 		elif (lastPP - curPP):
 			self.log("invalid database post-process flags; re-running all post-processing\n")
 		else:
@@ -142,7 +149,7 @@ class Source_loki(loki_source.Source):
 			#TODO: cleanupGWASAnnotations
 			if ('region' in tablesUpdated):
 				curPP.add('updateRegionZones') # region_zone
-			if ('region' in tablesUpdated) or ('region_name' in tablesUpdated) or ('name_name' in tablesUpdated):
+			if ('region' in tablesUpdated) or ('region_name' in tablesUpdated) or ('name_name' in tablesUpdated) or (options != prevOptions):
 				curPP.add('defineOmicUnits') # unit, unit_name
 			if ('unit_name' in tablesUpdated) or ('snp_entrez_role' in tablesUpdated):
 				curPP.add('resolveSNPUnitRoles') # snp_unit_role
@@ -486,7 +493,7 @@ JOIN `db`.`snp_merge` AS sm
 			nsName[row[0]] = row[1]
 			nsID[row[1]] = row[0]
 		nsCore = set()
-		for ns in self._options.get('unit-core-ns','entrez_gid,ensembl_gid').split(','):
+		for ns in self._options['unit-core-ns'].split(','):
 			ns = ns.strip().lower()
 			if ns:
 				if ns in nsID:
@@ -594,8 +601,8 @@ WHERE rn.namespace_id IN (%s)"""
 		
 		# split cores according to region gap rules
 		self.log("analyzing candidate unit regions ...")
-		maxGap = int(self._options.get('max-unit-gap',25000))
-		requireUnitRegion = self._options.get('require-unit-region','no')
+		maxGap = int(self._options['max-unit-gap'])
+		requireUnitRegion = self._options['require-unit-region']
 		unitNames = list()
 		numNone = numChr = numGap = 0
 		while coreNames:
@@ -639,8 +646,8 @@ WHERE rn.namespace_id IN (%s)"""
 		
 		# assign additional names using a kind of multi-source breadth-first-search #TODO: ambiguity?
 		self.log("assigning aliases to units ...")
-		maxDist = int(self._options.get('max-unit-alias-dist',0))
-		allowSharedAliases = self._options.get('allow-shared-aliases','yes')
+		maxDist = int(self._options['max-unit-alias-dist'])
+		allowSharedAliases = self._options['allow-shared-aliases']
 		nameDist = {n:0 for n in nameUnits}
 		queue = collections.deque(nameUnits)
 		while queue:

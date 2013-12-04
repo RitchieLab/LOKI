@@ -18,16 +18,18 @@ class Source_entrez(loki_source.Source):
 	@classmethod
 	def getOptions(cls):
 		return {
-			'favor-primary' : "[yes|no]  --  reduce symbol ambiguity by favoring primary symbols (default: yes)",
-			'favor-hist'    : "[yes|no]  --  reduce symbol ambiguity by favoring primary symbols (default: yes)",
+			'favor-primary'    : "[yes|no]  --  reduce symbol ambiguity by favoring primary symbols (default: yes)",
+			'favor-historical' : "[yes|no]  --  reduce symbol ambiguity by favoring historical symbols (default: yes)",
 		}
 	#getOptions()
 	
 	
 	def validateOptions(self, options):
+		options.setdefault('favor-primary', 'yes')
+		options.setdefault('favor-historical', 'yes')
 		for o,v in options.iteritems():
 			v = v.strip().lower()
-			if o in ('locus-tags','favor-primary','favor-hist'):
+			if o in ('favor-primary','favor-historical'):
 				if 'yes'.startswith(v):
 					v = 'yes'
 				elif 'no'.startswith(v):
@@ -154,7 +156,7 @@ class Source_entrez(loki_source.Source):
 		#foreach line
 		
 		# delete any symbol alias which is also the primary label of exactly one other gene
-		if options.get('favor-primary','yes') == 'yes':
+		if options['favor-primary'] == 'yes':
 			dupe = set()
 			for ref in nsNames[(nsID['entrez_gid'],nsID['symbol'])]:
 				entrezGID = ref[0]
@@ -316,7 +318,7 @@ class Source_entrez(loki_source.Source):
 		#foreach line
 		
 		# delete any symbol alias which is also the historical symbol of exactly one other gene
-		if options.get('favor-hist','yes') == 'yes':
+		if options['favor-historical'] == 'yes':
 			dupe = set()
 			for ref in nsNames[(nsID['entrez_gid'],nsID['symbol'])]:
 				entrezGID = ref[0]
@@ -325,7 +327,7 @@ class Source_entrez(loki_source.Source):
 					dupe.add(ref)
 			nsNames[(nsID['entrez_gid'],nsID['symbol'])] -= dupe
 			dupe = None
-		#if favor-hist
+		#if favor-historical
 		
 		# print historical identifier stats
 		numNames0 = numNames

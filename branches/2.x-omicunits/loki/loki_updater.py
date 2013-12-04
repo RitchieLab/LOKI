@@ -188,15 +188,19 @@ class Updater(object):
 					srcID = srcObj.getSourceID()
 					
 					# validate options, if any
-					options = srcOpts.get(srcName, {})
-					if options:
+					options = srcOpts.get(srcName, dict())
+					optionsGiven = sorted(options)
+					if optionsGiven:
 						self.logPush("validating %s options ...\n" % srcName)
-						msg = srcObj.validateOptions(options)
-						if msg != True:
-							raise Exception(msg)
-						for opt,val in options.iteritems():
-							self.log("%s = %s\n" % (opt,val))
+					msg = srcObj.validateOptions(options)
+					if msg != True:
+						raise Exception(msg)
+					if optionsGiven:
+						for opt in optionsGiven:
+							self.log("%s = %s\n" % (opt,options[opt]))
 						self.logPop("... OK\n")
+					if (set(srcObj.getOptions()) - set(options)):
+						raise Exception("options definition/validation mismatch")
 					
 					# switch to a temp subdirectory for this source
 					path = os.path.join(iwd, srcName)
@@ -233,18 +237,17 @@ class Updater(object):
 					#if postprocessor
 					
 					# compare current loader version, options and file metadata to the last update to see if anything changed
-					last = '?'
 					changed = forceUpdate
+					prevVersion = '?'
+					prevOptions = dict()
 					if not changed:
 						for row in cursor.execute("SELECT version, DATETIME(updated,'localtime') FROM `db`.`source` WHERE source_id = ?", (srcID,)):
 							changed = changed or (row[0] != srcObj.getVersionString())
-							last = row[1]
+							prevVersion = row[1]
 					if not changed:
-						n = 0
 						for row in cursor.execute("SELECT option, value FROM `db`.`source_option` WHERE source_id = ?", (srcID,)):
-							n += 1
-							changed = changed or (row[0] not in options) or (row[1] != options[row[0]])
-						changed = changed or (n != len(options))
+							prevOptions[row[0]] = row[1]
+						changed = changed or (options != prevOptions)
 					if (not changed) and (srcName != 'loki'):
 						n = 0
 						for row in cursor.execute("SELECT filename, size, md5 FROM `db`.`source_file` WHERE source_id = ?", (srcID,)):
@@ -260,7 +263,7 @@ class Updater(object):
 							self.logPush("performing LOKI database post-processing ...\n")
 							# if the postprocessor has an error, just flag it so we skip optimization;
 							# don't revert the savepoint, the postprocessor handles that internally
-							if srcObj.update(options, self._tablesUpdated, forceUpdate) == False:
+							if srcObj.update(options, prevOptions, self._tablesUpdated, forceUpdate) == False:
 								srcErrors.add(srcName)
 						else:
 							self.logPush("processing %s data ...\n" % srcName)
@@ -278,7 +281,7 @@ class Updater(object):
 						
 						self.logPop("... OK\n")
 					else:
-						self.log("skipping %s update, no data or software changes since %s\n" % (srcName,last))
+						self.log("skipping %s update, no data or software changes since %s\n" % (srcName,prevVersion))
 					#if changed
 				except:
 					cursor.execute("ROLLBACK TRANSACTION TO SAVEPOINT 'updateDatabase_%s'" % (srcName,))

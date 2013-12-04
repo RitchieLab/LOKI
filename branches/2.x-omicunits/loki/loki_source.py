@@ -59,7 +59,7 @@ class Source(object):
 	
 	@classmethod
 	def getOptions(cls):
-		return None
+		return dict()
 	#getOptions()
 	
 	

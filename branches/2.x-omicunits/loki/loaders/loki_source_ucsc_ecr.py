@@ -45,6 +45,9 @@ class Source_ucsc_ecr(loki_source.Source):
 		"""
 		Validate the options
 		"""
+		options.setdefault('size', '100')
+		options.setdefault('identity', '0.7')
+		options.setdefault('gap', '50')
 		for o,v in options.iteritems():
 			try:
 				if o == 'size':
@@ -56,16 +59,16 @@ class Source_ucsc_ecr(loki_source.Source):
 				elif o == 'reverse': #undocumented debug option
 					v = v.lower()
 					if (v == '0') or 'false'.startswith(v) or 'no'.startswith(v):
-						v = False
+						v = 'no'
 					elif (v == '1') or 'true'.startswith(v) or 'yes'.startswith(v):
-						v = True
+						v = 'yes'
 					else:
 						return "must be 0/false/no or 1/true/yes"
 				else:
 					return "unknown option '%s'" % o
 			except ValueError:
 				return "Cannot parse '%s' parameter value - given '%s'" % (o,v)
-			options[o] = v
+			options[o] = str(v)
 		#foreach option
 		return True
 	#validateOptions()
@@ -183,10 +186,10 @@ class Source_ucsc_ecr(loki_source.Source):
 	
 	def getRegions(self, f, options):
 		# fetch loader options
-		minSize = options.get('size',100)
-		minIdent = options.get('identity',0.7)
-		maxGap = options.get('gap',50)
-		reverse = options.get('reverse',False)
+		minSize = int(options['size'])
+		minIdent = float(options['identity'])
+		maxGap = int(options['gap'])
+		reverse = (options.get('reverse','no') == 'yes')
 		
 		# initialize parser state
 		pos = 1
