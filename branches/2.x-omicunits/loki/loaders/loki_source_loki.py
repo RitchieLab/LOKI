@@ -146,10 +146,10 @@ class Source_loki(loki_source.Source):
 				curPP.add('cleanupSNPEntrezRoles') # snp_entrez_role
 			if ('snp_merge' in tablesUpdated) or ('gwas' in tablesUpdated):
 				curPP.add('updateMergedGWASAnnotations') # gwas
-			#TODO: cleanupGWASAnnotations
+			#TODO: cleanupGWASAnnotations?
 			if ('region' in tablesUpdated):
 				curPP.add('updateRegionZones') # region_zone
-			if ('region' in tablesUpdated) or ('region_name' in tablesUpdated) or ('name_name' in tablesUpdated) or (options != prevOptions):
+			if ('region' in tablesUpdated) or ('region_name' in tablesUpdated) or ('name_name' in tablesUpdated) or (lastUpdate and lastUpdate[0] and options != prevOptions):
 				curPP.add('defineOmicUnits') # unit, unit_name
 			if ('unit_name' in tablesUpdated) or ('snp_entrez_role' in tablesUpdated):
 				curPP.add('resolveSNPUnitRoles') # snp_unit_role
@@ -320,12 +320,19 @@ class Source_loki(loki_source.Source):
 		
 		# for each set of ROWIDs which constitute a duplicated snp merge, cull all but one
 		cull = set()
-		sql = "SELECT GROUP_CONCAT(_ROWID_) FROM `db`.`snp_merge` GROUP BY rsMerged HAVING COUNT() > 1"
-		#for row in dbc.execute("EXPLAIN QUERY PLAN "+sql): #DEBUG
-		#	print row
-		for row in dbc.execute(sql):
-			rowids = row[0].split(',')
-			cull.update( (long(rowids[i]),) for i in xrange(1,len(rowids)) )
+		if 0: #TODO
+			sql = "SELECT GROUP_CONCAT(_ROWID_) FROM `db`.`snp_merge` GROUP BY rsMerged HAVING COUNT() > 1"
+			for row in dbc.execute(sql):
+				rowids = row[0].split(',')
+				cull.update( (long(rowids[i]),) for i in xrange(1,len(rowids)) )
+		else:
+			lastRS = None
+			sql = "SELECT _ROWID_, rsMerged FROM `db`.`snp_merge` ORDER BY rsMerged"
+			for row in dbc.execute(sql):
+				if lastRS == row[1]:
+					cull.add(row[0])
+				else:
+					lastRS = row[1]
 		if cull:
 			self.flagTableUpdate('snp_merge')
 			dbc.executemany("DELETE FROM `db`.`snp_merge` WHERE _ROWID_ = ?", cull)
@@ -363,14 +370,26 @@ JOIN `db`.`snp_merge` AS sm
 		# but, make sure that if any of the originals were validated, the remaining one is also
 		valid = set()
 		cull = set()
-		sql = "SELECT GROUP_CONCAT(_ROWID_), MAX(validated) FROM `db`.`snp_locus` GROUP BY rs, chr, pos HAVING COUNT() > 1"
-		#for row in dbc.execute("EXPLAIN QUERY PLAN "+sql): #DEBUG
-		#	print row
-		for row in dbc.execute(sql):
-			rowids = row[0].split(',')
-			if row[1]:
-				valid.add( (long(rowids[0]),) )
-			cull.update( (long(rowids[i]),) for i in xrange(1,len(rowids)) )
+		if 0: #TODO
+			sql = "SELECT GROUP_CONCAT(_ROWID_), MAX(validated) FROM `db`.`snp_locus` GROUP BY rs, chr, pos HAVING COUNT() > 1"
+			for row in dbc.execute(sql):
+				rowids = row[0].split(',')
+				if row[1]:
+					valid.add( (long(rowids[0]),) )
+				cull.update( (long(rowids[i]),) for i in xrange(1,len(rowids)) )
+		else:
+			lastID = None
+			lastPos = None
+			sql = "SELECT _ROWID_, rs, chr, pos, validated FROM `db`.`snp_locus` ORDER BY rs, chr, pos"
+			for row in dbc.execute(sql):
+				pos = (row[1],row[2],row[3])
+				if lastPos == pos:
+					cull.add(row[0])
+					if row[4]:
+						valid.add(lastID)
+				else:
+					lastID = row[0]
+					lastPos = pos
 		if valid:
 			dbc.executemany("UPDATE `db`.`snp_locus` SET validated = 1 WHERE _ROWID_ = ?", valid)
 		if cull:
@@ -407,12 +426,20 @@ JOIN `db`.`snp_merge` AS sm
 		self.prepareTableForQuery('snp_entrez_role')
 		dbc = self._db.cursor()
 		cull = set()
-		sql = "SELECT GROUP_CONCAT(_ROWID_) FROM `db`.`snp_entrez_role` GROUP BY rs, entrez_id, role_id HAVING COUNT() > 1"
-		#for row in dbc.execute("EXPLAIN QUERY PLAN "+sql): #DEBUG
-		#	print row
-		for row in dbc.execute(sql):
-			rowids = row[0].split(',')
-			cull.update( (long(rowids[i]),) for i in xrange(1,len(rowids)) )
+		if 0: #TODO
+			sql = "SELECT GROUP_CONCAT(_ROWID_) FROM `db`.`snp_entrez_role` GROUP BY rs, entrez_id, role_id HAVING COUNT() > 1"
+			for row in dbc.execute(sql):
+				rowids = row[0].split(',')
+				cull.update( (long(rowids[i]),) for i in xrange(1,len(rowids)) )
+		else:
+			lastRole = None
+			sql = "SELECT _ROWID_, rs, entrez_id, role_id FROM `db`.`snp_entrez_role` ORDER BY rs, entrez_id, role_id"
+			for row in dbc.execute(sql):
+				role = (row[1],row[2],row[3])
+				if lastRole == role:
+					cull.add(row[0])
+				else:
+					lastRole = role
 		if cull:
 			self.flagTableUpdate('snp_entrez_role')
 			dbc.executemany("DELETE FROM `db`.`snp_entrez_role` WHERE _ROWID_ = ?", cull)
