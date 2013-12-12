@@ -327,10 +327,10 @@ class Source_loki(loki_source.Source):
 				cull.update( (long(rowids[i]),) for i in xrange(1,len(rowids)) )
 		else:
 			lastRS = None
-			sql = "SELECT _ROWID_, rsMerged FROM `db`.`snp_merge` ORDER BY rsMerged"
+			sql = "SELECT _ROWID_, rsMerged FROM `db`.`snp_merge` ORDER BY rsMerged DESC, rsCurrent DESC"
 			for row in dbc.execute(sql):
 				if lastRS == row[1]:
-					cull.add(row[0])
+					cull.add( (row[0],) )
 				else:
 					lastRS = row[1]
 		if cull:
@@ -384,9 +384,9 @@ JOIN `db`.`snp_merge` AS sm
 			for row in dbc.execute(sql):
 				pos = (row[1],row[2],row[3])
 				if lastPos == pos:
-					cull.add(row[0])
+					cull.add( (row[0],) )
 					if row[4]:
-						valid.add(lastID)
+						valid.add( (lastID,) )
 				else:
 					lastID = row[0]
 					lastPos = pos
@@ -437,7 +437,7 @@ JOIN `db`.`snp_merge` AS sm
 			for row in dbc.execute(sql):
 				role = (row[1],row[2],row[3])
 				if lastRole == role:
-					cull.add(row[0])
+					cull.add( (row[0],) )
 				else:
 					lastRole = role
 		if cull:
