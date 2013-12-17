@@ -246,7 +246,7 @@ class Updater(object):
 							prevVersion = row[1]
 					if not changed:
 						for row in cursor.execute("SELECT option, value FROM `db`.`source_option` WHERE source_id = ?", (srcID,)):
-							prevOptions[row[0]] = row[1]
+							prevOptions[str(row[0])] = str(row[1])
 						changed = changed or (options != prevOptions)
 					if (not changed) and (srcName != 'loki'):
 						n = 0
