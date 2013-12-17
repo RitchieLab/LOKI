@@ -119,6 +119,7 @@ class Source_loki(loki_source.Source):
 		elif (lastPP - curPP):
 			self.log("invalid database post-process flags; re-running all post-processing\n")
 		else:
+			self.log("lastPP = %s" % (str(lastPP),)) #TODO
 			curPP &= lastPP
 		#if vers/pp mismatch
 		
@@ -130,6 +131,7 @@ class Source_loki(loki_source.Source):
 		donePP = set()
 		ok = True
 		for pp in ppCallOrder:
+			self.log("at step %s tablesUpdated = %s" % (pp,str(tablesUpdated))) #TODO
 			# re-scan step triggers before each step, to catch steps
 			# which update tables that trigger later steps
 			if oldHGs:
@@ -320,7 +322,7 @@ class Source_loki(loki_source.Source):
 		
 		# for each set of ROWIDs which constitute a duplicated snp merge, cull all but one
 		cull = set()
-		if 0: #TODO
+		if 0: #sql method is sometimes very slow, python method seems more consistent
 			sql = "SELECT GROUP_CONCAT(_ROWID_) FROM `db`.`snp_merge` GROUP BY rsMerged HAVING COUNT() > 1"
 			for row in dbc.execute(sql):
 				rowids = row[0].split(',')
@@ -333,6 +335,7 @@ class Source_loki(loki_source.Source):
 					cull.add( (row[0],) )
 				else:
 					lastRS = row[1]
+		#if sql/python method
 		if cull:
 			self.flagTableUpdate('snp_merge')
 			dbc.executemany("DELETE FROM `db`.`snp_merge` WHERE _ROWID_ = ?", cull)
@@ -370,7 +373,7 @@ JOIN `db`.`snp_merge` AS sm
 		# but, make sure that if any of the originals were validated, the remaining one is also
 		valid = set()
 		cull = set()
-		if 0: #TODO
+		if 0: #sql method is sometimes very slow, python method seems more consistent
 			sql = "SELECT GROUP_CONCAT(_ROWID_), MAX(validated) FROM `db`.`snp_locus` GROUP BY rs, chr, pos HAVING COUNT() > 1"
 			for row in dbc.execute(sql):
 				rowids = row[0].split(',')
@@ -390,6 +393,7 @@ JOIN `db`.`snp_merge` AS sm
 				else:
 					lastID = row[0]
 					lastPos = pos
+		#if sql/python method
 		if valid:
 			dbc.executemany("UPDATE `db`.`snp_locus` SET validated = 1 WHERE _ROWID_ = ?", valid)
 		if cull:
@@ -426,7 +430,7 @@ JOIN `db`.`snp_merge` AS sm
 		self.prepareTableForQuery('snp_entrez_role')
 		dbc = self._db.cursor()
 		cull = set()
-		if 0: #TODO
+		if 0: #sql method is sometimes very slow, python method seems more consistent
 			sql = "SELECT GROUP_CONCAT(_ROWID_) FROM `db`.`snp_entrez_role` GROUP BY rs, entrez_id, role_id HAVING COUNT() > 1"
 			for row in dbc.execute(sql):
 				rowids = row[0].split(',')
@@ -440,6 +444,7 @@ JOIN `db`.`snp_merge` AS sm
 					cull.add( (row[0],) )
 				else:
 					lastRole = role
+		#if sql/python method
 		if cull:
 			self.flagTableUpdate('snp_entrez_role')
 			dbc.executemany("DELETE FROM `db`.`snp_entrez_role` WHERE _ROWID_ = ?", cull)
