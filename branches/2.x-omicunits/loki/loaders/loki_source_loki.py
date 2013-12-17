@@ -33,7 +33,7 @@ class Source_loki(loki_source.Source):
 	
 	
 	def validateOptions(self, options):
-		options.setdefault('unit-core-ns', 'entrez_gid,ensembl_gid')
+		options.setdefault('unit-core-ns', 'ensembl_gid,entrez_gid')
 		options.setdefault('require-unit-region', 'no')
 		options.setdefault('max-unit-gap', '25000')
 		options.setdefault('max-unit-alias-dist', '0')
@@ -119,7 +119,6 @@ class Source_loki(loki_source.Source):
 		elif (lastPP - curPP):
 			self.log("invalid database post-process flags; re-running all post-processing\n")
 		else:
-			self.log("lastPP = %s" % (str(lastPP),)) #TODO
 			curPP &= lastPP
 		#if vers/pp mismatch
 		
@@ -131,7 +130,6 @@ class Source_loki(loki_source.Source):
 		donePP = set()
 		ok = True
 		for pp in ppCallOrder:
-			self.log("at step %s tablesUpdated = %s" % (pp,str(tablesUpdated))) #TODO
 			# re-scan step triggers before each step, to catch steps
 			# which update tables that trigger later steps
 			if oldHGs:
@@ -151,7 +149,7 @@ class Source_loki(loki_source.Source):
 			#TODO: cleanupGWASAnnotations?
 			if ('region' in tablesUpdated):
 				curPP.add('updateRegionZones') # region_zone
-			if ('region' in tablesUpdated) or ('region_name' in tablesUpdated) or ('name_name' in tablesUpdated) or (lastUpdate and lastUpdate[0] and options != prevOptions):
+			if ('region' in tablesUpdated) or ('region_name' in tablesUpdated) or ('name_name' in tablesUpdated) or (lastUpdate and lastUpdate[0] and (options != prevOptions)):
 				curPP.add('defineOmicUnits') # unit, unit_name
 			if ('unit_name' in tablesUpdated) or ('snp_entrez_role' in tablesUpdated):
 				curPP.add('resolveSNPUnitRoles') # snp_unit_role
