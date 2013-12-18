@@ -632,7 +632,7 @@ WHERE rn.namespace_id IN (%s)"""
 		# split cores according to region gap rules
 		self.log("analyzing candidate unit regions ...")
 		maxGap = int(self._options['max-unit-gap'])
-		requireUnitRegion = self._options['require-unit-region']
+		requireUnitRegion = (self._options['require-unit-region'] == 'yes')
 		unitNames = list()
 		numNone = numChr = numGap = 0
 		while coreNames:
@@ -642,7 +642,7 @@ WHERE rn.namespace_id IN (%s)"""
 				regions.extend( (r+(n,)) for r in nameRegions[n] )
 			if not regions:
 				numNone += 1
-				if requireUnitRegion == 'no':
+				if not requireUnitRegion:
 					unitNames.append(names)
 				continue
 			regions.sort()
@@ -677,7 +677,7 @@ WHERE rn.namespace_id IN (%s)"""
 		# assign additional names using a kind of multi-source breadth-first-search #TODO: ambiguity?
 		self.log("assigning aliases to units ...")
 		maxDist = int(self._options['max-unit-alias-dist'])
-		allowSharedAliases = self._options['allow-shared-aliases']
+		allowSharedAliases = (self._options['allow-shared-aliases'] == 'yes')
 		nameDist = {n:0 for n in nameUnits}
 		queue = collections.deque(nameUnits)
 		while queue:
