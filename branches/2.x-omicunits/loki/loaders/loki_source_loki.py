@@ -23,11 +23,11 @@ class Source_loki(loki_source.Source):
 	@classmethod
 	def getOptions(cls):
 		return {
-			'unit-core-ns'         : 'ns1[,ns2[...]]  --  comma-separated list of namespaces to define unit cores (default: entrez_gid,ensembl_gid)',
-			'require-unit-region'  : '[yes|no]  --  require all units to have at least one region (default: no)',
-			'max-unit-gap'         : 'number  --  maximum basepair gap between regions to allow in one unit (default: 25000)',
-			'max-unit-alias-dist'  : 'number  --  maximum identifier graph distance from an alias to a unit core, or 0 for no limit (default: 0)',
-			'allow-shared-aliases' : '[yes|no]  --  allow aliases to be added to multiple equidistant unit cores (default: yes)',
+			'unit-core-ns'          : 'ns1[,ns2[...]]  --  comma-separated list of namespaces to define unit cores (default: entrez_gid,ensembl_gid)',
+			'require-unit-region'   : '[yes|no]  --  require all units to have at least one region (default: no)',
+			'max-unit-gap'          : 'number  --  maximum basepair gap between regions to allow in one unit, or -1 for no limit (default: 25000)',
+			'max-unit-alias-dist'   : 'number  --  maximum identifier graph distance from an alias to a unit core, or -1 for no limit (default: -1)',
+			'max-shared-alias-dist' : 'number  --  maximum identifier graph distance to allow an alias to be shared, or -1 for no limit (default: -1)',
 		}
 	#getOptions()
 	
@@ -36,8 +36,8 @@ class Source_loki(loki_source.Source):
 		options.setdefault('unit-core-ns', 'ensembl_gid,entrez_gid')
 		options.setdefault('require-unit-region', 'no')
 		options.setdefault('max-unit-gap', '25000')
-		options.setdefault('max-unit-alias-dist', '0')
-		options.setdefault('allow-shared-aliases', 'yes')
+		options.setdefault('max-unit-alias-dist', '-1')
+		options.setdefault('max-shared-alias-dist', '-1')
 		for o,v in options.iteritems():
 			v = v.strip().lower()
 			if o == 'unit-core-ns':
@@ -45,20 +45,20 @@ class Source_loki(loki_source.Source):
 				if not v:
 					return "%s must include at least one namespace" % (o,)
 				v = ','.join(sorted(v))
-			elif o in ('require-unit-region','allow-shared-aliases'):
+			elif o == 'require-unit-region':
 				if (v == '1') or 'true'.startswith(v) or 'yes'.startswith(v):
 					v = 'yes'
 				elif (v == '0') or 'false'.startswith(v) or 'no'.startswith(v):
 					v = 'no'
 				else:
 					return "%s must be 'yes' or 'no'" % (o,)
-			elif o in ('max-unit-gap','max-unit-alias-dist'):
+			elif o in ('max-unit-gap','max-unit-alias-dist','max-shared-alias-dist'):
 				try:
 					v = int(v)
 				except ValueError:
 					return "invalid integer for %s: %s" % (o,v)
 				if v < 0:
-					return "%s cannot be negative" % (o,)
+					v = -1
 				v = str(v)
 			else:
 				return "unknown option '%s'" % o
@@ -651,7 +651,7 @@ WHERE rn.namespace_id IN (%s)"""
 			for rC,rL,rR,rN in itertools.chain(regions, [(0,0,0,None)]):
 				if (uC == None or uC == 23 or uC == 24) and (rC == 23 or rC == 24): #it's ok for a core to have regions on X and Y
 					uC,uR = rC,rR
-				elif (uC != rC) or (uR + maxGap < rL):
+				elif (uC != rC) or ((maxGap >= 0) and (uR + maxGap < rL)):
 					if names:
 						if rN == None:
 							pass
@@ -679,7 +679,7 @@ WHERE rn.namespace_id IN (%s)"""
 		maxDist = int(self._options['max-unit-alias-dist'])
 		if maxDist != 0:
 			self.log("assigning aliases to units ...")
-			allowSharedAliases = (self._options['allow-shared-aliases'] == 'yes')
+			maxSharedDist = int(self._options['max-shared-alias-dist'])
 			queue = collections.deque(nameUnits)
 			while queue:
 				n1 = queue.pop()
@@ -695,7 +695,7 @@ WHERE rn.namespace_id IN (%s)"""
 							if (dist < maxDist) or (maxDist < 0):
 								queue.appendleft(n2)
 						elif nameDist[n2] == dist:
-							if allowSharedAliases:
+							if (dist <= maxSharedDist) or (maxSharedDist < 0):
 								for u in units:
 									unitNames[u].add(n2)
 								nameUnits[n2] |= units
