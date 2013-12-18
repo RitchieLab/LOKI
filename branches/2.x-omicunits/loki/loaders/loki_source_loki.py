@@ -703,7 +703,7 @@ WHERE rn.namespace_id IN (%s)"""
 				elif nameDist[n2] > dist:
 					raise Exception("BFS failure")
 		graph = None
-		self.log(" OK: %d identifiers\n" % (len(nameUnits),))
+		self.log(" OK: %d identifiers, %d assignments\n" % (len(nameUnits),sum(len(units) for units in nameUnits.itervalues())))
 		
 		# assign properties for each nameset
 		self.log("adding details to units ...")
