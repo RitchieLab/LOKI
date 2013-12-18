@@ -674,36 +674,39 @@ WHERE rn.namespace_id IN (%s)"""
 		self.log(" OK: %d omic-units (%d no-region, %d chr-splits, %d gap-splits)\n" % (len(unitNames),numNone,numChr,numGap))
 		nameRegions = coreNames = None
 		
-		# assign additional names using a kind of multi-source breadth-first-search #TODO: ambiguity?
-		self.log("assigning aliases to units ...")
-		maxDist = int(self._options['max-unit-alias-dist'])
-		allowSharedAliases = (self._options['allow-shared-aliases'] == 'yes')
+		# assign additional names using a kind of multi-source breadth-first-search
 		nameDist = {n:0 for n in nameUnits}
-		queue = collections.deque(nameUnits)
-		while queue:
-			n1 = queue.pop()
-			units = nameUnits[n1]
-			dist = nameDist[n1] + 1
-			for n2 in graph[n1]:
-				if n2 not in nameDist:
-					for u in units:
-						unitNames[u].add(n2)
-					nameUnits[n2] |= units
-					nameDist[n2] = dist
-					if (dist < maxDist) or (maxDist <= 0):
-						queue.appendleft(n2)
-				elif nameDist[n2] == dist:
-					if allowSharedAliases:
-						for u in units:
-							unitNames[u].add(n2)
-						nameUnits[n2] |= units
-					elif (nameUnits[n2] - units):
-						nameUnits[n2].clear()
-						nameDist[n2] = -1 # so it doesn't get picked up again
-				elif nameDist[n2] > dist:
-					raise Exception("BFS failure")
+		maxDist = int(self._options['max-unit-alias-dist'])
+		if maxDist != 0:
+			self.log("assigning aliases to units ...")
+			allowSharedAliases = (self._options['allow-shared-aliases'] == 'yes')
+			queue = collections.deque(nameUnits)
+			while queue:
+				n1 = queue.pop()
+				dist = nameDist[n1] + 1
+				if dist > 0: # skip shared aliases if not allowSharedAliases
+					units = nameUnits[n1]
+					for n2 in graph[n1]:
+						if n2 not in nameDist:
+							for u in units:
+								unitNames[u].add(n2)
+							nameUnits[n2] |= units
+							nameDist[n2] = dist
+							if (dist < maxDist) or (maxDist < 0):
+								queue.appendleft(n2)
+						elif nameDist[n2] == dist:
+							if allowSharedAliases:
+								for u in units:
+									unitNames[u].add(n2)
+								nameUnits[n2] |= units
+							elif (nameUnits[n2] - units):
+								del nameUnits[n2]
+								nameDist[n2] = -1 # so it doesn't get picked up again
+						elif nameDist[n2] > dist:
+							raise Exception("BFS logic error")
+			self.log(" OK: %d identifiers, %d assignments\n" % (len(nameUnits),sum(len(units) for units in nameUnits.itervalues())))
+		#if maxDist
 		graph = None
-		self.log(" OK: %d identifiers, %d assignments\n" % (len(nameUnits),sum(len(units) for units in nameUnits.itervalues())))
 		
 		# assign properties for each nameset
 		self.log("adding details to units ...")
@@ -717,12 +720,13 @@ WHERE rn.namespace_id IN (%s)"""
 			symbol = list()
 			for n in names:
 				d = nameDist[n]
-				if n in namePropValues:
-					utype_id.extend( (d,v) for v in namePropValues[n]['utype_id'] )
-					label.extend( (d,v) for v in namePropValues[n]['label'] )
-					desc.extend( (d,v) for v in namePropValues[n]['description'] )
-				if nameNamespaceID[n] == nsID['symbol']:
-					symbol.append( (d,nameName[n]) )
+				if d >= 0:
+					if n in namePropValues:
+						utype_id.extend( (d,v) for v in namePropValues[n]['utype_id'] )
+						label.extend( (d,v) for v in namePropValues[n]['label'] )
+						desc.extend( (d,v) for v in namePropValues[n]['description'] )
+					if nameNamespaceID[n] == nsID['symbol']:
+						symbol.append( (d,nameName[n]) )
 			utype_id = min(utype_id or zeroset)[1]
 			label = min(label or symbol or noneset)[1] or min(names)
 			desc = min(desc or noneset)[1]
