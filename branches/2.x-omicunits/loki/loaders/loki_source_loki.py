@@ -705,7 +705,7 @@ WHERE rn.namespace_id IN (%s)"""
 									unitNames[u].add(n2)
 								nameUnits[n2] |= units
 							else:
-								if (nameUnits[n2] - units): #TODO
+								if (nameUnits[n2] - units) and not (units - nameUnits[n2]): #TODO
 									print "%s:%s in %s -> %s:%s in %s" % (nsName[nameNamespaceID[n1]],nameName[n1],str(units),nsName[nameNamespaceID[n2]],nameName[n2],str(nameUnits[n2]))
 								# cannot be shared; delete the alias
 								for u in nameUnits[n2]:
