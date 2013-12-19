@@ -700,6 +700,8 @@ WHERE rn.namespace_id IN (%s)"""
 									unitNames[u].add(n2)
 								nameUnits[n2] |= units
 							elif (nameUnits[n2] - units):
+								for u in nameUnits[n2]:
+									unitNames[u].discard(n2)
 								del nameUnits[n2]
 								nameDist[n2] = -1 # so it doesn't get picked up again
 						elif nameDist[n2] > dist:
