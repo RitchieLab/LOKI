@@ -674,48 +674,45 @@ WHERE rn.namespace_id IN (%s)"""
 		self.log(" OK: %d omic-units (%d no-region, %d chr-splits, %d gap-splits)\n" % (len(unitNames),numNone,numChr,numGap))
 		nameRegions = coreNames = None
 		
-		# assign additional names using a kind of multi-source breadth-first-search
+		# assign additional names using breadth-first-search with multiple starting seeds
 		nameDist = {n:0 for n in nameUnits}
 		maxDist = int(self._options['max-unit-alias-dist'])
+		maxSharedDist = int(self._options['max-shared-alias-dist'])
 		if maxDist != 0:
 			self.log("assigning aliases to units ...")
-			maxSharedDist = int(self._options['max-shared-alias-dist'])
 			queue = collections.deque(nameUnits)
 			while queue:
 				n1 = queue.pop()
 				dist = nameDist[n1] + 1
-				if dist > 0: # skip shared aliases if not allowSharedAliases
+				if dist >= 1: # skip deleted aliases (too hard to remove from queue when deleting)
 					units = nameUnits[n1]
 					for n2 in graph[n1]:
 						if n2 not in nameDist:
+							nameUnits[n2] |= units
 							for u in units:
 								unitNames[u].add(n2)
-							nameUnits[n2] |= units
 							nameDist[n2] = dist
 							if (maxDist < 0) or (dist < maxDist):
 								queue.appendleft(n2)
 						elif nameDist[n2] == dist:
+							if nameUnits[n2] > units: #TODO
+								print "%s:%s in %s -> %s:%s in %s" % (nsName[nameNamespaceID[n1]],nameName[n1],str(units),nsName[nameNamespaceID[n2]],nameName[n2],str(nameUnits[n2]))
 							# already found during this distance-phase
-							if nameUnits[n2] == units:
-								# found by the same unit(s) we're searching from now
-								pass
-							elif (maxSharedDist < 0) or (dist <= maxSharedDist):
-								# allowed to be shared
+							nameUnits[n2] |= units
+							if (maxSharedDist < 0) or (dist <= maxSharedDist) or (len(nameUnits[n2]) <= 1):
+								# alias is unique or allowed to be shared
 								for u in units:
 									unitNames[u].add(n2)
-								nameUnits[n2] |= units
 							else:
-								if (nameUnits[n2] - units) and not (units - nameUnits[n2]): #TODO
-									print "%s:%s in %s -> %s:%s in %s" % (nsName[nameNamespaceID[n1]],nameName[n1],str(units),nsName[nameNamespaceID[n2]],nameName[n2],str(nameUnits[n2]))
-								# cannot be shared; delete the alias
+								# shared alias must be deleted
 								for u in nameUnits[n2]:
-									unitNames[u].remove(n2)
+									unitNames[u].discard(n2)
 								del nameUnits[n2]
 								nameDist[n2] = -1
 						elif nameDist[n2] > dist:
 							raise Exception("BFS logic error")
 					#for n2 in graph[n1]
-				#if dist > 0
+				#if dist
 			#while queue
 			self.log(" OK: %d identifiers, %d assignments\n" % (len(nameUnits),sum(len(units) for units in nameUnits.itervalues())))
 		#if maxDist
