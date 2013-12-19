@@ -677,52 +677,48 @@ WHERE rn.namespace_id IN (%s)"""
 		# assign additional names using breadth-first-search with multiple starting seeds
 		nameDist = {n:0 for n in nameUnits}
 		maxDist = int(self._options['max-unit-alias-dist'])
-		maxSharedDist = int(self._options['max-shared-alias-dist'])
 		if maxDist != 0:
 			self.log("assigning aliases to units ...")
 			queue = collections.deque(nameUnits)
 			while queue:
 				n1 = queue.pop()
+				units = nameUnits[n1]
 				dist = nameDist[n1] + 1
-				if dist >= 1: # skip deleted aliases (too hard to remove from queue when deleting)
-					units = nameUnits[n1]
-					for n2 in graph[n1]:
-						if n2 not in nameDist:
-							# first encounter
-							if (maxSharedDist < 0) or (dist <= maxSharedDist) or (len(units) <= 1):
-								# alias will be unique or allowed to be shared
-								nameUnits[n2] |= units
-								for u in nameUnits[n2]:
-									unitNames[u].add(n2)
-								nameDist[n2] = dist
-								if (maxDist < 0) or (dist < maxDist):
-									queue.appendleft(n2)
-							else:
-								# shared alias must be skipped
-								nameDist[n2] = -1
-						elif nameDist[n2] == dist:
-							if (nameUnits[n2] > units) and (dist > 1): #TODO
-								print "%s:%s in %s -> %s:%s in %s" % (nsName[nameNamespaceID[n1]],nameName[n1],str(units),nsName[nameNamespaceID[n2]],nameName[n2],str(nameUnits[n2]))
-							# already found during this distance-phase
-							nameUnits[n2] |= units
-							if (maxSharedDist < 0) or (dist <= maxSharedDist) or (len(nameUnits[n2]) <= 1):
-								# alias is unique or allowed to be shared
-								for u in nameUnits[n2]:
-									unitNames[u].add(n2)
-							else:
-								# shared alias must be deleted
-								for u in nameUnits[n2]:
-									unitNames[u].discard(n2)
-								del nameUnits[n2]
-								nameDist[n2] = -1
-						elif nameDist[n2] > dist:
-							raise Exception("BFS logic error")
-					#for n2 in graph[n1]
-				#if dist
+				for n2 in graph[n1]:
+					if n2 not in nameDist:
+						nameUnits[n2] |= units
+						for u in units:
+							unitNames[u].add(n2)
+						nameDist[n2] = dist
+						if (maxDist < 0) or (dist < maxDist):
+							queue.appendleft(n2)
+					elif nameDist[n2] == dist:
+						nameUnits[n2] |= units
+						for u in units:
+							unitNames[u].add(n2)
+					elif nameDist[n2] > dist:
+						raise Exception("BFS logic error")
+				#for n2 in graph[n1]
 			#while queue
 			self.log(" OK: %d identifiers, %d assignments\n" % (len(nameUnits),sum(len(units) for units in nameUnits.itervalues())))
 		#if maxDist
 		graph = None
+		
+		# remove shared aliases beyond the distance limit, if any
+		maxSharedDist = int(self._options['max-shared-alias-dist'])
+		if maxSharedDist >= 0:
+			self.log("deleting shared aliases ...")
+			delNames = delAssignments = 0
+			for n,d in nameDist.iteritems():
+				if (d > maxSharedDist) and (len(nameUnits[n]) > 1):
+					delNames += 1
+					delAssignments += len(nameUnits[n])
+					for u in nameUnits[n]:
+						unitNames[u].remove(n)
+					del nameUnits[n]
+					nameDist[n] = -1
+			self.log(" OK: deleted %d identifiers, %d assignments\n" % (delNames,delAssignments))
+		#if maxSharedDist
 		
 		# assign properties for each nameset
 		self.log("adding details to units ...")
