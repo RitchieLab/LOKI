@@ -688,20 +688,26 @@ WHERE rn.namespace_id IN (%s)"""
 					units = nameUnits[n1]
 					for n2 in graph[n1]:
 						if n2 not in nameDist:
-							nameUnits[n2] |= units
-							for u in units:
-								unitNames[u].add(n2)
-							nameDist[n2] = dist
-							if (maxDist < 0) or (dist < maxDist):
-								queue.appendleft(n2)
+							# first encounter
+							if (maxSharedDist < 0) or (dist <= maxSharedDist) or (len(units) <= 1):
+								# alias will be unique or allowed to be shared
+								nameUnits[n2] |= units
+								for u in nameUnits[n2]:
+									unitNames[u].add(n2)
+								nameDist[n2] = dist
+								if (maxDist < 0) or (dist < maxDist):
+									queue.appendleft(n2)
+							else:
+								# shared alias must be skipped
+								nameDist[n2] = -1
 						elif nameDist[n2] == dist:
-							if nameUnits[n2] > units: #TODO
+							if (nameUnits[n2] > units) and (dist > 1): #TODO
 								print "%s:%s in %s -> %s:%s in %s" % (nsName[nameNamespaceID[n1]],nameName[n1],str(units),nsName[nameNamespaceID[n2]],nameName[n2],str(nameUnits[n2]))
 							# already found during this distance-phase
 							nameUnits[n2] |= units
 							if (maxSharedDist < 0) or (dist <= maxSharedDist) or (len(nameUnits[n2]) <= 1):
 								# alias is unique or allowed to be shared
-								for u in units:
+								for u in nameUnits[n2]:
 									unitNames[u].add(n2)
 							else:
 								# shared alias must be deleted
