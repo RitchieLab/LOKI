@@ -692,20 +692,31 @@ WHERE rn.namespace_id IN (%s)"""
 								unitNames[u].add(n2)
 							nameUnits[n2] |= units
 							nameDist[n2] = dist
-							if (dist < maxDist) or (maxDist < 0):
+							if (maxDist < 0) or (dist < maxDist):
 								queue.appendleft(n2)
 						elif nameDist[n2] == dist:
-							if (dist <= maxSharedDist) or (maxSharedDist < 0):
+							# already found during this distance-phase
+							if nameUnits[n2] == units:
+								# found by the same unit(s) we're searching from now
+								pass
+							elif (maxSharedDist < 0) or (dist <= maxSharedDist):
+								# allowed to be shared
 								for u in units:
 									unitNames[u].add(n2)
 								nameUnits[n2] |= units
-							elif (nameUnits[n2] - units):
+							else:
+								if (nameUnits[n2] - units): #TODO
+									print "%s:%s in %s -> %s:%s in %s" % (nsName[nameNamespaceID[n1]],nameName[n1],str(units),nsName[nameNamespaceID[n2]],nameName[n2],str(nameUnits[n2]))
+								# cannot be shared; delete the alias
 								for u in nameUnits[n2]:
-									unitNames[u].discard(n2)
+									unitNames[u].remove(n2)
 								del nameUnits[n2]
-								nameDist[n2] = -1 # so it doesn't get picked up again
+								nameDist[n2] = -1
 						elif nameDist[n2] > dist:
 							raise Exception("BFS logic error")
+					#for n2 in graph[n1]
+				#if dist > 0
+			#while queue
 			self.log(" OK: %d identifiers, %d assignments\n" % (len(nameUnits),sum(len(units) for units in nameUnits.itervalues())))
 		#if maxDist
 		graph = None
