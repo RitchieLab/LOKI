@@ -701,24 +701,24 @@ WHERE rn.namespace_id IN (%s)"""
 				#for n2 in graph[n1]
 			#while queue
 			self.log(" OK: %d identifiers, %d assignments\n" % (len(nameUnits),sum(len(units) for units in nameUnits.itervalues())))
+			
+			# remove shared aliases beyond the distance limit, if any
+			maxSharedDist = int(self._options['max-shared-alias-dist'])
+			if maxSharedDist >= 0:
+				self.log("deleting shared aliases ...")
+				delNames = delAssignments = 0
+				for n,d in nameDist.iteritems():
+					if (d > maxSharedDist) and (len(nameUnits[n]) > 1):
+						delNames += 1
+						delAssignments += len(nameUnits[n])
+						for u in nameUnits[n]:
+							unitNames[u].remove(n)
+						del nameUnits[n]
+						nameDist[n] = -1
+				self.log(" OK: deleted %d identifiers, %d assignments\n" % (delNames,delAssignments))
+			#if maxSharedDist
 		#if maxDist
 		graph = None
-		
-		# remove shared aliases beyond the distance limit, if any
-		maxSharedDist = int(self._options['max-shared-alias-dist'])
-		if maxSharedDist >= 0:
-			self.log("deleting shared aliases ...")
-			delNames = delAssignments = 0
-			for n,d in nameDist.iteritems():
-				if (d > maxSharedDist) and (len(nameUnits[n]) > 1):
-					delNames += 1
-					delAssignments += len(nameUnits[n])
-					for u in nameUnits[n]:
-						unitNames[u].remove(n)
-					del nameUnits[n]
-					nameDist[n] = -1
-			self.log(" OK: deleted %d identifiers, %d assignments\n" % (delNames,delAssignments))
-		#if maxSharedDist
 		
 		# assign properties for each nameset
 		self.log("adding details to units ...")
