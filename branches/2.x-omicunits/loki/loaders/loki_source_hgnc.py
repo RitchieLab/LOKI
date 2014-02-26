@@ -9,14 +9,14 @@ class Source_hgnc(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '3.0 (2013-09-16)'
+		return '3.0 (2014-02-26)'
 	#getVersionString()
 	
 	
 	def download(self, options):
 		# download the latest source files
 		self.downloadFilesFromHTTP('www.genenames.org', {
-			'hgnc_downloads__all_approved.txt': '/cgi-bin/hgnc_downloads?preset=all&status=Approved&status_opt=2&where=&order_by=&format=text&limit=&submit=submit',
+			'hgnc_downloads__all_approved.txt': '/cgi-bin/download?preset=all&status=Approved&status_opt=2&where=&order_by=&format=text&limit=&submit=submit',
 		}, alwaysDownload=True)
 	#download()
 	

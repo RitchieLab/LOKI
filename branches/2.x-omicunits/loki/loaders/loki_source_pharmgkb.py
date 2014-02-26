@@ -9,7 +9,7 @@ class Source_pharmgkb(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '3.0 (2013-12-05)'
+		return '3.0 (2014-02-26)'
 	#getVersionString()
 	
 	
@@ -45,9 +45,9 @@ class Source_pharmgkb(loki_source.Source):
 		# download the latest source files
 		remFiles = dict()
 		if options['names'] == 'yes':
-			remFiles['genes.zip'] = '/commonFileDownload.action?filename=genes.zip'
+			remFiles['genes.zip'] = '/download.do?objId=genes.zip&dlCls=common'
 		if options['pathways'] == 'yes':
-			remFiles['pathways-tsv.zip'] = '/commonFileDownload.action?filename=pathways-tsv.zip'
+			remFiles['pathways-tsv.zip'] = '/download.do?objId=pathways-tsv.zip&dlCls=common'
 		if remFiles:
 			self.downloadFilesFromHTTP('www.pharmgkb.org', remFiles)
 	#download()
