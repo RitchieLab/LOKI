@@ -1,5 +1,9 @@
 CHANGELOG
 
+2.1.1b1 (2014-03-04)
+- added support for HTTP (but not SOCKS) proxy servers for downloading source
+  data via HTTP
+
 2.1.0 (2013-07-19)
 - release
 
