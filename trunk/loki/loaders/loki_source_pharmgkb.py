@@ -9,15 +9,15 @@ class Source_pharmgkb(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.0 (2013-02-14)'
+		return '2.1 (2014-03-07)'
 	#getVersionString()
 	
 	
 	def download(self, options):
 		# download the latest source files
 		self.downloadFilesFromHTTP('www.pharmgkb.org', {
-			'genes.zip':        '/commonFileDownload.action?filename=genes.zip',
-			'pathways-tsv.zip': '/commonFileDownload.action?filename=pathways-tsv.zip',
+			'genes.zip':        '/download.do?objId=genes.zip&dlCls=common',
+			'pathways-tsv.zip': '/download.do?objId=pathways-tsv.zip&dlCls=common',
 		})
 	#download()
 	
