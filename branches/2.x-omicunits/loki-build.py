@@ -58,7 +58,7 @@ if __name__ == "__main__":
 			help="update the knowledge database file by downloading and processing new data from all available sources EXCEPT those specified"
 	)
 	parser.add_argument('-o', '--option', type=str, metavar=('source','optionstring'), nargs=2, action='append', default=None,
-			help="additional option(s) to pass to the specified source loader module, in the format 'option=value[,option2=value2[,...]]'"
+			help="additional option(s) to pass to the specified source loader module, in the format 'option=value[,option2=value2[,...]]' or the keyword 'default'"
 	)
 	parser.add_argument('-r', '--force-update', action='store_true',
 			help="update all sources even if their source data has not changed since the last update"
@@ -149,13 +149,19 @@ if __name__ == "__main__":
 				print "    <no options>"
 	
 	# pass options?
-	userOptions = collections.defaultdict(dict)
+	userOptions = dict()
 	if args.option != None:
 		for optList in args.option:
 			srcName = optList[0]
-			for optString in optList[1].split(','):
-				opt,val = optString.split('=',1)
-				userOptions[srcName][opt] = val
+			userOptions[srcName] = dict()
+			if optList[1].lower() != 'default':
+				for optString in optList[1].split(','):
+					if '=' not in optString:
+						print "ERROR: invalid %s options format '%s'" % (srcName,optList[1])
+						sys.exit(1)
+					else:
+						opt,val = optString.split('=',1)
+						userOptions[srcName][opt] = val
 	userOptions = userOptions or None
 	
 	# parse requested update sources

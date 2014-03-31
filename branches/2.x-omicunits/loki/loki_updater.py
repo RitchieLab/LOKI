@@ -187,16 +187,19 @@ class Updater(object):
 					srcObj = self._sourceObjects[srcName]
 					srcID = srcObj.getSourceID()
 					
-					# validate options, if any
-					options = srcOpts.get(srcName, dict())
-					optionsGiven = sorted(options)
-					if optionsGiven:
-						self.logPush("validating %s options ...\n" % srcName)
+					# validate options
+					prevOptions = dict()
+					for row in cursor.execute("SELECT option, value FROM `db`.`source_option` WHERE source_id = ?", (srcID,)):
+						prevOptions[str(row[0])] = str(row[1])
+					options = srcOpts.get(srcName, prevOptions).copy()
+					optionsList = sorted(options)
+					if optionsList:
+						self.logPush("%s %s options ...\n" % (("validating" if (srcName in srcOpts) else "loading prior"), srcName))
 					msg = srcObj.validateOptions(options)
 					if msg != True:
 						raise Exception(msg)
-					if optionsGiven:
-						for opt in optionsGiven:
+					if optionsList:
+						for opt in optionsList:
 							self.log("%s = %s\n" % (opt,options[opt]))
 						self.logPop("... OK\n")
 					if (set(srcObj.getOptions()) - set(options)):
@@ -209,9 +212,8 @@ class Updater(object):
 					os.chdir(path)
 					
 					# skip file fingerprinting for the LOKI postprocessor
-					if srcName == 'loki':
-						filehash = dict()
-					else:
+					filehash = dict()
+					if srcName != 'loki':
 						# download files into a local cache
 						if not cacheOnly:
 							self.logPush("downloading %s data ...\n" % srcName)
@@ -223,7 +225,6 @@ class Updater(object):
 						# provides file timestamps with no TZ (like via FTP) we use them
 						# as-is and assume they're supposed to be UTC
 						self.log("analyzing %s data files ..." % srcName)
-						filehash = dict()
 						for filename in os.listdir('.'):
 							stat = os.stat(filename)
 							md5 = hashlib.md5()
@@ -236,18 +237,13 @@ class Updater(object):
 						self.log(" OK\n")
 					#if postprocessor
 					
-					# compare current loader version, options and file metadata to the last update to see if anything changed
-					changed = forceUpdate
+					# compare current options, loader version, and file metadata to the last update to see if anything changed
+					changed = forceUpdate or (options != prevOptions)
 					prevVersion = '?'
-					prevOptions = dict()
 					if not changed:
 						for row in cursor.execute("SELECT version, DATETIME(updated,'localtime') FROM `db`.`source` WHERE source_id = ?", (srcID,)):
 							changed = changed or (row[0] != srcObj.getVersionString())
 							prevVersion = row[1]
-					if not changed:
-						for row in cursor.execute("SELECT option, value FROM `db`.`source_option` WHERE source_id = ?", (srcID,)):
-							prevOptions[str(row[0])] = str(row[1])
-						changed = changed or (options != prevOptions)
 					if (not changed) and (srcName != 'loki'):
 						n = 0
 						for row in cursor.execute("SELECT filename, size, md5 FROM `db`.`source_file` WHERE source_id = ?", (srcID,)):
@@ -304,13 +300,12 @@ class Updater(object):
 			#foreach source
 			
 			# finalize
-			if not srcErrors:
-				self.log("finishing update ...")
-				if self._tablesDeindexed:
-					self._loki.createDatabaseIndecies(None, 'db', self._tablesDeindexed)
-				if self._tablesUpdated:
-					self._loki.setDatabaseSetting('optimized', 0)
-				self.log(" OK\n")
+			self.log("finishing update ...")
+			if self._tablesDeindexed:
+				self._loki.createDatabaseIndecies(None, 'db', self._tablesDeindexed)
+			if self._tablesUpdated:
+				self._loki.setDatabaseSetting('optimized', 0)
+			self.log(" OK\n")
 		except:
 			excType,excVal,excTrace = sys.exc_info()
 			while self.logPop() > logIndent:
