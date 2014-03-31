@@ -3,11 +3,11 @@
 import apsw
 import datetime
 import ftplib
-import httplib
 import itertools
 import os
 import sys
 import time
+import urllib2
 import zlib
 
 import loki_db
@@ -950,11 +950,12 @@ class Source(object):
 	
 	
 	def getHTTPHeaders(self, remHost, remURL):
-		http = httplib.HTTPConnection(remHost)
-		http.request('HEAD', remURL)
-		response = http.getresponse()
-		headers = dict( (h[0].lower(),h[1]) for h in response.getheaders() )
-		http.close()
+		request = urllib2.Request('http://'+remHost+remURL)
+		request.get_method = lambda: 'HEAD'
+		response = urllib2.urlopen(request)
+		info = response.info()
+		headers = dict( (h.lower(),info[h]) for h in info )
+		response.close()
 		return headers
 	#getHTTPHeaders()
 	
@@ -981,26 +982,23 @@ class Source(object):
 		if not alwaysDownload:
 			self.log("identifying changed files ...")
 			for locPath in remFiles:
-				try:
-					http = httplib.HTTPConnection(remHost)
-					http.request('HEAD', remFiles[locPath])
-					response = http.getresponse()
-				except IOError as e:
-					self.log(" ERROR: %s" % e)
-					return False
-			
-				content_length = response.getheader('content-length')
+				request = urllib2.Request('http://'+remHost+remFiles[locPath])
+				request.get_method = lambda: 'HEAD'
+				response = urllib2.urlopen(request)
+				info = response.info()
+				
+				content_length = info.getheader('content-length')
 				if content_length:
 					remSize[locPath] = long(content_length)
-			
-				last_modified = response.getheader('last-modified')
+				
+				last_modified = info.getheader('last-modified')
 				if last_modified:
 					try:
 						remTime[locPath] = datetime.datetime.strptime(last_modified,'%a, %d %b %Y %H:%M:%S %Z')
 					except ValueError:
 						remTime[locPath] = datetime.datetime.utcnow()
-			
-				http.close()
+				
+				response.close()
 			self.log(" OK\n")
 		#if not alwaysDownload
 		
@@ -1013,9 +1011,7 @@ class Source(object):
 				self.log("%s: downloading ..." % locPath)
 				#TODO: download to temp file, then rename?
 				with open(locPath, 'wb') as locFile:
-					http = httplib.HTTPConnection(remHost)
-					http.request('GET', remFiles[locPath])
-					response = http.getresponse()
+					response = urllib2.urlopen('http://'+remHost+remFiles[locPath])
 					while True:
 #						try:
 						data = response.read(8*1024*1024)
@@ -1024,7 +1020,7 @@ class Source(object):
 						if not data:
 							break
 						locFile.write(data)
-					http.close()
+					response.close()
 				self.log(" OK\n")
 			if remTime[locPath]:
 				modTime = time.mktime(remTime[locPath].utctimetuple())

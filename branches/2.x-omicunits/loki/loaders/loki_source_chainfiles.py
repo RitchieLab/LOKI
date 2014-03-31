@@ -26,7 +26,7 @@ class Source_chainfiles(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.0 (2013-02-14)'
+		return '2.1 (2014-03-07)'
 	#getVersionString()
 	
 	
@@ -35,13 +35,12 @@ class Source_chainfiles(loki_source.Source):
 		def remFilesCallback(ftp):
 			remFiles = {}
 			ftp.cwd('/goldenPath')
-			dirs = [ d for d in ftp.nlst() if self._reDir.match(d) ]
-			for d in dirs:
-				ftp.cwd('/goldenPath/%s/liftOver' % d)
-				files = [ f for f in ftp.nlst() if self._reFile.match(f) ]
-				for f in files:
-					remFiles[f] = '/goldenPath/%s/liftOver/%s' % (d,f)
-			
+			for d in [ d for d in ftp.nlst() if self._reDir.match(d) ]:
+				ftp.cwd('/goldenPath/%s' % d)
+				if 'liftOver' in ftp.nlst():
+					ftp.cwd('/goldenPath/%s/liftOver' % d)
+					for f in [ f for f in ftp.nlst() if self._reFile.match(f) ]:
+						remFiles[f] = '/goldenPath/%s/liftOver/%s' % (d,f)
 			return remFiles
 		#remFilesCallback
 		
