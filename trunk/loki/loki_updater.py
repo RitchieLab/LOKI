@@ -489,7 +489,6 @@ class Updater(object):
 		#	print row
 		for row in dbc.execute(sql):
 			cull.update( (long(i),) for i in row[0].split(',')[1:] )
-		#TODO
 		#last = None
 		#for row in dbc.execute("SELECT _ROWID_, rsMerged FROM `db`.`snp_merge` ORDER BY rsMerged"):
 		#	if last == row[1]:
@@ -540,7 +539,6 @@ JOIN `db`.`snp_merge` AS sm
 			if row[1]:
 				valid.add( (long(rowids[0]),) )
 			cull.update( (long(i),) for i in rowids[1:] )
-		#TODO
 		#last = None
 		#for row in dbc.execute("SELECT _ROWID_, rs||':'||chr||':'||pos, validated FROM `db`.`snp_locus` ORDER BY rs, chr, pos"):
 		#	if last == row[1]:
@@ -590,7 +588,6 @@ JOIN `db`.`snp_merge` AS sm
 		#	print row
 		for row in dbc.execute(sql):
 			cull.update( (long(i),) for i in row[0].split(',')[1:] )
-		#TODO
 		#last = None
 		#for row in dbc.execute("SELECT _ROWID_, rs||':'||entrez_id||':'||role_id FROM `db`.`snp_entrez_role` ORDER BY rs, entrez_id, role_id"):
 		#	if last == row[1]:
@@ -743,6 +740,7 @@ FROM (
 		
 		typeID = self._loki.getTypeID('gene')
 		namespaceID = self._loki.getNamespaceID('entrez_gid')
+		numUnrec = 0
 		if typeID and namespaceID:
 			self.prepareTableForUpdate('snp_biopolymer_role')
 			self.prepareTableForQuery('snp_entrez_role')
@@ -759,9 +757,19 @@ JOIN `db`.`biopolymer_name` AS bn
 JOIN `db`.`biopolymer` AS b
   ON b.biopolymer_id = bn.biopolymer_id AND b.type_id = ?
 """, (namespaceID,typeID))
+			numUnrec = sum(row[0] for row in dbc.execute("""
+SELECT COUNT() FROM (
+SELECT 1
+FROM `db`.`snp_entrez_role` AS ser
+LEFT JOIN `db`.`biopolymer_name` AS bn
+  ON bn.namespace_id = ? AND bn.name = ''||ser.entrez_id
+LEFT JOIN `db`.`biopolymer` AS b
+  ON b.biopolymer_id = bn.biopolymer_id AND b.type_id = ?
+GROUP BY ser._ROWID_
+HAVING MAX(b.biopolymer_id) IS NULL
+)
+""", (namespaceID,typeID)))
 		#if type[gene] and namespace[entrez_gid]
-		
-		#TODO: warning for unknown entrez_ids
 		
 		self.prepareTableForQuery('snp_biopolymer_role')
 		cull = set()
@@ -770,7 +778,6 @@ JOIN `db`.`biopolymer` AS b
 		#	print row
 		for row in dbc.execute(sql):
 			cull.update( (long(i),) for i in row[0].split(',')[1:] )
-		#TODO
 		#last = None
 		#for row in dbc.execute("SELECT _ROWID_, rs||':'||biopolymer_id||':'||role_id FROM `db`.`snp_biopolymer_role` ORDER BY rs, biopolymer_id, role_id"):
 		#	if last == row[1]:
@@ -785,7 +792,7 @@ JOIN `db`.`biopolymer` AS b
 			numTotal = row[0]
 			numSNPs = row[1]
 			numGenes = row[2]
-		self.log(" OK: %d roles (%d SNPs, %d genes)\n" % (numTotal,numSNPs,numGenes))
+		self.log(" OK: %d roles (%d SNPs, %d genes; %d unrecognized)\n" % (numTotal,numSNPs,numGenes,numUnrec))
 	#resolveSNPBiopolymerRoles()
 	
 	

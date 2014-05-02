@@ -1,5 +1,10 @@
 CHANGELOG
 
+2.2.0a1 (2014-??-??)
+- added a tally of SNP role records with unrecognized Entrez GeneIDs
+- added support for (mandatory) "extra" data fields on all lookup inputs,
+  which is returned with all corresponding output records
+
 2.1.1b1 (2014-03-04)
 - added support for HTTP (but not SOCKS) proxy servers for downloading source
   data via HTTP
