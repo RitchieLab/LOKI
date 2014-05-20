@@ -1,12 +1,10 @@
 CHANGELOG
 
-2.2.0a2 (2014-05-20)
+2.2.0b1 (2014-05-20)
 - removed all hardcoded UCSC hg <-> NCBI GRCh genome build identities
 - added support for parsing updated genome build identities from
   http://genome.ucsc.edu/FAQ/FAQreleases.html
 - added warnings for unrecognized builds which could lead to mismatched data
-
-2.2.0a1 (2014-05-02)
 - added a tally of SNP role records with unrecognized Entrez GeneIDs
 - added support for (mandatory) "extra" data fields on all lookup inputs,
   which is returned with all corresponding output records
