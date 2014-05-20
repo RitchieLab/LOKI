@@ -17,7 +17,7 @@ class Database(object):
 	def getVersionTuple(cls):
 		# tuple = (major,minor,revision,dev,build,date)
 		# dev must be in ('a','b','rc','release') for lexicographic comparison
-		return (2,2,0,'a',1,'2014-05-02')
+		return (2,2,0,'a',2,'2014-05-20')
 	#getVersionTuple()
 	
 	
@@ -115,17 +115,15 @@ class Database(object):
   ucschg INTEGER NOT NULL
 )
 """,
-				# hardcode translations between GRCh/NCBI and UCSC 'hg' genome build numbers
-				# TODO: find a source for this so we can transition to new builds without a code update, i.e.
-				#         http://genome.ucsc.edu/FAQ/FAQreleases.html
-				#         http://genome.ucsc.edu/goldenPath/releaseLog.html
-				#       these aren't meant to be machine-readable but might be good enough if they're kept updated
-				'data': [
-					(34,16),
-					(35,17),
-					(36,18),
-					(37,19),
-				],
+				# these translations are no longer hardcoded;
+				# they are now fetched dynamically by the updater
+			#	'data': [
+			#		(34,16),
+			#		(35,17),
+			#		(36,18),
+			#		(37,19),
+			#		(38,38),
+			#	],
 				'index': {}
 			}, #.db.grch_ucschg
 			

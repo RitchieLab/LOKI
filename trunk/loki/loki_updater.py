@@ -277,6 +277,42 @@ class Updater(object):
 				#try/except/finally
 			#foreach source
 			
+			# pull the latest GRCh/UCSChg conversions
+			#   http://genome.ucsc.edu/FAQ/FAQreleases.html
+			#   http://genome.ucsc.edu/goldenPath/releaseLog.html
+			# TODO: find a better machine-readable source for this data
+			self.log("updating GRCH:UCSChg genome build identities ...")
+			import urllib2
+			import re
+			response = urllib2.urlopen('http://genome.ucsc.edu/FAQ/FAQreleases.html')
+			page = ""
+			while True:
+				data = response.read()
+				if not data:
+					break
+				page += data
+			rowHuman = False
+			for tablerow in re.finditer(r'<tr>.*?</tr>', page, re.IGNORECASE | re.DOTALL):
+				cols = tuple(match.group()[4:-5].strip().lower() for match in re.finditer(r'<td>.*?</td>', tablerow.group(), re.IGNORECASE | re.DOTALL))
+				if cols and ((cols[0] == 'human') or (rowHuman and (cols[0] in ('','&nbsp;')))):
+					rowHuman = True
+					grch = ucschg = None
+					try:
+						if cols[1].startswith('hg'):
+							ucschg = int(cols[1][2:])
+						if cols[3].startswith('genome reference consortium grch'):
+							grch = int(cols[3][32:])
+						if cols[3].startswith('ncbi build '):
+							grch = int(cols[3][11:])
+					except:
+						pass
+					if grch and ucschg:
+						cursor.execute("INSERT INTO `db`.`grch_ucschg` (grch,ucschg) VALUES (?,?)", (grch,ucschg))
+				else:
+					rowHuman = False
+			#foreach tablerow
+			self.log(" OK\n")
+			
 			# cross-map GRCh/UCSChg build versions for all sources
 			ucscGRC = collections.defaultdict(int)
 			for row in self._db.cursor().execute("SELECT grch,ucschg FROM `db`.`grch_ucschg`"):
@@ -284,6 +320,14 @@ class Updater(object):
 				cursor.execute("UPDATE `db`.`source` SET grch = ? WHERE grch IS NULL AND ucschg = ?", (row[0],row[1]))
 				cursor.execute("UPDATE `db`.`source` SET ucschg = ? WHERE ucschg IS NULL AND grch = ?", (row[1],row[0]))
 			cursor.execute("UPDATE `db`.`source` SET current_ucschg = ucschg WHERE current_ucschg IS NULL")
+			
+			# check for any source with an unrecognized GRCh build
+			mismatch = False
+			for row in cursor.execute("SELECT source, grch, ucschg FROM `db`.`source` WHERE (grch IS NULL) != (ucschg IS NULL)"):
+				self.log("WARNING: unrecognized genome build for '%s' (NCBI GRCh%s, UCSC hg%s)\n" % (row[0],(row[1] or "?"),(row[2] or "?")))
+				mismatch = True
+			if mismatch:
+				self.log("WARNING: database may contain incomparable genome positions!\n")
 			
 			# check all sources' UCSChg build versions and set the latest as the target
 			hgSources = collections.defaultdict(set)
