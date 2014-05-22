@@ -91,7 +91,7 @@ class Source_dbsnp(loki_source.Source):
 				remFiles['RsMergeArch.bcp.gz'] = '/snp/organisms/human_9606/database/organism_data/RsMergeArch.bcp.gz'
 			
 			if options.get('roles',True):
-				remFiles['SnpFunctionCode.bcp.gz'] = '/snp/organisms/human_9606/database/shared_data/SnpFunctionCode.bcp.gz'
+				remFiles['SnpFunctionCode.bcp.gz'] = '/snp/database/shared_data/SnpFunctionCode.bcp.gz'
 				path = '/snp/organisms/human_9606/database/organism_data'
 				ftp.cwd(path)
 				bestfile = self._identifyLatestSNPContig(ftp.nlst())
