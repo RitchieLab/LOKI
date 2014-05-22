@@ -308,7 +308,7 @@ class Updater(object):
 						except:
 							pass
 						if grch and ucschg:
-							cursor.execute("INSERT INTO `db`.`grch_ucschg` (grch,ucschg) VALUES (?,?)", (grch,ucschg))
+							cursor.execute("INSERT OR REPLACE INTO `db`.`grch_ucschg` (grch,ucschg) VALUES (?,?)", (grch,ucschg))
 					else:
 						rowHuman = False
 				#foreach tablerow
