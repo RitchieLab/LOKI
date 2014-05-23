@@ -115,15 +115,15 @@ class Database(object):
   ucschg INTEGER NOT NULL
 )
 """,
-				# these translations are no longer hardcoded;
-				# they are now fetched dynamically by the updater
-			#	'data': [
-			#		(34,16),
-			#		(35,17),
-			#		(36,18),
-			#		(37,19),
-			#		(38,38),
-			#	],
+				# translations known at time of writing are still provided,
+				# but additional translations will also be fetched at update
+				'data': [
+					(34,16),
+					(35,17),
+					(36,18),
+					(37,19),
+					(38,38),
+				],
 				'index': {}
 			}, #.db.grch_ucschg
 			
