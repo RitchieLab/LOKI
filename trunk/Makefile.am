@@ -20,6 +20,9 @@ loki/loaders/loki_source_pfam.py \
 loki/loaders/loki_source_pharmgkb.py \
 loki/loaders/loki_source_reactome.py \
 loki/loaders/loki_source_chainfiles.py \
+loki/loaders/loki_source_gwas.py \
+loki/loaders/loki_source_ucsc_ecr.py \
+loki/loaders/loki_source_oreganno.py \
 loki/loaders/test/__init__.py \
 loki/loaders/test/loki_source_genes.py \
 loki/loaders/test/loki_source_light.py \
