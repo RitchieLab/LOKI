@@ -32,6 +32,7 @@ class Source_gwas(loki_source.Source):
 		self.log(" OK\n")
 		
 		# process gwas cataog
+		# the catalog uses dbSNP positions from b132, which should already be 1-based
 		self.log("processing GWAS catalog annotations ...")
 		reRS = re.compile('rs[0-9]+', re.I)
 		listNone = [None]

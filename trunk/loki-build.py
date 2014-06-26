@@ -69,7 +69,10 @@ if __name__ == "__main__":
 			help="do not optimize the knowledge database file after updating"
 	)
 	parser.add_argument('-v', '--verbose', action='store_true',
-			help="print warnings and log messages"
+			help="print warnings and log messages (default)"
+	)
+	parser.add_argument('-q', '--quiet', action='store_true',
+			help="suppress warnings and log messages"
 	)
 	parser.add_argument('-t', '--test-data', action='store_true',
 			help="Load testing data only"
@@ -120,7 +123,7 @@ if __name__ == "__main__":
 	
 	# instantiate database object
 	db = loki_db.Database(testing=args.test_data, updating=True)
-	db.setVerbose(args.verbose)
+	db.setVerbose(args.verbose or (not args.quiet))
 	db.attachDatabaseFile(args.knowledge)
 	
 	# list sources?

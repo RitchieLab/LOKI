@@ -277,6 +277,9 @@ CREATE TABLE [b137_SNPContigLocusId]
 		#if roles
 		
 		# process chromosome report files
+		# dbSNP chromosome reports use 1-based coordinates since b125, according to:
+		#   http://www.ncbi.nlm.nih.gov/books/NBK44414/#Reports.the_xml_dump_for_build_126_has_a
+		# This matches LOKI's convention.
 		grcBuild = None
 		snpLociValid = (options.get('loci') == 'validated')
 		for fileChm in self._chmList:

@@ -86,6 +86,9 @@ class Source_ucsc_ecr(loki_source.Source):
 	def update(self, options):
 		"""
 		Load the data from all of the files
+		UCSC's phastCons files use 1-based coordinates, according to:
+		  http://genome.ucsc.edu/goldenPath/help/phastCons.html
+		Since this matches LOKI's convention, we can store them as-is.
 		"""
 		self.log("deleting old records from the database ...")
 		self.deleteAll()

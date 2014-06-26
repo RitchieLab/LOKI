@@ -10,7 +10,7 @@ class Source_entrez(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.0 (2013-02-14)'
+		return '2.1 (2014-06-25)'
 	#getVersionString()
 	
 	
@@ -180,6 +180,10 @@ class Source_entrez(loki_source.Source):
 		numNames = sum(len(nsNames[ns]) for ns in nsNames)
 		
 		# process gene regions
+		# Entrez sequences use 0-based closed intervals, according to:
+		#   http://www.ncbi.nlm.nih.gov/books/NBK3840/#genefaq.Representation_of_nucleotide_pos
+		# and comparison of web-reported boundary coordinates to gene length (len = end - start + 1).
+		# Since LOKI uses 1-based closed intervals, we add 1 to all coordinates.
 		self.log("processing gene regions ...")
 		reBuild = re.compile('GRCh([0-9]+)')
 		buildGenes = collections.defaultdict(set)
@@ -206,8 +210,8 @@ class Source_entrez(loki_source.Source):
 				rnaAcc = words[3].rsplit('.',1)[0] if words[3] != "-" else None
 				proAcc = words[5].rsplit('.',1)[0] if words[5] != "-" else None
 				genAcc = words[7].rsplit('.',1)[0] if words[7] != "-" else None
-				posMin = long(words[9]) if words[9] != "-" else None
-				posMax = long(words[10]) if words[10] != "-" else None
+				posMin = (long(words[9])+1) if words[9] != "-" else None
+				posMax = (long(words[10])+1) if words[10] != "-" else None
 				build = reBuild.search(words[12].rstrip() if (len(words) > 12 and words[12] != "-") else '')
 				
 				# skip unrecognized IDs

@@ -282,7 +282,7 @@ class Updater(object):
 			#   http://genome.ucsc.edu/goldenPath/releaseLog.html
 			# TODO: find a better machine-readable source for this data
 			if not cacheOnly:
-				self.log("updating GRCH:UCSChg genome build identities ...")
+				self.log("updating GRCh:UCSChg genome build identities ...")
 				import urllib2
 				import re
 				response = urllib2.urlopen('http://genome.ucsc.edu/FAQ/FAQreleases.html')
@@ -461,7 +461,7 @@ class Updater(object):
 		minRowID = firstRowID
 		maxRowID = minRowID + 2500000 - 1
 		while minRowID <= lastRowID:
-			sql = "SELECT _ROWID_, chr, pos FROM `db`.`snp_locus`"
+			sql = "SELECT _ROWID_, chr, pos, NULL FROM `db`.`snp_locus`"
 			sql += " WHERE (_ROWID_ BETWEEN ? AND ?) AND source_id IN (%s)" % (','.join(str(i) for i in sourceIDs))
 			oldLoci = list(cursor.execute(sql, (minRowID,maxRowID)))
 			newLoci = self._loki.generateLiftOverLoci(oldHG, newHG, oldLoci, tally, errorCallback)
@@ -504,7 +504,7 @@ class Updater(object):
 		minRowID = firstRowID
 		maxRowID = minRowID + 2500000 - 1
 		while minRowID <= lastRowID:
-			sql = "SELECT _ROWID_, chr, posMin, posMax FROM `db`.`biopolymer_region`"
+			sql = "SELECT _ROWID_, chr, posMin, posMax, NULL FROM `db`.`biopolymer_region`"
 			sql += " WHERE (_ROWID_ BETWEEN ? AND ?) AND source_id IN (%s)" % (','.join(str(i) for i in sourceIDs))
 			oldRegions = list(cursor.execute(sql, (minRowID,maxRowID)))
 			newRegions = self._loki.generateLiftOverRegions(oldHG, newHG, oldRegions, tally, errorCallback)

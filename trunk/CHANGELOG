@@ -1,5 +1,10 @@
 CHANGELOG
 
+2.2.1a1 (2014-06-25)
+- normalized the region coordinate convention across LOKI
+- added the "extra" data field in all liftOver inputs and outputs
+- made loki-build verbose by default, with --quiet to suppress notices
+
 2.2.0rc1 (2014-05-27)
 - added support for HTTP (but not SOCKS) proxy servers for downloading source
   data via HTTP

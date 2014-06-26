@@ -17,7 +17,7 @@ class Database(object):
 	def getVersionTuple(cls):
 		# tuple = (major,minor,revision,dev,build,date)
 		# dev must be in ('a','b','rc','release') for lexicographic comparison
-		return (2,2,0,'rc',1,'2014-05-27')
+		return (2,2,1,'a',1,'2014-06-23')
 	#getVersionTuple()
 	
 	
@@ -95,7 +95,7 @@ class Database(object):
 """,
 				'data': [
 					('schema','3'),
-					('ucschg','0'),
+					('ucschg',None),
 					('zone_size','100000'),
 					('optimized','0'),
 					('finalized','0'),
@@ -266,7 +266,7 @@ class Database(object):
 			}, #.db.snp_merge
 			
 			
-			'snp_locus': {
+			'snp_locus': { # all coordinates in LOKI are 1-based closed intervals
 				'table': """
 (
   rs INTEGER NOT NULL,
@@ -370,7 +370,7 @@ class Database(object):
 			}, #.db.biopolymer_name_name
 			
 			
-			'biopolymer_region': {
+			'biopolymer_region': { # all coordinates in LOKI are 1-based closed intervals
 				'table': """
 (
   biopolymer_id INTEGER NOT NULL,
@@ -498,7 +498,7 @@ class Database(object):
 			# gwas tables
 			
 			
-			'gwas': {
+			'gwas': { # all coordinates in LOKI are 1-based closed intervals
 				'table': """
 (
   gwas_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -525,7 +525,7 @@ class Database(object):
 			# liftover tables
 			
 			
-			'chain': {
+			'chain': { # all coordinates in LOKI are 1-based closed intervals
 				'table': """
 (
   chain_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -548,7 +548,7 @@ class Database(object):
 			}, #.db.chain
 			
 			
-			'chain_data': {
+			'chain_data': { # all coordinates in LOKI are 1-based closed intervals
 				'table': """
 (
   chain_id INTEGER NOT NULL,
@@ -577,7 +577,7 @@ class Database(object):
 		# initialize instance properties
 		self._is_test = testing
 		self._updating = updating
-		self._verbose = False
+		self._verbose = True
 		self._logger = None
 		self._logFile = sys.stderr
 		self._logIndent = 0
@@ -1729,7 +1729,7 @@ ORDER BY c.old_chr, score DESC, cd.old_start
 		#if chains are cached
 		
 		for c in chains['keys'].get(chrom, []):
-			# if the region overlaps the chain...
+			# if the region overlaps the chain... (1-based, closed intervals)
 			if start <= c[2] and end >= c[1]:
 				data = chains['data'][chrom][c]
 				idx = bisect.bisect(data, (start, sys.maxint, sys.maxint))
@@ -1739,14 +1739,14 @@ ORDER BY c.old_chr, score DESC, cd.old_start
 				if idx < len(data) - 1 and start == data[idx + 1]:
 					idx = idx + 1
 				
-				while idx < len(data) and data[idx][0] < end:
+				while idx < len(data) and data[idx][0] <= end:
 					yield (c[-1], data[idx][0], data[idx][1], data[idx][2], c[4], c[5])
 					idx = idx + 1
 		#foreach chain
 	#_generateApplicableLiftOverChains()
 	
 	
-	def _liftOverRegionUsingChains(self, label, start, end, first_seg, end_seg, total_mapped_sz):
+	def _liftOverRegionUsingChains(self, label, start, end, extra, first_seg, end_seg, total_mapped_sz):
 		"""
 		Map a region given the 1st and last segment as well as the total mapped size
 		"""
@@ -1773,33 +1773,28 @@ ORDER BY c.old_chr, score DESC, cd.old_start
 		
 		# old_startHere, detect if we have mapped a sufficient fraction 
 		# of the region.  liftOver uses a default of 95%
-		mapped_size = total_mapped_sz - front_diff - (end_seg[2] - end_seg[1]) + end_diff
+		mapped_size = total_mapped_sz - front_diff - (end_seg[2] - end_seg[1] + 1) + end_diff + 1
 		
-		if mapped_size / float(end - start) >= 0.95: # TODO: configurable threshold?
-			mapped_reg = (label, first_seg[5], new_start, new_end)
+		if mapped_size / float(end - start + 1) >= 0.95: # TODO: configurable threshold?
+			mapped_reg = (label, first_seg[5], new_start, new_end, extra)
 		
 		return mapped_reg
 	#_liftOverRegionUsingChains()
 	
 	
 	def generateLiftOverRegions(self, oldHG, newHG, regions, tally=None, errorCallback=None):
-		# regions=[ (label,chr,posMin,posMax), ... ]
+		# regions=[ (label,chr,posMin,posMax,extra), ... ]
 		oldHG = int(oldHG)
 		newHG = int(newHG)
 		numNull = numLift = 0
 		for region in regions:
-			label,chrom,start,end = region
+			label,chrom,start,end,extra = region
 			
-			# We need to actually lift regions to detect dropped sections
-			is_region = True
-			
-			# If the start and end are swapped, reverse them, please
 			if start > end:
-				(start, end) = (end, start)
-			elif start == end:
-				is_region = False
-				end = start + 1	
+				start,end = end,start
+			is_region = (start != end)
 			
+			# find and apply chains
 			mapped_reg = None
 			curr_chain = None
 			total_mapped_sz = 0
@@ -1810,26 +1805,26 @@ ORDER BY c.old_chr, score DESC, cd.old_start
 					curr_chain = seg[0]
 					first_seg = seg
 					end_seg = seg
-					total_mapped_sz = seg[2] - seg[1]
+					total_mapped_sz = seg[2] - seg[1] + 1
 				elif seg[0] != curr_chain:
-					mapped_reg = self._liftOverRegionUsingChains(label, start, end, first_seg, end_seg, total_mapped_sz)
+					mapped_reg = self._liftOverRegionUsingChains(label, start, end, extra, first_seg, end_seg, total_mapped_sz)
 					if mapped_reg:
 						break
 					curr_chain = seg[0]
 					first_seg = seg
 					end_seg = seg
-					total_mapped_sz = seg[2] - seg[1]
+					total_mapped_sz = seg[2] - seg[1] + 1
 				else:
 					end_seg = seg
-					total_mapped_sz = total_mapped_sz + seg[2] - seg[1]
+					total_mapped_sz = total_mapped_sz + seg[2] - seg[1] + 1
 			
 			if not mapped_reg and first_seg is not None:
-				mapped_reg = self._liftOverRegionUsingChains(label, start, end, first_seg, end_seg, total_mapped_sz)
+				mapped_reg = self._liftOverRegionUsingChains(label, start, end, extra, first_seg, end_seg, total_mapped_sz)
 			
 			if mapped_reg:
 				numLift += 1
 				if not is_region:
-					mapped_reg = (mapped_reg[0], mapped_reg[1], mapped_reg[2], mapped_reg[2])
+					mapped_reg = (mapped_reg[0], mapped_reg[1], mapped_reg[2], mapped_reg[2], extra)
 				yield mapped_reg
 			else:
 				numNull += 1
@@ -1844,10 +1839,10 @@ ORDER BY c.old_chr, score DESC, cd.old_start
 	
 	
 	def generateLiftOverLoci(self, oldHG, newHG, loci, tally=None, errorCallback=None):
-		# loci=[ (label,chr,pos), ... ]
-		regions = ((l[0],l[1],l[2],l[2]) for l in loci)
-		for r in self.generateLiftOverRegions(oldHG, newHG, regions, tally, errorCallback):
-			yield r[0:3]
+		# loci=[ (label,chr,pos,extra), ... ]
+		regions = ((l[0],l[1],l[2],l[2],l[3]) for l in loci)
+		newloci = ((r[0],r[1],r[2],r[4]) for r in self.generateLiftOverRegions(oldHG, newHG, regions, tally, errorCallback))
+		return newloci
 	#generateLiftOverLoci()
 	
 	
