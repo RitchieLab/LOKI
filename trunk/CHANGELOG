@@ -1,5 +1,9 @@
 CHANGELOG
 
+2.2.1a2 (2014-06-27)
+- fixed a bug in liftOver when the input start position was inside a gap
+- fixed a bug in the coordinate normalization of the chainfiles loader
+
 2.2.1a1 (2014-06-25)
 - normalized the region coordinate convention across LOKI
 - added the "extra" data field in all liftOver inputs and outputs

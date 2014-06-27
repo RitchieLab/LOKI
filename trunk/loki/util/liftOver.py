@@ -183,19 +183,19 @@ if __name__ == "__main__":
 	old = int(sys.argv[5]) if (len(sys.argv) > 5) else 19
 	new = int(sys.argv[6]) if (len(sys.argv) > 6) else 38
 	#lo = liftOver(db, old, new, False)
-	f = file(sys.argv[1])
-	m = file(sys.argv[3],'w')
-	u = file(sys.argv[4],'w')
+	f = (sys.stdin  if (sys.argv[1] == '-') else file(sys.argv[1],'r'))
+	m = (sys.stdout if (sys.argv[3] == '-') else file(sys.argv[3],'w'))
+	u = (sys.stderr if (sys.argv[4] == '-') else file(sys.argv[4],'w'))
 	
 	def generateInputs(f):
 		for l in f:
 			wds = l.split()
 			if wds[0].lower().startswith('chr'):
 				wds[0] = wds[0][3:]
-			yield (None, db.chr_num.get(wds[0],-1), int(wds[1]), int(wds[2]), None)
+			yield (l.strip().replace(" ",":").replace("\t",":"), db.chr_num.get(wds[0],-1), int(wds[1]), int(wds[2]), None)
 	
 	def errorCallback(r):
 		print >> u, "\t".join(str(c) for c in r)
 	
 	for r in db.generateLiftOverRegions(old, new, generateInputs(f), errorCallback=errorCallback):
-		print >> m, "chr%s\t%d\t%d" % (db.chr_name.get(r[1],r[1]), r[2], r[3])
+		print >> m, "chr%s\t%s\t%d\t%d" % (db.chr_name.get(r[1],r[1]), r[0], r[2], r[3])

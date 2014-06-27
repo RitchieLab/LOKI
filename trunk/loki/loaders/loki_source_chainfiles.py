@@ -116,7 +116,9 @@ class Source_chainfiles(loki_source.Source):
 		
 		# get the 1st line
 		hdr = chain_hdr.strip().split('\n')[0].strip()
+		
 		# Parse the first line
+		# "chain" score oldChr oldSize oldDir oldStart oldEnd newChr newSize newDir newStart newEnd id
 		wds = hdr.split()
 		
 		if wds[0] != "chain":
@@ -132,8 +134,8 @@ class Source_chainfiles(loki_source.Source):
 		else:
 			# NOTE: If we're going backward, this will mean that 
 			# end < start
-			new_start = int(wds[8]) - (int(wds[10]) + 1)
-			new_end = int(wds[8]) - int(wds[11])
+			new_start = int(wds[8]) - int(wds[10])
+			new_end = int(wds[8]) - int(wds[11]) + 1
 		
 		
 		# I want a tuple of (score, old_chr, old_start, old_end,

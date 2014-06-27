@@ -17,7 +17,7 @@ class Database(object):
 	def getVersionTuple(cls):
 		# tuple = (major,minor,revision,dev,build,date)
 		# dev must be in ('a','b','rc','release') for lexicographic comparison
-		return (2,2,1,'a',1,'2014-06-23')
+		return (2,2,1,'a',2,'2014-06-27')
 	#getVersionTuple()
 	
 	
@@ -1732,14 +1732,10 @@ ORDER BY c.old_chr, score DESC, cd.old_start
 			# if the region overlaps the chain... (1-based, closed intervals)
 			if start <= c[2] and end >= c[1]:
 				data = chains['data'][chrom][c]
-				idx = bisect.bisect(data, (start, sys.maxint, sys.maxint))
-				if idx:
-					idx = idx-1
-				
-				if idx < len(data) - 1 and start == data[idx + 1]:
+				idx = bisect.bisect(data, (start, sys.maxint, sys.maxint)) - 1
+				while (idx < 0) or (data[idx][1] < start):
 					idx = idx + 1
-				
-				while idx < len(data) and data[idx][0] <= end:
+				while (idx < len(data)) and (data[idx][0] <= end):
 					yield (c[-1], data[idx][0], data[idx][1], data[idx][2], c[4], c[5])
 					idx = idx + 1
 		#foreach chain
