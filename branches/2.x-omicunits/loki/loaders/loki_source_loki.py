@@ -16,7 +16,7 @@ class Source_loki(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '3.0 (2013-12-02)'
+		return '3.0 (2014-08-15)'
 	#getVersionString()
 	
 	
@@ -83,11 +83,13 @@ class Source_loki(loki_source.Source):
 			cursor.execute("UPDATE `db`.`source` SET grch = ? WHERE grch IS NULL AND ucschg = ?", (row[0],row[1]))
 			cursor.execute("UPDATE `db`.`source` SET ucschg = ? WHERE ucschg IS NULL AND grch = ?", (row[1],row[0]))
 		cursor.execute("UPDATE `db`.`source` SET current_ucschg = ucschg WHERE current_ucschg IS NULL")
-		targetHG = max(row[0] for row in cursor.execute("SELECT current_ucschg FROM `db`.`source` WHERE current_ucschg IS NOT NULL"))
+		targetHG = None
+		for row in cursor.execute("SELECT current_ucschg FROM `db`.`source` WHERE current_ucschg IS NOT NULL"):
+			targetHG = max(row[0], targetHG)
 		if (targetHG != self._loki.getDatabaseSetting('ucschg',int)):
-			self.log("database genome build: GRCh%s / UCSChg%s\n" % (ucscGRC.get(targetHG,'?'), targetHG))
+			self.log("database genome build: GRCh%s / UCSChg%s\n" % (ucscGRC.get(targetHG,'?'), targetHG or '?'))
 			self._loki.setDatabaseSetting('ucschg', targetHG)
-		oldHGs = sum(1 for row in cursor.execute("SELECT 1 FROM `db`.`source` WHERE current_ucschg IS NOT NULL AND current_ucschg != %d" % (targetHG,)))
+		oldHGs = sum(1 for row in cursor.execute("SELECT 1 FROM `db`.`source` WHERE current_ucschg IS NOT NULL AND current_ucschg != ?", (targetHG,)))
 		
 		# decide which post-processing steps are required
 		ppCallOrder = [
