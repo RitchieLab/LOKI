@@ -17,7 +17,7 @@ class Database(object):
 	def getVersionTuple(cls):
 		# tuple = (major,minor,revision,dev,build,date)
 		# dev must be in ('a','b','rc','release') for lexicographic comparison
-		return (2,2,1,'a',2,'2014-06-27')
+		return (2,2,1,'a',3,'2014-09-24')
 	#getVersionTuple()
 	
 	
@@ -1310,10 +1310,13 @@ SELECT i.rs, i.extra, sl.chr, sl.pos
 FROM (SELECT ? AS rs, ? AS extra) AS i
 LEFT JOIN `db`.`snp_locus` AS sl
   ON sl.rs = i.rs
+ORDER BY sl.chr, sl.pos
 """
 		if validated != None:
 			sql += "  AND sl.validated = %d" % (1 if validated else 0)
 		
+		minMatch = int(minMatch) if (minMatch != None) else 0
+		maxMatch = int(maxMatch) if (maxMatch != None) else None
 		tag = matches = None
 		n = numZero = numOne = numMany = 0
 		with self._db:
@@ -1328,15 +1331,15 @@ LEFT JOIN `db`.`snp_locus` AS sl
 						else:
 							numMany += 1
 						
-						if (minMatch or len(matches)) <= len(matches) <= (maxMatch or len(matches)):
+						if minMatch <= len(matches) <= (maxMatch if (maxMatch != None) else len(matches)):
 							for match in (matches or [tag+(None,None)]):
 								yield match
 						elif errorCallback:
-							errorCallback("\t".join(tag), "%s match%s at position %d" % ((len(matches) or "no"),("" if len(matches) == 1 else "es"),n))
+							errorCallback("\t".join(tag), "%s match%s at index %d" % ((len(matches) or "no"),("" if len(matches) == 1 else "es"),n))
 					tag = row[0:2]
-					matches = set()
+					matches = list()
 				if row[2] and row[3]:
-					matches.add(row)
+					matches.append(row)
 			#foreach row
 		if tally != None:
 			tally['zero'] = numZero
@@ -1409,7 +1412,7 @@ LEFT JOIN `db`.`biopolymer` AS bName
 							for match in (matches or [tag+(None,)]):
 								yield match
 						elif errorCallback:
-							errorCallback("\t".join(tag), "%s match%s at position %d" % ((len(matches) or "no"),("" if len(matches) == 1 else "es"),n))
+							errorCallback("\t".join(tag), "%s match%s at index %d" % ((len(matches) or "no"),("" if len(matches) == 1 else "es"),n))
 					tag = row[0:3]
 					matches = set()
 				if row[3]:
@@ -1576,7 +1579,7 @@ LEFT JOIN `db`.`group` AS gName
 							for match in (matches or [tag+(None,)]):
 								yield match
 						elif errorCallback:
-							errorCallback("\t".join(tag), "%s match%s at position %d" % ((len(matches) or "no"),("" if len(matches) == 1 else "es"),n))
+							errorCallback("\t".join(tag), "%s match%s at index %d" % ((len(matches) or "no"),("" if len(matches) == 1 else "es"),n))
 					tag = row[0:3]
 					matches = set()
 				if row[3]:
