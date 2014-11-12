@@ -16,7 +16,7 @@ class Source_loki(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '3.0 (2014-08-15)'
+		return '3.0 (2014-10-21)'
 	#getVersionString()
 	
 	
@@ -122,15 +122,14 @@ class Source_loki(loki_source.Source):
 			self.log("invalid database post-process flags; re-running all post-processing\n")
 		else:
 			curPP &= lastPP
+		self._loki.setDatabaseSetting('postProcess', ','.join(curPP))
 		#if vers/pp mismatch
 		
 		# call all necessary post-processing methods
-		import time
+		import time #TODO
 		self._options = options
-		self._nameUIDs = None
-		self._loki.setDatabaseSetting('postProcess', ','.join(curPP))
+		self._nameUnits = None
 		donePP = set()
-		ok = True
 		for pp in ppCallOrder:
 			# re-scan step triggers before each step, to catch steps
 			# which update tables that trigger later steps
@@ -184,9 +183,14 @@ class Source_loki(loki_source.Source):
 				finally:
 					cursor.execute("RELEASE SAVEPOINT '%s'" % (savepoint,))
 					self._loki.setDatabaseSetting('postProcess', ','.join(curPP - donePP))
-				self.log("(%ds)\n" % (time.time()-t0))
+				self.log("(%ds)\n" % (time.time()-t0)) #TODO
 			#if pp in curPP
 		#foreach ppCallOrder
+		
+		# clean up
+		self._loki.setDatabaseSetting('postProcess', ','.join(curPP - donePP))
+		self._options = None
+		self._nameUnits = None
 	#update()
 	
 	
@@ -321,24 +325,25 @@ class Source_loki(loki_source.Source):
 		dbc = self._db.cursor()
 		
 		# for each set of ROWIDs which constitute a duplicated snp merge, cull all but one
-		cull = set()
-		if 0: #sql method is sometimes very slow, python method seems more consistent
+		cull = list()
+		if 0: #TODO
 			sql = "SELECT GROUP_CONCAT(_ROWID_) FROM `db`.`snp_merge` GROUP BY rsMerged HAVING COUNT() > 1"
 			for row in dbc.execute(sql):
 				rowids = row[0].split(',')
-				cull.update( (long(rowids[i]),) for i in xrange(1,len(rowids)) )
+				cull.extend( (long(rowids[i]),) for i in xrange(1,len(rowids)) )
 		else:
 			lastRS = None
-			sql = "SELECT _ROWID_, rsMerged FROM `db`.`snp_merge` ORDER BY rsMerged DESC, rsCurrent DESC"
+			sql = "SELECT _ROWID_, rsMerged FROM `db`.`snp_merge` ORDER BY rsMerged, rsCurrent"
 			for row in dbc.execute(sql):
 				if lastRS == row[1]:
-					cull.add( (row[0],) )
+					cull.append( (row[0],) )
 				else:
 					lastRS = row[1]
 		#if sql/python method
 		if cull:
 			self.flagTableUpdate('snp_merge')
 			dbc.executemany("DELETE FROM `db`.`snp_merge` WHERE _ROWID_ = ?", cull)
+		
 		self.log(" OK: %d duplicate merges\n" % (len(cull),))
 	#cleanupSNPMerges()
 	
@@ -348,20 +353,33 @@ class Source_loki(loki_source.Source):
 		self.prepareTableForQuery('snp_locus')
 		self.prepareTableForQuery('snp_merge')
 		dbc = self._db.cursor()
-		sql = """
+		
+		if 0: #TODO
+			sql = """
 INSERT INTO `db`.`snp_locus` (rs, chr, pos, validated, source_id)
 SELECT sm.rsCurrent, sl.chr, sl.pos, sl.validated, sl.source_id
 FROM `db`.`snp_locus` AS sl
 JOIN `db`.`snp_merge` AS sm
   ON sm.rsMerged = sl.rs
 """
-		#for row in dbc.execute("EXPLAIN QUERY PLAN "+sql): #DEBUG
-		#	print row
-		dbc.execute(sql)
-		numCopied = self._db.changes()
-		if numCopied:
-			self.flagTableUpdate('snp_locus')
-		self.log(" OK: %d loci copied\n" % (numCopied,))
+			dbc.execute(sql)
+			numCopied = self._db.changes()
+			if numCopied:
+				self.flagTableUpdate('snp_locus')
+			self.log(" OK: %d loci copied\n" % (numCopied,))
+		else:
+			sql = """
+SELECT sm.rsCurrent, sl.chr, sl.pos, sl.validated, sl.source_id
+FROM `db`.`snp_locus` AS sl
+JOIN `db`.`snp_merge` AS sm
+  ON sm.rsMerged = sl.rs
+"""
+			insert = list(dbc.execute(sql))
+			if insert:
+				self.flagTableUpdate('snp_locus')
+				dbc.executemany("INSERT INTO `db`.`snp_locus` (rs, chr, pos, validated, source_id)", insert)
+			self.log(" OK: %d loci copied\n" % (len(insert),))
+		#if sql/python method
 	#updateMergedSNPLoci()
 	
 	
@@ -369,17 +387,18 @@ JOIN `db`.`snp_merge` AS sm
 		self.log("verifying SNP loci ...")
 		self.prepareTableForQuery('snp_locus')
 		dbc = self._db.cursor()
+		
 		# for each set of ROWIDs which constitute a duplicated snp-locus, cull all but one;
 		# but, make sure that if any of the originals were validated, the remaining one is also
-		valid = set()
-		cull = set()
-		if 0: #sql method is sometimes very slow, python method seems more consistent
+		valid = list()
+		cull = list()
+		if 0: #TODO
 			sql = "SELECT GROUP_CONCAT(_ROWID_), MAX(validated) FROM `db`.`snp_locus` GROUP BY rs, chr, pos HAVING COUNT() > 1"
 			for row in dbc.execute(sql):
 				rowids = row[0].split(',')
 				if row[1]:
-					valid.add( (long(rowids[0]),) )
-				cull.update( (long(rowids[i]),) for i in xrange(1,len(rowids)) )
+					valid.append( (long(rowids[0]),) )
+				cull.extend( (long(rowids[i]),) for i in xrange(1,len(rowids)) )
 		else:
 			lastID = None
 			lastPos = None
@@ -387,18 +406,20 @@ JOIN `db`.`snp_merge` AS sm
 			for row in dbc.execute(sql):
 				pos = (row[1],row[2],row[3])
 				if lastPos == pos:
-					cull.add( (row[0],) )
 					if row[4]:
-						valid.add( (lastID,) )
+						valid.append( (lastID,) )
+					cull.append( (row[0],) )
 				else:
 					lastID = row[0]
 					lastPos = pos
 		#if sql/python method
-		if valid:
-			dbc.executemany("UPDATE `db`.`snp_locus` SET validated = 1 WHERE _ROWID_ = ?", valid)
 		if cull:
 			self.flagTableUpdate('snp_locus')
 			dbc.executemany("DELETE FROM `db`.`snp_locus` WHERE _ROWID_ = ?", cull)
+		if valid:
+			self.flagTableUpdate('snp_locus')
+			dbc.executemany("UPDATE `db`.`snp_locus` SET validated = 1 WHERE _ROWID_ = ?", valid)
+		
 		self.log(" OK: %d duplicate loci\n" % (len(cull),))
 	#cleanupSNPLoci()
 	
@@ -408,20 +429,33 @@ JOIN `db`.`snp_merge` AS sm
 		self.prepareTableForQuery('snp_entrez_role')
 		self.prepareTableForQuery('snp_merge')
 		dbc = self._db.cursor()
-		sql = """
+		
+		if 0: #TODO
+			sql = """
 INSERT OR IGNORE INTO `db`.`snp_entrez_role` (rs, entrez_id, role_id, source_id)
 SELECT sm.rsCurrent, ser.entrez_id, ser.role_id, ser.source_id
 FROM `db`.`snp_entrez_role` AS ser
 JOIN `db`.`snp_merge` AS sm
   ON sm.rsMerged = ser.rs
 """
-		#for row in dbc.execute("EXPLAIN QUERY PLAN "+sql): #DEBUG
-		#	print row
-		dbc.execute(sql)
-		numCopied = self._db.changes()
-		if numCopied:
-			self.flagTableUpdate('snp_entrez_role')
-		self.log(" OK: %d roles copied\n" % (numCopied,))
+			dbc.execute(sql)
+			numCopied = self._db.changes()
+			if numCopied:
+				self.flagTableUpdate('snp_entrez_role')
+			self.log(" OK: %d roles copied\n" % (numCopied,))
+		else:
+			sql = """
+SELECT sm.rsCurrent, ser.entrez_id, ser.role_id, ser.source_id
+FROM `db`.`snp_entrez_role` AS ser
+JOIN `db`.`snp_merge` AS sm
+  ON sm.rsMerged = ser.rs
+"""
+			insert = list(dbc.execute(sql))
+			if insert:
+				self.flagTableUpdate('snp_entrez_role')
+				dbc.executemany("INSERT OR IGNORE INTO `db`.`snp_entrez_role` (rs, entrez_id, role_id, source_id)", insert)
+			self.log(" OK: %d roles copied\n" % (len(insert),))
+		#if sql/python method
 	#updateMergedSNPEntrezRoles()
 	
 	
@@ -429,25 +463,27 @@ JOIN `db`.`snp_merge` AS sm
 		self.log("verifying SNP roles ...")
 		self.prepareTableForQuery('snp_entrez_role')
 		dbc = self._db.cursor()
-		cull = set()
-		if 0: #sql method is sometimes very slow, python method seems more consistent
+		
+		cull = list()
+		if 0: #TODO
 			sql = "SELECT GROUP_CONCAT(_ROWID_) FROM `db`.`snp_entrez_role` GROUP BY rs, entrez_id, role_id HAVING COUNT() > 1"
 			for row in dbc.execute(sql):
 				rowids = row[0].split(',')
-				cull.update( (long(rowids[i]),) for i in xrange(1,len(rowids)) )
+				cull.extend( (long(rowids[i]),) for i in xrange(1,len(rowids)) )
 		else:
 			lastRole = None
 			sql = "SELECT _ROWID_, rs, entrez_id, role_id FROM `db`.`snp_entrez_role` ORDER BY rs, entrez_id, role_id"
 			for row in dbc.execute(sql):
 				role = (row[1],row[2],row[3])
 				if lastRole == role:
-					cull.add( (row[0],) )
+					cull.append( (row[0],) )
 				else:
 					lastRole = role
 		#if sql/python method
 		if cull:
 			self.flagTableUpdate('snp_entrez_role')
 			dbc.executemany("DELETE FROM `db`.`snp_entrez_role` WHERE _ROWID_ = ?", cull)
+		
 		self.log(" OK: %d duplicate roles\n" % (len(cull),))
 	#cleanupSNPEntrezRoles()
 	
@@ -457,20 +493,32 @@ JOIN `db`.`snp_merge` AS sm
 		self.prepareTableForQuery('gwas')
 		self.prepareTableForQuery('snp_merge')
 		dbc = self._db.cursor()
-		sql = """
+		
+		if 0: #TODO
+			sql = """
 INSERT INTO `db`.`gwas` (rs, chr, pos, trait, snps, orbeta, allele95ci, riskAfreq, pubmed_id, source_id)
 SELECT sm.rsCurrent, w.chr, w.pos, w.trait, w.snps, w.orbeta, w.allele95ci, w.riskAfreq, w.pubmed_id, w.source_id
 FROM `db`.`gwas` AS w
 JOIN `db`.`snp_merge` AS sm
   ON sm.rsMerged = w.rs
 """
-		#for row in dbc.execute("EXPLAIN QUERY PLAN "+sql): #DEBUG
-		#	print row
-		dbc.execute(sql)
-		numCopied = self._db.changes()
-		if numCopied:
-			self.flagTableUpdate('gwas')
-		self.log(" OK: %d annotations copied\n" % (numCopied,))
+			dbc.execute(sql)
+			numCopied = self._db.changes()
+			if numCopied:
+				self.flagTableUpdate('gwas')
+			self.log(" OK: %d annotations copied\n" % (numCopied,))
+		else:
+			sql = """
+SELECT sm.rsCurrent, w.chr, w.pos, w.trait, w.snps, w.orbeta, w.allele95ci, w.riskAfreq, w.pubmed_id, w.source_id
+FROM `db`.`gwas` AS w
+JOIN `db`.`snp_merge` AS sm
+  ON sm.rsMerged = w.rs
+"""
+			insert = list(dbc.execute(sql))
+			if insert:
+				self.flagTableUpdate('gwas')
+				dbc.executemany("INSERT INTO `db`.`gwas` (rs, chr, pos, trait, snps, orbeta, allele95ci, riskAfreq, pubmed_id, source_id)", insert)
+			self.log(" OK: %d annotations copied\n" % (len(insert),))
 	#updateMergedGWASAnnotations()
 	
 	
@@ -488,9 +536,9 @@ JOIN `db`.`snp_merge` AS sm
 		def _zones(size, regions):
 			# regions=[ (region_id,rtype_id,chr,posMin,posMax),... ]
 			# yields:[ (region_id,rtype_id,chr,zone),... ]
-			for r in regions:
-				for z in xrange(int(r[3]/size),int(r[4]/size)+1):
-					yield (r[0],r[1],r[2],z)
+			for region_id,rtype_id,chm,posMin,posMax in regions:
+				for z in xrange(int(posMin/size),int(posMax/size)+1):
+					yield (region_id,rtype_id,chm,z)
 		#_zones()
 		
 		# feed all regions through the zone generator
@@ -510,6 +558,7 @@ JOIN `db`.`snp_merge` AS sm
 		for row in dbc.execute("SELECT COUNT(), COUNT(DISTINCT region_id) FROM `db`.`region_zone`"):
 			numTotal = row[0]
 			numRegions = row[1]
+		
 		self.log(" OK: %d records (%d regions)\n" % (numTotal,numRegions))
 	#updateRegionZones()
 	
@@ -517,13 +566,17 @@ JOIN `db`.`snp_merge` AS sm
 	def defineOmicUnits(self):
 		self.logPush("defining omic units ...\n")
 		cursor = self._db.cursor()
+		empty = list()
 		
 		# load namespace definitions
-		nsName = dict()
+		nsLabel = dict()
 		nsID = dict()
-		for row in cursor.execute("SELECT namespace_id,namespace FROM `db`.`namespace`"):
-			nsName[row[0]] = row[1]
+		nsPoly = set()
+		for row in cursor.execute("SELECT namespace_id,namespace,polygenic FROM `db`.`namespace`"):
+			nsLabel[row[0]] = row[1]
 			nsID[row[1]] = row[0]
+			if row[2]:
+				nsPoly.add(row[0])
 		nsCore = set()
 		for ns in self._options['unit-core-ns'].split(','):
 			ns = ns.strip().lower()
@@ -549,44 +602,34 @@ JOIN `db`.`snp_merge` AS sm
 		
 		# load the name graph
 		self.log("building identifier graph ...")
+		nameNum = dict()
 		nameNamespaceID = list()
 		nameName = list()
-		nameNum = dict()
-		graph = collections.defaultdict(set)
+		graph = list()
 		numEdges = 0
-		for row in cursor.execute("SELECT namespace_id1,name1,namespace_id2,name2 FROM `db`.`name_name`"):
+		for row in cursor.execute("SELECT namespace_id1,name1,namespace_id2,name2 FROM `db`.`name_name` WHERE LENGTH(TRIM(name1)) AND LENGTH(TRIM(name2))"):
 			name1 = (row[0],row[1])
 			n1 = nameNum.get(name1)
 			if n1 == None:
 				n1 = nameNum[name1] = len(nameNamespaceID)
 				nameNamespaceID.append(row[0])
 				nameName.append(row[1])
+				graph.append(list())
 			name2 = (row[2],row[3])
 			n2 = nameNum.get(name2)
 			if n2 == None:
 				n2 = nameNum[name2] = len(nameNamespaceID)
 				nameNamespaceID.append(row[2])
 				nameName.append(row[3])
+				graph.append(list())
 			if n1 != n2:
 				numEdges += 1
-				graph[n1].add(n2)
-				graph[n2].add(n1)
+				graph[n1].append(n2)
+				graph[n2].append(n1)
 		#for row in cursor
-		self.log(" OK: %d identifiers, %d links\n" % (len(graph),numEdges))
-		
-		# load name properties
-		self.log("loading identifier properties ...")
-		namePropValues = collections.defaultdict(lambda: collections.defaultdict(set))
-		for row in cursor.execute("SELECT namespace_id,name,property,value FROM `db`.`name_property`"):
-			name = (row[0],row[1])
-			n = nameNum.get(name)
-			if n == None:
-				n = nameNum[name] = len(nameNamespaceID)
-				nameNamespaceID.append(row[0])
-				nameName.append(row[1])
-				graph[n] = set()
-			namePropValues[n][row[2]].add(row[3])
-		self.log(" OK: %d identifiers\n" % (len(namePropValues),))
+		for n1 in xrange(len(nameName)):
+			graph[n1] = tuple(set(graph[n1]))
+		self.log(" OK: %d identifiers, %d links\n" % (len(nameName),numEdges))
 		
 		# load regions associated with any of the core namespaces
 		self.log("loading core regions ...")
@@ -604,29 +647,42 @@ WHERE rn.namespace_id IN (%s)"""
 				n = nameNum[name] = len(nameNamespaceID)
 				nameNamespaceID.append(row[0])
 				nameName.append(row[1])
-				graph[n] = set()
+				graph.append(empty)
 			nameRegions[n].add( (row[2],row[3],row[4]) )
 		#for row in cursor
-		nameNum = None
 		self.log(" OK: %d identifiers\n" % (len(nameRegions),))
+		
+		# load name properties
+		self.log("loading identifier properties ...")
+		namePropValues = collections.defaultdict(lambda: collections.defaultdict(list))
+		for row in cursor.execute("SELECT namespace_id,name,property,value FROM `db`.`name_property`"):
+			name = (row[0],row[1])
+			n = nameNum.get(name)
+			if n == None:
+				n = nameNum[name] = len(nameNamespaceID)
+				nameNamespaceID.append(row[0])
+				nameName.append(row[1])
+				graph.append(empty)
+			namePropValues[n][row[2]].append(row[3])
+		self.log(" OK: %d identifiers\n" % (len(namePropValues),))
+		nameNum = None
 		
 		# find core sets of names that could become a unit
 		self.log("searching for candidate units ...")
 		coreNames = list()
 		nameFlag = set()
 		stack = list()
-		for n1 in graph:
+		for n1 in xrange(len(nameName)):
 			if (nameNamespaceID[n1] in nsCore) and (n1 not in nameFlag):
 				names = {n1}
-				nameFlag.add(n1)
 				stack.append(n1)
 				while stack:
 					for n2 in graph[stack.pop()]:
 						if (nameNamespaceID[n2] in nsCore) and (n2 not in names):
 							names.add(n2)
-							nameFlag.add(n2)
 							stack.append(n2)
-				coreNames.append(names)
+				nameFlag |= names
+				coreNames.append(tuple(names))
 		#for n1 in graph
 		self.log(" OK: %d candidates, %d core identifiers\n" % (len(coreNames),len(nameFlag)))
 		nameFlag = None
@@ -635,7 +691,8 @@ WHERE rn.namespace_id IN (%s)"""
 		self.log("analyzing candidate unit regions ...")
 		maxGap = int(self._options['max-unit-gap'])
 		requireUnitRegion = (self._options['require-unit-region'] == 'yes')
-		unitNames = list()
+		nameUnits = [None]*len(nameName)
+		nextUnit = 0
 		numNone = numChr = numGap = 0
 		while coreNames:
 			names = coreNames.pop()
@@ -645,7 +702,11 @@ WHERE rn.namespace_id IN (%s)"""
 			if not regions:
 				numNone += 1
 				if not requireUnitRegion:
-					unitNames.append(names)
+					for n in names:
+						if not nameUnits[n]:
+							nameUnits[n] = list()
+						nameUnits[n].append(nextUnit)
+					nextUnit += 1
 				continue
 			regions.sort()
 			names = set()
@@ -661,7 +722,11 @@ WHERE rn.namespace_id IN (%s)"""
 							numChr += 1
 						else:
 							numGap += 1
-						unitNames.append(names)
+						for n in names:
+							if not nameUnits[n]:
+								nameUnits[n] = list()
+							nameUnits[n].append(nextUnit)
+						nextUnit += 1
 						names = set()
 					uC,uR = rC,rR
 				else:
@@ -669,58 +734,93 @@ WHERE rn.namespace_id IN (%s)"""
 				names.add(rN)
 			#for r in regions
 		#while coreNames
-		nameUnits = collections.defaultdict(set)
-		for u,names in enumerate(unitNames):
-			for n in names:
-				nameUnits[n].add(u)
-		self.log(" OK: %d omic-units (%d no-region, %d chr-splits, %d gap-splits)\n" % (len(unitNames),numNone,numChr,numGap))
+		self.log(" OK: %d omic-units (%d no-region, %d chr-splits, %d gap-splits)\n" % (nextUnit,numNone,numChr,numGap))
 		nameRegions = coreNames = None
 		
 		# assign additional names using breadth-first-search with multiple starting seeds
-		nameDist = {n:0 for n in nameUnits}
+		nameDist = [ (0 if nameUnits[n] else -1) for n in xrange(len(nameName)) ]
 		maxDist = int(self._options['max-unit-alias-dist'])
 		if maxDist != 0:
-			self.log("assigning aliases to units ...")
-			queue = collections.deque(nameUnits)
+			self.log("assigning normal aliases to units ...")
+			queue = collections.deque( n for n in xrange(len(nameName)) if nameUnits[n] )
 			while queue:
 				n1 = queue.pop()
-				units = nameUnits[n1]
-				dist = nameDist[n1] + 1
+				u1 = nameUnits[n1] or empty
+				d2 = nameDist[n1] + 1
 				for n2 in graph[n1]:
-					if n2 not in nameDist:
-						nameUnits[n2] |= units
-						for u in units:
-							unitNames[u].add(n2)
-						nameDist[n2] = dist
-						if (maxDist < 0) or (dist < maxDist):
-							queue.appendleft(n2)
-					elif nameDist[n2] == dist:
-						nameUnits[n2] |= units
-						for u in units:
-							unitNames[u].add(n2)
-					elif nameDist[n2] > dist:
+					if (0 <= nameDist[n2] < d2) or (nameNamespaceID[n2] in nsPoly):
+						pass
+					elif nameDist[n2] > d2:
 						raise Exception("BFS logic error")
-				#for n2 in graph[n1]
+					else:
+						if (nameDist[n2] < 0) and ((maxDist < 0) or (d2 < maxDist)):
+							queue.appendleft(n2)
+						nameDist[n2] = d2
+						if not nameUnits[n2]:
+							nameUnits[n2] = list()
+						nameUnits[n2].extend(u1)
+				#foreach n2 in graph[n1]
 			#while queue
-			self.log(" OK: %d identifiers, %d assignments\n" % (len(nameUnits),sum(len(units) for units in nameUnits.itervalues())))
+			for n1 in xrange(len(nameName)):
+				if nameUnits[n1]:
+					nameUnits[n1] = tuple(set(nameUnits[n1]))
+			self.log(" OK: %d identifiers, %d assignments\n" % (sum(1 for units in nameUnits if units),sum(len(units) for units in nameUnits if units)))
 			
 			# remove shared aliases beyond the distance limit, if any
 			maxSharedDist = int(self._options['max-shared-alias-dist'])
 			if maxSharedDist >= 0:
 				self.log("deleting shared aliases ...")
 				delNames = delAssignments = 0
-				for n,d in nameDist.iteritems():
-					if (d > maxSharedDist) and (len(nameUnits[n]) > 1):
+				for n in xrange(len(nameDist)):
+					d = nameDist[n]
+					if (d >= 0) and (d > maxSharedDist) and (len(nameUnits[n] or empty) > 1):
 						delNames += 1
 						delAssignments += len(nameUnits[n])
-						for u in nameUnits[n]:
-							unitNames[u].remove(n)
-						del nameUnits[n]
+						nameUnits[n] = None
 						nameDist[n] = -1
 				self.log(" OK: deleted %d identifiers, %d assignments\n" % (delNames,delAssignments))
 			#if maxSharedDist
+			
+			self.log("assigning polygenic aliases to units ...")
+			numIdent = numAssign = 0
+			for n1 in xrange(len(nameDist)):
+				if (nameDist[n1] < 0) and (nameNamespaceID[n1] in nsPoly):
+					nameDist[n1] = 0
+					queue = [n1]
+					units = set()
+					dist = 0
+					i = 0
+					while i < len(queue):
+						for n2 in graph[queue[i]]:
+							if (nameNamespaceID[n2] in nsPoly):
+								if (nameDist[n2] < 0):
+									nameDist[n2] = 0
+									queue.append(n2)
+							else:
+								units.update(nameUnits[n2] or empty)
+								dist = max(dist,nameDist[n2])
+						i += 1
+					#while queue
+					units = tuple(units)
+					numIdent += len(queue)
+					numAssign += len(queue) * len(units)
+					for n2 in queue:
+						nameDist[n2] = dist
+						assert(nameUnits[n2] == None)
+						nameUnits[n2] = units
+				#if unassigned and polygenic
+			#foreach name
+			self.log(" OK: %d identifiers, %d assignments\n" % (numIdent,numAssign))
 		#if maxDist
 		graph = None
+		
+		# convert nameUnits to unitNames
+		unitNames = list(list() for u in xrange(nextUnit))
+		for n,units in enumerate(nameUnits):
+			for u in (units or empty):
+				unitNames[u].append(n)
+		for u in xrange(nextUnit):
+			unitNames[u] = tuple(unitNames[u])
 		
 		# assign properties for each nameset
 		self.log("adding details to units ...")
@@ -760,26 +860,34 @@ WHERE rn.namespace_id IN (%s)"""
 		self.log("storing unit aliases ...")
 		for u,names in enumerate(unitNames):
 			cursor.executemany("INSERT OR IGNORE INTO `db`.`unit_name` (unit_id,namespace_id,name,source_id) VALUES (?,?,?,%d)" % (self.getSourceID(),), ((unitIDs[u],nameNamespaceID[n],nameName[n]) for n in names))
-		nameNamespaceID = nameName = nameUnits = unitNames = unitIDs = None
 		self.log(" OK\n")
+		
+		# convert unitNames back to nameUnits for re-use in later steps
+		nameUnits = collections.defaultdict(set)
+		for u,names in enumerate(unitNames):
+			for n in (names or empty):
+				nameUnits[ (nameNamespaceID[n],nameName[n]) ].add(unitIDs[u])
+		self._nameUnits = nameUnits
+		nameNamespaceID = nameName = unitNames = unitIDs = None
 		
 		self.logPop("... OK\n")
 	#defineOmicUnits()
 	
 	
-	def getNameUIDs(self):
-		if not self._nameUIDs:
-			cursor = self._db.cursor()
-			self._nameUIDs = collections.defaultdict(set)
-			for row in cursor.execute("SELECT namespace_id,name,unit_id FROM `db`.`unit_name`"):
-				self._nameUIDs[(row[0],row[1])].add(row[2])
-		return self._nameUIDs
-	#getNameUIDs()
+	def getNameUnits(self):
+		nameUnits = self._nameUnits
+		if not nameUnits:
+			nameUnits = collections.defaultdict(set)
+			for namespaceID,name,unitID in self._db.cursor().execute("SELECT namespace_id,name,unit_id FROM `db`.`unit_name`"):
+				nameUnits[ (namespaceID,name) ].add(unitID)
+			self._nameUnits = nameUnits
+		return nameUnits
+	#getNameUnits()
 	
 	
 	def resolveSNPUnitRoles(self):
 		self.log("resolving SNP roles ...")
-		nameUIDs = self.getNameUIDs()
+		nameUnits = self.getNameUnits()
 		cursor = self._db.cursor()
 		
 		# translate entrez_ids to unit_ids
@@ -788,17 +896,15 @@ WHERE rn.namespace_id IN (%s)"""
 		namespaceID = self._loki.getNamespaceID('entrez_gid')
 		if namespaceID:
 			def generate_rows():
-				for row in self._db.cursor().execute("SELECT rs, entrez_id, role_id, source_id FROM `db`.`snp_entrez_role`"):
-					for u in nameUIDs[(namespaceID,row[1])]:
-						yield (row[0],u,row[2],row[3])
+				for rsID,entrezID,roleID,sourceID in self._db.cursor().execute("SELECT rs, ''||entrez_id, role_id, source_id FROM `db`.`snp_entrez_role`"):
+					for unitID in nameUnits[(namespaceID,entrezID)]:
+						yield (rsID,unitID,roleID,sourceID)
 			cursor.executemany("INSERT INTO `db`.`snp_unit_role` (rs, unit_id, role_id, source_id) VALUES (?,?,?,?)", generate_rows())
 		
 		# cull duplicate roles
 		self.prepareTableForQuery('snp_unit_role')
 		cull = set()
 		sql = "SELECT GROUP_CONCAT(_ROWID_) FROM `db`.`snp_unit_role` GROUP BY rs, unit_id, role_id HAVING COUNT() > 1"
-		#for row in cursor.execute("EXPLAIN QUERY PLAN "+sql): #DEBUG
-		#	print row
 		for row in cursor.execute(sql):
 			cull.update( (long(i),) for i in row[0].split(',')[1:] )
 		if cull:
@@ -816,7 +922,7 @@ WHERE rn.namespace_id IN (%s)"""
 	
 	def resolveUnitRegions(self):
 		self.log("assigning unit regions ...")
-		nameUIDs = self.getNameUIDs()
+		nameUnits = self.getNameUnits()
 		self.prepareTableForQuery('region_name')
 		self.prepareTableForQuery('unit_name')
 		self.prepareTableForUpdate('unit_region')
@@ -825,30 +931,31 @@ WHERE rn.namespace_id IN (%s)"""
 		
 		# map regions to units #TODO: ambiguity?
 		unitRegions = list()
-		regionID = None
+		curR = None
 		numSingle = numAmbig = numUnrec = 0
-		names = emptyset = set()
-		for row in itertools.chain(cursor.execute("SELECT region_id,namespace_id,name FROM `db`.`region_name` ORDER BY region_id"), [(None,None,None)]):
-			if regionID != row[0]:
-				if regionID:
-					unitIDs = set()
-					unitIDs.update( *(nameUIDs.get(name,emptyset) for name in names) )
-					if len(unitIDs) < 1:
+		units = set()
+		emptyset = set()
+		for regionID,namespaceID,name in itertools.chain(cursor.execute("SELECT region_id,namespace_id,name FROM `db`.`region_name` ORDER BY region_id"), [(None,None,None)]):
+			if curR != regionID:
+				if curR != None:
+					if len(units) < 1:
 						numUnrec += 1
-					elif len(unitIDs) > 1:
+					elif len(units) > 1:
 						numAmbig += 1
 					else:
 						numSingle += 1
-					unitRegions.extend( (u,regionID) for u in unitIDs )
-				regionID = row[0]
-				names = set()
-			names.add( (row[1],row[2]) )
+					unitRegions.extend( (u,curR) for u in units )
+				#if curR
+				curR = regionID
+				units = set()
+			#if new region
+			units.update(nameUnits.get( (namespaceID,name), emptyset ))
 		cursor.executemany("INSERT OR IGNORE INTO `db`.`unit_region` (unit_id,region_id,urtype_id,source_id) VALUES (?,?,0,%d)" % (self.getSourceID(),), unitRegions)
 		self.log(" OK: %d assignments (%d definite, %d ambiguous, %d unrecognized)\n" % (len(unitRegions),numSingle,numAmbig,numUnrec))
 	#resolveUnitRegions()
 	
 	
-	def resolveGroupMembers(self): #TODO: in python with nameUIDs instead of sql?
+	def resolveGroupMembers_sqlite(self):
 		self.log("resolving group members ...")
 		dbc = self._db.cursor()
 		
@@ -870,12 +977,12 @@ CREATE TEMP TABLE `temp`.`_group_member_name_score` (
 INSERT INTO `temp`.`_group_member_name_score` (group_id, member, unit_id, polynames, implication, quality)
 /* calculate implication and quality scores for each possible match for each member */
 SELECT
-  group_id,
-  member,
-  unit_id,
-  polynames,
-  COUNT(DISTINCT gmn_rowid) AS implication,
-  (CASE WHEN polynames > 0 THEN 1000 * COUNT(DISTINCT gmn_rowid) ELSE SUM(1000 / match_count) END) AS quality
+  gmnQuery.group_id,
+  gmnQuery.member,
+  un.unit_id,
+  gmnQuery.polynames,
+  COUNT(DISTINCT gmnQuery.gmn_rowid) AS implication,
+  (CASE WHEN gmnQuery.polynames > 0 THEN COUNT(DISTINCT gmnQuery.gmn_rowid) ELSE SUM(1000000 / gmnQuery.match_count) END) AS quality
 FROM (
   /* count the number of possible matches for each name of each member */
   SELECT
@@ -884,32 +991,39 @@ FROM (
     gmn.member,
     gmn.namespace_id,
     gmn.name,
-    polynames,
+    gmQuery.polynames,
     COUNT(DISTINCT un.unit_id) AS match_count
   FROM (
-    /* count the number of matchable polyregion names for each member */
+    /* count the number of matchable polygenic names for each member */
     SELECT
       gmn.group_id,
       gmn.member,
       COUNT(DISTINCT (CASE WHEN n.polygenic > 0 THEN gmn._ROWID_ ELSE NULL END)) AS polynames
     FROM `db`.`group_member_name` AS gmn
-    JOIN `db`.`unit_name` AS un USING (name)
-    LEFT JOIN `db`.`namespace` AS n
-      ON n.namespace_id = gmn.namespace_id
-    WHERE gmn.namespace_id IN (0, un.namespace_id)
+    JOIN `db`.`unit_name` AS un
+      ON un.name = gmn.name
+      AND un.namespace_id = gmn.namespace_id
+    JOIN `db`.`namespace` AS n
+      ON n.namespace_id = un.namespace_id
+      AND n.namespace_id = gmn.namespace_id
     GROUP BY gmn.group_id, gmn.member
-  )
-  JOIN `db`.`group_member_name` AS gmn USING (group_id, member)
-  JOIN `db`.`unit_name` AS un USING (name)
-  LEFT JOIN `db`.`namespace` AS n
-    ON n.namespace_id = gmn.namespace_id
-  WHERE gmn.namespace_id IN (0, un.namespace_id)
-    AND (n.polygenic > 0 OR polynames = 0)
+  ) AS gmQuery
+  JOIN `db`.`group_member_name` AS gmn
+    ON gmn.group_id = gmQuery.group_id
+    AND gmn.member = gmQuery.member
+  JOIN `db`.`unit_name` AS un
+    ON un.name = gmn.name
+    AND (un.namespace_id = gmn.namespace_id OR gmn.namespace_id = 0)
+  JOIN `db`.`namespace` AS n
+    ON n.namespace_id = un.namespace_id
+    AND (n.namespace_id = gmn.namespace_id OR gmn.namespace_id = 0)
+    AND (n.polygenic > 0) = (gmQuery.polynames > 0)
   GROUP BY gmn.group_id, gmn.member, gmn.namespace_id, gmn.name
-) AS gmn
-JOIN `db`.`unit_name` AS un USING (name)
-WHERE gmn.namespace_id IN (0, un.namespace_id)
-GROUP BY group_id, member, unit_id
+) AS gmnQuery
+JOIN `db`.`unit_name` AS un
+  ON un.name = gmnQuery.name
+  AND (un.namespace_id = gmnQuery.namespace_id OR gmnQuery.namespace_id = 0)
+GROUP BY gmnQuery.group_id, gmnQuery.member, un.unit_id
 """)
 		dbc.execute("CREATE INDEX `temp`.`_group_member_name_score__group_member_unit` ON `_group_member_name_score` (group_id, member, unit_id)")
 		
@@ -929,52 +1043,56 @@ SELECT
 FROM (
   /* identify specific matches with the best score for each member */
   SELECT
-    group_id,
-    member,
-    unit_id,
+    gmns.group_id,
+    gmns.member,
+    gmns.unit_id,
     (CASE
-      WHEN polynames THEN 100 / member_variance
-      ELSE 100 / match_basic
+      WHEN gmCountQ.polynames > 0 THEN MIN(
+        100 * gmCountQ.best_implication / gmCountQ.polynames,
+        100 * gmCountQ.count_implication / gmCountQ.count_basic
+      )
+      ELSE 100 / gmCountQ.count_basic
     END) AS specificity,
     (CASE
-      WHEN polynames THEN 100 * implication / member_implication
-      WHEN implication = member_implication THEN 100 / match_implication
+      WHEN gmns.implication = gmCountQ.best_implication THEN 100 / gmCountQ.count_implication
       ELSE 0
     END) AS implication,
     (CASE
-      WHEN polynames THEN 100 * quality / member_quality
-      WHEN quality = member_quality THEN 100 / match_quality
+      WHEN gmns.quality = gmCountQ.best_quality THEN 100 / gmCountQ.count_quality
       ELSE 0
     END) AS quality
   FROM (
     /* identify number of matches with the best score for each member */
     SELECT
-      group_id,
-      member,
-      polynames,
-      COUNT(DISTINCT implication) AS member_variance,
-      member_implication,
-      member_quality,
-      COUNT() match_basic,
-      SUM(CASE WHEN implication >= member_implication THEN 1 ELSE 0 END) AS match_implication,
-      SUM(CASE WHEN quality >= member_quality THEN 1 ELSE 0 END) AS match_quality
+      gmns.group_id,
+      gmns.member,
+      gmBestQ.polynames,
+      gmBestQ.best_implication,
+      gmBestQ.best_quality,
+      COUNT(DISTINCT gmns.unit_id) AS count_basic,
+      SUM(gmns.implication = gmBestQ.best_implication) AS count_implication,
+      SUM(gmns.quality = gmBestQ.best_quality) AS count_quality
     FROM (
       /* identify best scores for each member */
       SELECT
         group_id,
         member,
-        polynames,
-        MAX(implication) AS member_implication,
-        MAX(quality) AS member_quality
+        MAX(polynames) AS polynames,
+        MAX(1,MAX(implication)) AS best_implication,
+        MAX(1,MAX(quality)) AS best_quality
       FROM `temp`.`_group_member_name_score`
-      GROUP BY group_id, member, polynames
-    )
-    JOIN `temp`.`_group_member_name_score` USING (group_id, member, polynames)
-    GROUP BY group_id, member, polynames
-  )
-  JOIN `temp`.`_group_member_name_score` USING (group_id, member, polynames)
-  GROUP BY group_id, member, unit_id
-)
+      GROUP BY group_id, member
+    ) AS gmBestQ
+    JOIN `temp`.`_group_member_name_score` AS gmns
+      ON gmns.group_id = gmBestQ.group_id
+      AND gmns.member = gmBestQ.member
+    GROUP BY gmns.group_id, gmns.member
+  ) AS gmCountQ
+  JOIN `temp`.`_group_member_name_score` AS gmns
+    ON gmns.group_id = gmCountQ.group_id
+    AND gmns.member = gmCountQ.member
+  GROUP BY gmns.group_id, gmns.member, gmns.unit_id
+) AS gmuQ
 GROUP BY group_id, unit_id
 """, (self.getSourceID(),))
 		
@@ -999,7 +1117,7 @@ FROM (
     ON un.name = gmn.name
     AND gmn.namespace_id IN (0, un.namespace_id)
   GROUP BY gmn.group_id, gmn.member
-  HAVING MAX(un.unit_id) IS NULL
+  HAVING COUNT(un.unit_id) = 0
 )
 GROUP BY group_id
 """, (self.getSourceID(),))
@@ -1012,17 +1130,131 @@ GROUP BY group_id
 SELECT
   COALESCE(SUM(CASE WHEN unit_id > 0 THEN 1 ELSE 0 END),0) AS total,
   COALESCE(SUM(CASE WHEN unit_id > 0 AND source_id != ?1 THEN 1 ELSE 0 END),0) AS sourced,
-  COALESCE(SUM(CASE WHEN unit_id > 0 AND source_id = ?1 AND specificity >= 100 AND implication >= 100 AND quality >= 100 THEN 1 ELSE 0 END),0) AS definite,
-  COALESCE(SUM(CASE WHEN unit_id > 0 AND source_id = ?1 AND (specificity < 100 OR implication < 100 OR quality < 100) THEN 1 ELSE 0 END),0) AS conditional,
+  COALESCE(SUM(CASE WHEN unit_id > 0 AND source_id = ?1 AND specificity >= 100 THEN 1 ELSE 0 END),0) AS definite,
+  COALESCE(SUM(CASE WHEN unit_id > 0 AND source_id = ?1 AND specificity < 100 AND (implication >= 100 OR quality >= 100) THEN 1 ELSE 0 END),0) AS probable,
+  COALESCE(SUM(CASE WHEN unit_id > 0 AND source_id = ?1 AND specificity < 100 AND implication < 100 AND quality < 100 AND (implication > 0 OR quality > 0) THEN 1 ELSE 0 END),0) AS possible,
   COALESCE(SUM(CASE WHEN unit_id = 0 AND source_id = ?1 THEN specificity ELSE 0 END),0) AS unmatched
 FROM `db`.`group_unit`
 """, (self.getSourceID(),)):
-			numTotal = row[0]
-			numSourced = row[1]
-			numMatch = row[2]
-			numAmbig = row[3]
-			numUnrec = row[4]
-		self.log(" OK: %d associations (%d explicit, %d definite, %d conditional, %d unrecognized)\n" % (numTotal,numSourced,numMatch,numAmbig,numUnrec))
+			numTotal,numSourced,numDef,numProb,numPoss,numUnrec = row
+		self.log(" OK: %d associations (%d explicit, %d definite, %d probable, %d possible, %d unrecognized)\n" % (numTotal,numSourced,numDef,numProb,numPoss,numUnrec))
+	#resolveGroupMembers_sqlite()
+	
+	
+	def resolveGroupMembers_python(self):
+		self.log("resolving group members ...")
+		nameUnits = self.getNameUnits()
+		self.prepareTableForQuery('group_member_name')
+		self.prepareTableForUpdate('group_unit')
+		cursor = self._db.cursor()
+		cursor.execute("DELETE FROM `db`.`group_unit` WHERE source_id = ?", (self.getSourceID(),))
+		
+		# load polygenic namespaces
+		nsPoly = set()
+		for namespaceID in cursor.execute("SELECT namespace_id FROM `db`.`namespace` WHERE polygenic > 0"):
+			nsPoly.add(namespaceID)
+		
+		# map group members to units
+		emptyset = set()
+		curG = curM = gUnitRows = mUnitScores = mPoly = None
+		for groupID,member,namespaceID,name in itertools.chain(self._db.cursor().execute("""
+SELECT group_id, member, namespace_id, name
+FROM `db`.`group_member_name`
+ORDER BY group_id, member
+"""), [(None,None,None,None)]):
+			if curM != member:
+				if mUnitScores:
+					bestI = numI = bestQ = numQ = 0
+					for i,q in mUnitScores.itervalues():
+						if bestI < i:
+							bestI = i
+							numI = 1
+						elif bestI == i:
+							numI += 1
+						if bestQ < q:
+							bestQ = q
+							numQ = 1
+						elif bestQ == q:
+							numQ += 1
+					#foreach unit
+					if mPoly:
+						specificity = min(100 * bestI / mPoly, 100 * numI / len(mUnitScores))
+					else:
+						specificity = 100 / len(mUnitScores)
+					for u,scores in mUnitScores.iteritems():
+						i,q = scores
+						implication = (100 / numI) if (i == bestI) else 0
+						quality = implication if mPoly else ( (100 / numQ) if (q == bestQ) else 0 )
+						row = gUnitRows.get(u)
+						if row:
+							row[2] = max(row[2], specificity)
+							row[3] = max(row[3], implication)
+							row[4] = max(row[4], quality)
+						else:
+							gUnitRows[u] = [curG,u,specificity,implication,quality]
+					#foreach unit
+				elif curM != None:
+					row = gUnitRows.get(0)
+					if row:
+						row[2] += 1
+					else:
+						gUnitRows[0] = [curG,0,1,0,0]
+				#if any units
+				mUnitScores = dict()
+				mPoly = 0
+				curM = member
+			#if new member
+			
+			if curG != groupID:
+				if gUnitRows:
+					cursor.executemany("""
+INSERT INTO `db`.`group_unit`
+(group_id, unit_id, specificity, implication, quality, source_id)
+VALUES
+(?, ?, ?, ?, ?, %d)
+""" % (self.getSourceID(),), gUnitRows.itervalues())
+				#if curG
+				gUnitRows = dict()
+				curG = groupID
+			#if new group
+			
+			if namespaceID in nsPoly:
+				if not mPoly:
+					mUnitScores = dict()
+				mPoly += 1
+			elif mPoly:
+				continue
+			
+			units = nameUnits.get( (namespaceID,name), emptyset )
+			for u in units:
+				scores = mUnitScores.get(u)
+				if scores:
+					scores[0] += 1
+					scores[1] += (1.0 / len(units))
+				else:
+					mUnitScores[u] = [1, 1.0 / len(units)]
+			#foreach unit of this name
+		#foreach group_member_name
+		
+		numTotal = numSourced = numMatch = numAmbig = numUnrec = 0
+		for row in cursor.execute("""
+SELECT
+  COALESCE(SUM(CASE WHEN unit_id > 0 THEN 1 ELSE 0 END),0) AS total,
+  COALESCE(SUM(CASE WHEN unit_id > 0 AND source_id != ?1 THEN 1 ELSE 0 END),0) AS sourced,
+  COALESCE(SUM(CASE WHEN unit_id > 0 AND source_id = ?1 AND specificity >= 100 THEN 1 ELSE 0 END),0) AS definite,
+  COALESCE(SUM(CASE WHEN unit_id > 0 AND source_id = ?1 AND specificity < 100 AND (implication >= 100 OR quality >= 100) THEN 1 ELSE 0 END),0) AS probable,
+  COALESCE(SUM(CASE WHEN unit_id > 0 AND source_id = ?1 AND specificity < 100 AND implication < 100 AND quality < 100 AND (implication > 0 OR quality > 0) THEN 1 ELSE 0 END),0) AS possible,
+  COALESCE(SUM(CASE WHEN unit_id = 0 AND source_id = ?1 THEN specificity ELSE 0 END),0) AS unmatched
+FROM `db`.`group_unit`
+""", (self.getSourceID(),)):
+			numTotal,numSourced,numDef,numProb,numPoss,numUnrec = row
+		self.log(" OK: %d associations (%d explicit, %d definite, %d probable, %d possible, %d unrecognized)\n" % (numTotal,numSourced,numDef,numProb,numPoss,numUnrec))
+	#resolveGroupMembers_python()
+	
+	
+	def resolveGroupMembers(self):
+	#	return self.resolveGroupMembers_sqlite()
+		return self.resolveGroupMembers_python()
 	#resolveGroupMembers()
 	
 #Source_loki

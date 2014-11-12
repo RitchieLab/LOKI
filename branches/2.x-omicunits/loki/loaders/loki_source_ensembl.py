@@ -37,7 +37,7 @@ class Source_ensembl(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '3.0 (2013-10-07)'
+		return '3.0 (2014-09-18)'
 	#getVersionString()
 	
 	
@@ -69,7 +69,7 @@ class Source_ensembl(loki_source.Source):
 <Query virtualSchemaName = "default" formatter = "TSV" header = "1" uniqueRows = "0" count = "" datasetConfigVersion = "0.6" >
 	<Dataset name = "hsapiens_gene_ensembl" interface = "default" >
 		<Attribute name = "ensembl_gene_id" />
-		<Attribute name = "external_gene_id" />
+		<Attribute name = "external_gene_name" />
 		<Attribute name = "description" />
 		<Attribute name = "hgnc_symbol" />
 		<Attribute name = "wikigene_name" />

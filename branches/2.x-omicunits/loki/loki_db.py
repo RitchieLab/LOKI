@@ -17,7 +17,7 @@ class Database(object):
 	def getVersionTuple(cls):
 		# tuple = (major,minor,revision,dev,build,date)
 		# dev must be in ('a','b','rc','release') for lexicographic comparison
-		return (3,0,0,'a',1,'2014-03-31')
+		return (3,0,0,'a',1,'2014-11-12')
 	#getVersionTuple()
 	
 	
@@ -127,6 +127,7 @@ class Database(object):
 					(35,17),
 					(36,18),
 					(37,19),
+					(38,38),
 				],
 				'index': {}
 			}, #.db.grch_ucschg
@@ -1530,7 +1531,7 @@ LEFT JOIN `db`.`snp_locus` AS sl
 	def _lookupUnitIDs(self, utypeID, identifiers, minMatch, maxMatch, tally, errorCallback):
 		# utypeID=int or Falseish for any
 		# identifiers=[ (namespace,name), ... ]
-		#   namespace='' for any, '-' for labels, '=' for unit_id
+		#   namespace magic values: '*' for any, '@' for labels, '=' for unit_id
 		# minMatch=int or Falseish for none
 		# maxMatch=int or Falseish for none
 		# tally=dict() or None
@@ -1545,18 +1546,18 @@ LEFT JOIN `db`.`unit` AS uID
   AND uID.unit_id = 1*i.identifier
   AND ( ({0} IS NULL) OR (uID.utype_id = {0}) )
 LEFT JOIN `db`.`unit` AS uLabel
-  ON i.namespace = '-'
+  ON i.namespace = '@'
   AND uLabel.label = i.identifier
   AND ( ({0} IS NULL) OR (uLabel.utype_id = {0}) )
 LEFT JOIN `db`.`namespace` AS n
-  ON i.namespace NOT IN ('=','-')
-  AND n.namespace = COALESCE(NULLIF(LOWER(TRIM(i.namespace)),''),n.namespace)
+  ON i.namespace NOT IN ('=','@')
+  AND n.namespace = COALESCE(NULLIF(LOWER(TRIM(i.namespace)),'*'),n.namespace)
 LEFT JOIN `db`.`unit_name` AS un
-  ON i.namespace NOT IN ('=','-')
+  ON i.namespace NOT IN ('=','@')
   AND un.name = i.identifier
   AND un.namespace_id = n.namespace_id
 LEFT JOIN `db`.`unit` AS uName
-  ON i.namespace NOT IN ('=','-')
+  ON i.namespace NOT IN ('=','@')
   AND uName.unit_id = un.unit_id
   AND ( ({0} IS NULL) OR (uName.utype_id = {0}) )
 """.format(int(utypeID) if utypeID else "NULL")
@@ -1694,7 +1695,7 @@ GROUP BY namespace_id
 	def _lookupGroupIDs(self, gtypeID, identifiers, minMatch, maxMatch, tally, errorCallback):
 		# gtypeID=int or Falseish for any
 		# identifiers=[ (namespace,name), ... ]
-		#   namespace='' for any, '-' for labels, '=' for group_id
+		#   namespace magic values: '*' for any, '@' for labels, '=' for unit_id
 		# minMatch=int or Falseish for none
 		# maxMatch=int or Falseish for none
 		# tally=dict() or None
@@ -1709,18 +1710,18 @@ LEFT JOIN `db`.`group` AS gID
   AND gID.group_id = 1*i.identifier
   AND ( ({0} IS NULL) OR (gID.gtype_id = {0}) )
 LEFT JOIN `db`.`group` AS gLabel
-  ON i.namespace = '-'
+  ON i.namespace = '@'
   AND gLabel.label = i.identifier
   AND ( ({0} IS NULL) OR (gLabel.gtype_id = {0}) )
 LEFT JOIN `db`.`namespace` AS n
-  ON i.namespace NOT IN ('=','-')
-  AND n.namespace = COALESCE(NULLIF(LOWER(TRIM(i.namespace)),''),n.namespace)
+  ON i.namespace NOT IN ('=','@')
+  AND n.namespace = COALESCE(NULLIF(LOWER(TRIM(i.namespace)),'*'),n.namespace)
 LEFT JOIN `db`.`group_name` AS gn
-  ON i.namespace NOT IN ('=','-')
+  ON i.namespace NOT IN ('=','@')
   AND gn.name = i.identifier
   AND gn.namespace_id = n.namespace_id
 LEFT JOIN `db`.`group` AS gName
-  ON i.namespace NOT IN ('=','-')
+  ON i.namespace NOT IN ('=','@')
   AND gName.group_id = gn.group_id
   AND ( ({0} IS NULL) OR (gName.gtype_id = {0}) )
 """.format(int(gtypeID) if gtypeID else "NULL")

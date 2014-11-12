@@ -42,7 +42,7 @@ class Source_dbsnp(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.1 (2013-07-17)'
+		return '3.0 (2014-11-05)'
 	#getVersionString()
 	
 	
@@ -94,7 +94,7 @@ class Source_dbsnp(loki_source.Source):
 				remFiles['RsMergeArch.bcp.gz'] = '/snp/organisms/human_9606/database/organism_data/RsMergeArch.bcp.gz'
 			
 			if options['roles'] == 'yes':
-				remFiles['SnpFunctionCode.bcp.gz'] = '/snp/organisms/human_9606/database/shared_data/SnpFunctionCode.bcp.gz'
+				remFiles['SnpFunctionCode.bcp.gz'] = '/snp/database/shared_data/SnpFunctionCode.bcp.gz'
 				path = '/snp/organisms/human_9606/database/organism_data'
 				ftp.cwd(path)
 				bestfile = self._identifyLatestSNPContig(ftp.nlst())

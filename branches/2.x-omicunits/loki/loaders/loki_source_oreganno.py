@@ -2,39 +2,56 @@
 
 import collections
 import itertools
+import re
+
 from loki import loki_source
 
 
 class Source_oreganno(loki_source.Source):
 	
-	_remHost = "hgdownload.cse.ucsc.edu"
-	_remPath = "/goldenPath/hg19/database/"
 	
-	_remFiles = ["oreganno.txt.gz","oregannoAttr.txt.gz", "oregannoLink.txt.gz"]
+	##################################################
+	# source interface
 	
 	
 	@classmethod
 	def getVersionString(cls):
-		return '3.0 (2013-09-16)'
+		return '3.0 (2014-03-31)'
 	#getVersionString()
 	
 	
 	def download(self, options):
-		"""
-		Download OregAnno from UCSC
-		"""
-		self.downloadFilesFromFTP(self._remHost, dict(((f, self._remPath + f) for f in self._remFiles)))
+		# define a callback to search for the latest available oreganno files
+		def remFilesCallback(ftp):
+			remFiles = {
+				'oreganno.txt.gz'     : None,
+				'oregannoAttr.txt.gz' : None,
+				'oregannoLink.txt.gz' : None
+			}
+			regexDir = re.compile('^hg[0-9]+$', re.IGNORECASE)
+			ftp.cwd('/goldenPath')
+			for d in sorted([ d for d in ftp.nlst() if regexDir.match(d) ], key=(lambda n: int(n[2:])), reverse=True):
+				ftp.cwd('/goldenPath/%s' % d)
+				if 'database' in ftp.nlst():
+					#print 'searching /goldenPath/%s/database' % d
+					ftp.cwd('/goldenPath/%s/database' % d)
+					if set(ftp.nlst()) >= set(remFiles):
+						for f in remFiles.iterkeys():
+							remFiles[f] = '/goldenPath/%s/database/%s' % (d,f)
+						#print 'found %s' % remFiles
+						return remFiles
+		#remFilesCallback
+		
+		self.downloadFilesFromFTP("hgdownload.cse.ucsc.edu", remFilesCallback)
 	#download()
 	
 	
 	def update(self, options):
-		"""
-		Update the database with the OregAnno data from ucsc
-		"""
-		
 		self.log("deleting old records from the database ...")
 		self.deleteAll()
 		self.log(" OK\n")		
+		
+		#TODO
 		
 		# Add the 'oreganno' namespace
 		ns = self.addNamespace('oreganno')
@@ -152,7 +169,7 @@ class Source_oreganno(loki_source.Source):
 				oreganno_bounds.append((chrom, start, stop))
 				
 		self.log("OK (%d regions found, %d SNPs found, %d SNPs unmapped)\n" % (len(oreganno_regions), len(oreganno_roles), snps_unmapped))
-	
+		
 		self.log("Writing to database ... ")
 		self.addSNPEntrezRoles(oreganno_roles)
 	#TODO: 3.0
@@ -160,11 +177,11 @@ class Source_oreganno(loki_source.Source):
 	#	self.addBiopolymerNamespacedNames(ns, ((reg_ids[i], oreganno_regions[i][1]) for i in range(len(reg_ids))))
 	#	bound_gen = zip(((r,) for r in reg_ids),oreganno_bounds)
 	#	self.addBiopolymerLDProfileRegions(ldprofile_id, ((itertools.chain(*c) for c in bound_gen)))
-		
-		# Now, add the regulation groups
-		oreg_genes = oreganno_groups.keys()
-		oreg_gids = self.addTypedGroups(group_typeid, (("regulatory_%s" % k, "OregAnno Regulation of %s" % k) for k in oreg_genes))
-		self.addGroupNamespacedNames(ns, zip(oreg_gids, ("regulatory_%s" % k for k in oreg_genes)))
+	#	
+	#	# Now, add the regulation groups
+	#	oreg_genes = oreganno_groups.keys()
+	#	oreg_gids = self.addTypedGroups(group_typeid, (("regulatory_%s" % k, "OregAnno Regulation of %s" % k) for k in oreg_genes))
+	#	self.addGroupNamespacedNames(ns, zip(oreg_gids, ("regulatory_%s" % k for k in oreg_genes)))
 		
 		group_membership = []
 		for i in range(len(oreg_gids)):

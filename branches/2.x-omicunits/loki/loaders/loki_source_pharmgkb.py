@@ -9,7 +9,7 @@ class Source_pharmgkb(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '3.0 (2014-03-07)'
+		return '3.0 (2014-10-28)'
 	#getVersionString()
 	
 	
@@ -96,7 +96,8 @@ class Source_pharmgkb(loki_source.Source):
 					'refSeqDna':     ('refseq_gid',),
 					'refSeqRna':     ('refseq_gid',),
 					'refSeqProtein': ('refseq_pid',),
-					'ensembl':       ('ensembl_gid','ensembl_pid'),
+					'ensemblG':      ('ensembl_gid',),
+					'ensemblP':      ('ensembl_pid',),
 					'hgnc':          ('hgnc_gid',),
 					'uniProtKb':     ('uniprot_gid','uniprot_pid'),
 				}
@@ -110,36 +111,41 @@ class Source_pharmgkb(loki_source.Source):
 							return False
 						for line in geneFile:
 							words = line.decode('latin-1').split("\t")
-							pgkbID = words[0]
-							entrezID = words[1]
-							ensemblID = words[2]
-							symbol = words[4]
-							aliases = words[6].split(',') if words[6] != "" else empty
-							xrefs = words[9].strip(', \r\n').split(',') if words[9] != "" else empty
+							pgkbID = words[0].strip()
+							entrezID = words[1].strip()
+							ensemblID = words[2].strip().upper()
+							symbol = words[4].strip()
+							aliases = words[6].split(',') if words[6] else empty
+							xrefs = words[9].strip(', \r\n').split(',') if words[9] else empty
 							
 							if entrezID:
 								setNames.add( (namespaceID['pharmgkb_gid'],pgkbID,namespaceID['entrez_gid'],entrezID) )
 							if ensemblID:
-								setNames.add( (namespaceID['pharmgkb_gid'],pgkbID,namespaceID['ensembl_gid'],ensemblID) )
-								setNames.add( (namespaceID['pharmgkb_gid'],pgkbID,namespaceID['ensembl_pid'],ensemblID) )
+								ns = 'ensembl_pid' if ensemblID.startswith('ENSP') else 'ensembl_gid'
+								setNames.add( (namespaceID['pharmgkb_gid'],pgkbID,namespaceID[ns],ensemblID) )
 							if symbol:
 								setNames.add( (namespaceID['pharmgkb_gid'],pgkbID,namespaceID['symbol'],symbol) )
 							for alias in aliases:
-								#line.decode('latin-1') should handle this above
-								#setNames.add( (namespaceID['pharmgkb_gid'],pgkbID,namespaceID['symbol'],unicode(alias.strip('" '),errors='ignore')) )
-								setNames.add( (namespaceID['pharmgkb_gid'],pgkbID,namespaceID['symbol'],alias.strip('" ')) )
+								alias = alias.strip('" ')
+								if alias:
+									#line.decode('latin-1') should handle this above
+									#setNames.add( (namespaceID['pharmgkb_gid'],pgkbID,namespaceID['symbol'],unicode(alias.strip('" '),errors='ignore')) )
+									setNames.add( (namespaceID['pharmgkb_gid'],pgkbID,namespaceID['symbol'],alias) )
 							for xref in xrefs:
 								try:
 									xrefDB,xrefID = xref.split(':',1)
-									if xrefDB in xrefNS:
-										for ns in xrefNS[xrefDB]:
-											setNames.add( (namespaceID['pharmgkb_gid'],pgkbID,namespaceID[ns],xrefID) )
+									xrefDB,xrefID = xrefDB.strip(),xrefID.strip()
+									if xrefID:
+										if xrefDB == 'ensembl':
+											xrefDB += ('P' if xrefID.startswith('ENSP') else 'G')
+										for ns in xrefNS.get(xrefDB,empty):
 											#line.decode('latin-1') should handle this above
 											#try:
 											#	xrefID.encode('ascii')
 											#	setNames.add( (namespaceID['pharmgkb_gid'],pgkbID,namespaceID[ns],xrefID.decode('utf8').encode('ascii')) )
 											#except:
 											#	self.log("Cannot encode gene alias")
+											setNames.add( (namespaceID['pharmgkb_gid'],pgkbID,namespaceID[ns],xrefID) )
 								except ValueError:
 									pass
 						#foreach line in geneFile

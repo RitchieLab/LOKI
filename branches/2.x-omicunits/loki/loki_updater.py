@@ -72,7 +72,7 @@ class Updater(object):
 		if self._updating:
 			self.flagTableUpdate(table)
 			if table not in self._tablesDeindexed:
-				#print "deindexing %s" % table #DEBUG
+			#	print "deindexing %s" % table #DEBUG
 				self._tablesDeindexed.add(table)
 				self._loki.dropDatabaseIndecies(None, 'db', table)
 				#TODO if table is a hybrid pre/post-proc, drop all source=0 rows now
@@ -82,7 +82,7 @@ class Updater(object):
 	def prepareTableForQuery(self, table):
 		if self._updating:
 			if table in self._tablesDeindexed:
-				#print "reindexing %s" % table DEBUG
+			#	print "reindexing %s" % table #DEBUG
 				self._tablesDeindexed.remove(table)
 				self._loki.createDatabaseIndecies(None, 'db', table)
 	#prepareTableForQuery()
