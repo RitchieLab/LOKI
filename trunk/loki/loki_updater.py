@@ -508,7 +508,7 @@ class Updater(object):
 			sql += " WHERE (_ROWID_ BETWEEN ? AND ?) AND source_id IN (%s)" % (','.join(str(i) for i in sourceIDs))
 			oldRegions = list(cursor.execute(sql, (minRowID,maxRowID)))
 			newRegions = self._loki.generateLiftOverRegions(oldHG, newHG, oldRegions, tally, errorCallback)
-			sql = "UPDATE OR REPLACE `db`.`biopolymer_region` SET chr = ?2, posMin = ?3, posMax = ?4 WHERE _ROWID_ = ?1"
+			sql = "UPDATE OR REPLACE `db`.`biopolymer_region` SET chr = ?2, posMin = ?3, posMax = ?4 WHERE _ROWID_ = ?1 AND (1 OR ?5)"
 			cursor.executemany(sql, newRegions)
 			numLift += tally['lift']
 			numNull += tally['null']

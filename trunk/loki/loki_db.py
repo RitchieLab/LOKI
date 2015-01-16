@@ -17,7 +17,7 @@ class Database(object):
 	def getVersionTuple(cls):
 		# tuple = (major,minor,revision,dev,build,date)
 		# dev must be in ('a','b','rc','release') for lexicographic comparison
-		return (2,2,1,'a',3,'2014-09-24')
+		return (2,2,1,'a',4,'2015-01-16')
 	#getVersionTuple()
 	
 	
@@ -1321,7 +1321,6 @@ ORDER BY sl.chr, sl.pos
 		n = numZero = numOne = numMany = 0
 		with self._db:
 			for row in itertools.chain(self._db.cursor().executemany(sql, rses), [(None,None,None,None)]):
-				n += 1
 				if tag != row[0:2]:
 					if tag:
 						if not matches:
@@ -1335,9 +1334,10 @@ ORDER BY sl.chr, sl.pos
 							for match in (matches or [tag+(None,None)]):
 								yield match
 						elif errorCallback:
-							errorCallback("\t".join(tag), "%s match%s at index %d" % ((len(matches) or "no"),("" if len(matches) == 1 else "es"),n))
+							errorCallback("\t".join((t or "") for t in tag), "%s match%s at index %d" % ((len(matches) or "no"),("" if len(matches) == 1 else "es"),n))
 					tag = row[0:2]
 					matches = list()
+					n += 1
 				if row[2] and row[3]:
 					matches.append(row)
 			#foreach row
@@ -1394,11 +1394,12 @@ LEFT JOIN `db`.`biopolymer` AS bName
   AND ( ({0} IS NULL) OR (bName.type_id = {0}) )
 """.format(int(typeID) if typeID else "NULL")
 		
+		minMatch = int(minMatch) if (minMatch != None) else 0
+		maxMatch = int(maxMatch) if (maxMatch != None) else None
 		tag = matches = None
 		n = numZero = numOne = numMany = 0
 		with self._db:
 			for row in itertools.chain(self._db.cursor().executemany(sql, identifiers), [(None,None,None,None)]):
-				n += 1
 				if tag != row[0:3]:
 					if tag:
 						if not matches:
@@ -1408,13 +1409,14 @@ LEFT JOIN `db`.`biopolymer` AS bName
 						else:
 							numMany += 1
 						
-						if (minMatch or len(matches)) <= len(matches) <= (maxMatch or len(matches)):
+						if minMatch <= len(matches) <= (maxMatch if (maxMatch != None) else len(matches)):
 							for match in (matches or [tag+(None,)]):
 								yield match
 						elif errorCallback:
-							errorCallback("\t".join(tag), "%s match%s at index %d" % ((len(matches) or "no"),("" if len(matches) == 1 else "es"),n))
+							errorCallback("\t".join((t or "") for t in tag), "%s match%s at index %d" % ((len(matches) or "no"),("" if len(matches) == 1 else "es"),n))
 					tag = row[0:3]
 					matches = set()
+					n += 1
 				if row[3]:
 					matches.add(row)
 			#foreach row
@@ -1560,12 +1562,12 @@ LEFT JOIN `db`.`group` AS gName
   AND ( ({0} IS NULL) OR (gName.type_id = {0}) )
 """.format(int(typeID) if typeID else "NULL")
 		
+		minMatch = int(minMatch) if (minMatch != None) else 0
+		maxMatch = int(maxMatch) if (maxMatch != None) else None
 		tag = matches = None
 		n = numZero = numOne = numMany = 0
 		with self._db:
-			n = 0
 			for row in itertools.chain(self._db.cursor().executemany(sql, identifiers), [(None,None,None,None)]):
-				n += 1
 				if tag != row[0:3]:
 					if tag:
 						if not matches:
@@ -1575,13 +1577,14 @@ LEFT JOIN `db`.`group` AS gName
 						else:
 							numMany += 1
 						
-						if (minMatch or len(matches)) <= len(matches) <= (maxMatch or len(matches)):
+						if minMatch <= len(matches) <= (maxMatch if (maxMatch != None) else len(matches)):
 							for match in (matches or [tag+(None,)]):
 								yield match
 						elif errorCallback:
-							errorCallback("\t".join(tag), "%s match%s at index %d" % ((len(matches) or "no"),("" if len(matches) == 1 else "es"),n))
+							errorCallback("\t".join((t or "") for t in tag), "%s match%s at index %d" % ((len(matches) or "no"),("" if len(matches) == 1 else "es"),n))
 					tag = row[0:3]
 					matches = set()
+					n += 1
 				if row[3]:
 					matches.add(row)
 			#foreach row
