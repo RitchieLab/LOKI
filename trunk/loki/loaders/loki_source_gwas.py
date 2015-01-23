@@ -13,7 +13,7 @@ class Source_gwas(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.1 (2013-06-11)'
+		return '2.2 (2015-01-21)'
 	#getVersionString()
 	
 	
@@ -40,10 +40,13 @@ class Source_gwas(loki_source.Source):
 		setGwas = set()
 		with open('gwascatalog.txt','rU') as gwasFile:
 			header = gwasFile.next().rstrip()
-			if not header.startswith("Date Added to Catalog\tPUBMEDID\tFirst Author\tDate\tJournal\tLink\tStudy\tDisease/Trait\tInitial Sample Size\tReplication Sample Size\tRegion\tChr_id\tChr_pos\tReported Gene(s)\tMapped_gene\tUpstream_gene_id\tDownstream_gene_id\tSnp_gene_ids\tUpstream_gene_distance\tDownstream_gene_distance\tStrongest SNP-Risk Allele\tSNPs\tMerged\tSnp_id_current\tContext\tIntergenic\tRisk Allele Frequency\tp-Value\tPvalue_mlog\tp-Value (text)\tOR or beta\t95% CI (text)\t"):#Platform [SNPs passing QC]\tCNV"):
+			if header.startswith("Date Added to Catalog\tPUBMEDID\tFirst Author\tDate\tJournal\tLink\tStudy\tDisease/Trait\tInitial Sample Size\tReplication Sample Size\tRegion\tChr_id\tChr_pos\tReported Gene(s)\tMapped_gene\tUpstream_gene_id\tDownstream_gene_id\tSnp_gene_ids\tUpstream_gene_distance\tDownstream_gene_distance\tStrongest SNP-Risk Allele\tSNPs\tMerged\tSnp_id_current\tContext\tIntergenic\tRisk Allele Frequency\tp-Value\tPvalue_mlog\tp-Value (text)\tOR or beta\t95% CI (text)\t"): # "Platform [SNPs passing QC]\tCNV"
+				pass
+			elif header.startswith("Date Added to Catalog\tPUBMEDID\tFirst Author\tDate\tJournal\tLink\tStudy\tDisease/Trait\tInitial Sample Description\tReplication Sample Description\tRegion\tChr_id\tChr_pos\tReported Gene(s)\tMapped_gene\tUpstream_gene_id\tDownstream_gene_id\tSnp_gene_ids\tUpstream_gene_distance\tDownstream_gene_distance\tStrongest SNP-Risk Allele\tSNPs\tMerged\tSnp_id_current\tContext\tIntergenic\tRisk Allele Frequency\tp-Value\tPvalue_mlog\tp-Value (text)\tOR or beta\t95% CI (text)\t"): # "Platform [SNPs passing QC]\tCNV"
+				pass
+			else:
 				self.log(" ERROR\n")
-				self.log("unrecognized file header: %s\n" % (header,))
-				return False
+				raise Exception("unrecognized file header")
 			for line in gwasFile:
 				line = line.rstrip("\r\n")
 				words = list(w.strip() for w in line.decode('latin-1').split("\t"))
