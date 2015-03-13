@@ -17,7 +17,7 @@ class Database(object):
 	def getVersionTuple(cls):
 		# tuple = (major,minor,revision,dev,build,date)
 		# dev must be in ('a','b','rc','release') for lexicographic comparison
-		return (3,0,0,'a',1,'2014-11-12')
+		return (3,0,0,'a',2,'2015-03-13')
 	#getVersionTuple()
 	
 	
@@ -295,11 +295,12 @@ class Database(object):
 (
   rsMerged INTEGER NOT NULL,
   rsCurrent INTEGER NOT NULL,
-  source_id TINYINT NOT NULL
+  source_id TINYINT NOT NULL,
+  PRIMARY KEY (rsMerged,rsCurrent)
 )
 """,
 				'index': {
-					'snp_merge__merge_current': '(rsMerged,rsCurrent)',
+				#	'snp_merge__merge_current': '(rsMerged,rsCurrent)',
 				}
 			}, #.db.snp_merge
 			
@@ -311,14 +312,14 @@ class Database(object):
   chr TINYINT NOT NULL,
   pos BIGINT NOT NULL,
   validated TINYINT NOT NULL,
-  source_id TINYINT NOT NULL
+  source_id TINYINT NOT NULL,
+  PRIMARY KEY (chr,pos,rs)
 )
 """,
 				'index': {
 					'snp_locus__rs_chr_pos': '(rs,chr,pos)',
-					'snp_locus__chr_pos_rs': '(chr,pos,rs)',
-					# a (validated,...) index would be nice but adds >1GB to the file size :/
-					#'snp_locus__valid_chr_pos_rs': '(validated,chr,pos,rs)',
+				#	'snp_locus__chr_pos_rs': '(chr,pos,rs)',
+				#	'snp_locus__valid_chr_pos_rs': '(validated,chr,pos,rs)', # would be nice but adds >1GB to the file size :/
 				}
 			}, #.db.snp_locus
 			
@@ -333,7 +334,7 @@ class Database(object):
 )
 """,
 				'index': {
-					'snp_entrez_role__rs_entrez_role': '(rs,entrez_id,role_id)',
+				#	'snp_entrez_role__rs_entrez_role': '(rs,entrez_id,role_id)',
 				}
 			}, #.db.snp_entrez_role
 			
@@ -344,11 +345,12 @@ class Database(object):
   rs INTEGER NOT NULL,
   unit_id INTEGER NOT NULL,
   role_id INTEGER NOT NULL,
-  source_id TINYINT NOT NULL
+  source_id TINYINT NOT NULL,
+  PRIMARY KEY (rs,unit_id,role_id)
 )
 """,
 				'index': {
-					'snp_unit_role__rs_unit_role': '(rs,unit_id,role_id)',
+				#	'snp_unit_role__rs_unit_role': '(rs,unit_id,role_id)',
 					'snp_unit_role__unit_rs_role': '(unit_id,rs,role_id)',
 				}
 			}, #.db.snp_unit_role
@@ -592,7 +594,7 @@ class Database(object):
 			# gwas tables
 			
 			
-			'gwas': {
+			'gwas': { #TODO: primary key?
 				'table': """
 (
   gwas_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,

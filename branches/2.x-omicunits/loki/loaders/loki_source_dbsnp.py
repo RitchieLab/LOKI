@@ -134,7 +134,7 @@ CREATE TABLE [RsMergeArch]
 			self.log("processing SNP merge records ...")
 			mergeFile = self.zfile('RsMergeArch.bcp.gz') #TODO:context manager,iterator
 			numMerge = 0
-			setMerge = set()
+			listMerge = list()
 			for line in mergeFile:
 				words = line.split("\t")
 				if not (len(words) > 6 and words[0] and words[6]):
@@ -143,25 +143,25 @@ CREATE TABLE [RsMergeArch]
 				#rsNew = long(words[1])
 				rsCur = long(words[6])
 				
-				setMerge.add( (rsOld,rsCur) )
+				listMerge.append( (rsOld,rsCur) )
 				
 				# write to the database after each 2.5 million, to keep memory usage down
-				if len(setMerge) >= 2500000:
-					numMerge += len(setMerge)
+				if len(listMerge) >= 2500000:
+					numMerge += len(listMerge)
 					self.log(" ~%1.1f million so far\n" % (numMerge/1000000.0)) #TODO: time estimate
 					self.log("writing SNP merge records to the database ...")
-					self.addSNPMerges(setMerge)
-					setMerge = set()
+					self.addSNPMerges(listMerge)
+					listMerge = list()
 					self.log(" OK\n")
 					self.log("processing SNP merge records ...")
 			#foreach line in mergeFile
-			numMerge += len(setMerge)
-			self.log(" OK: ~%d merged RS#s\n" % numMerge)
-			if setMerge:
+			numMerge += len(listMerge)
+			self.log(" OK: %d merged RS#s\n" % numMerge)
+			if listMerge:
 				self.log("writing SNP merge records to the database ...")
-				self.addSNPMerges(setMerge)
+				self.addSNPMerges(listMerge)
 				self.log(" OK\n")
-			setMerge = None
+			listMerge = None
 		#if merges
 		
 		# process SNP role function codes
@@ -231,7 +231,7 @@ CREATE TABLE [b137_SNPContigLocusId]
 )
 """
 			self.log("processing SNP roles ...")
-			setRole = set()
+			listRole = list()
 			numRole = numOrphan = numInc = 0
 			setOrphan = set()
 			funcFile = self.zfile(self._identifyLatestSNPContig(os.listdir('.')))
@@ -244,7 +244,7 @@ CREATE TABLE [b137_SNPContigLocusId]
 				
 				if rs and entrez and code:
 					try:
-						setRole.add( (rs,entrez,roleID[code]) )
+						listRole.append( (rs,entrez,roleID[code]) )
 					except KeyError:
 						setOrphan.add(code)
 						numOrphan += 1
@@ -252,22 +252,22 @@ CREATE TABLE [b137_SNPContigLocusId]
 					numInc += 1
 				
 				# write to the database after each 2.5 million, to keep memory usage down
-				if len(setRole) >= 2500000:
-					numRole += len(setRole)
+				if len(listRole) >= 2500000:
+					numRole += len(listRole)
 					self.log(" ~%1.1f million so far\n" % (numRole/1000000.0)) #TODO: time estimate
 					self.log("writing SNP roles to the database ...")
-					self.addSNPEntrezRoles(setRole)
-					setRole = set()
+					self.addSNPEntrezRoles(listRole)
+					listRole = list()
 					self.log(" OK\n")
 					self.log("processing SNP roles ...")
 			#foreach line in funcFile
-			numRole += len(setRole)
-			self.log(" OK: ~%d roles\n" % (numRole,))
-			if setRole:
+			numRole += len(listRole)
+			self.log(" OK: %d roles\n" % (numRole,))
+			if listRole:
 				self.log("writing SNP roles to the database ...")
-				self.addSNPEntrezRoles(setRole)
+				self.addSNPEntrezRoles(listRole)
 				self.log(" OK\n")
-			setRole = None
+			listRole = None
 			
 			# warn about orphans
 			self.logPush()
@@ -303,8 +303,7 @@ CREATE TABLE [b137_SNPContigLocusId]
 			
 			# process lines
 			reBuild = re.compile('GRCh([0-9]+)')
-			setSNP = set()
-			setChrPos = collections.defaultdict(set)
+			listChrPos = collections.defaultdict(list)
 			setBadBuild = set()
 			setBadVers = set()
 			setBadValid = set()
@@ -333,17 +332,26 @@ CREATE TABLE [b137_SNPContigLocusId]
 					else:
 						if not grcBuild:
 							grcBuild = build.group(1)
-						setSNP.add(rs)
-						setChrPos[chm].add( (rs,pos,valid) )
+						listChrPos[chm].append( (rs,pos,valid) )
 				#if rs/chm/pos provided
 			#foreach line in chmFile
 			
 			# print results
-			setBadChr.difference_update(setSNP)
-			setBadValid.difference_update(setSNP, setBadChr)
-			setBadVers.difference_update(setSNP, setBadChr, setBadValid)
-			setBadBuild.difference_update(setSNP, setBadChr, setBadValid, setBadVers)
-			self.log(" OK: %d SNPs, %d loci\n" % (len(setSNP),sum(len(setChrPos[chm]) for chm in setChrPos)))
+			listRS = list()
+			for chm,listPos in listChrPos.iteritems():
+				listRS.extend(rs for rs,pos,valid in listPos)
+			setBadValid.difference_update(listRS, setBadChr)
+			setBadVers.difference_update(listRS, setBadChr, setBadValid)
+			setBadBuild.difference_update(listRS, setBadChr, setBadValid, setBadVers)
+			listRS.sort()
+			lastRS = None
+			numRS = 0
+			for rs in listRS:
+				if lastRS != rs:
+					numRS += 1
+				lastRS = rs
+			listRS = None
+			self.log(" OK: %d SNPs, %d loci\n" % (numRS,sum(len(listChrPos[chm]) for chm in listChrPos)))
 			self.logPush()
 			if setBadBuild:
 				self.log("WARNING: %d SNPs not mapped to any GRCh build\n" % (len(setBadBuild)))
@@ -357,9 +365,9 @@ CREATE TABLE [b137_SNPContigLocusId]
 			
 			# store data
 			self.log("writing chromosome %s SNPs to the database ..." % fileChm)
-			for chm in setChrPos:
-				self.addChromosomeSNPLoci(self._loki.chr_num[chm], setChrPos[chm])
-			setSNP = setChrPos = setSNP = setBadBuild = setBadVers = setBadValid = setBadChr = None
+			for chm,listPos in listChrPos.iteritems():
+				self.addChromosomeSNPLoci(self._loki.chr_num[chm], listPos)
+			setSNP = listChrPos = setSNP = setBadBuild = setBadVers = setBadValid = setBadChr = None
 			self.log(" OK\n")
 		#foreach chromosome
 		

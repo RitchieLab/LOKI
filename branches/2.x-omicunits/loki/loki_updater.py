@@ -6,6 +6,7 @@ import itertools
 import os
 import pkgutil
 import sys
+import time #DEBUG
 import traceback
 
 import loki_db
@@ -182,6 +183,7 @@ class Updater(object):
 		cursor.execute("SAVEPOINT 'updateDatabase'")
 		try:
 			for srcName in srcOrder:
+				t0 = time.time() #DEBUG
 				cursor.execute("SAVEPOINT 'updateDatabase_%s'" % (srcName,))
 				try:
 					srcObj = self._sourceObjects[srcName]
@@ -297,6 +299,7 @@ class Updater(object):
 				finally:
 					cursor.execute("RELEASE SAVEPOINT 'updateDatabase_%s'" % (srcName,))
 				#try/except/finally
+				self.log("(%ds)\n" % (time.time()-t0)) #DEBUG
 			#foreach source
 			
 			# finalize

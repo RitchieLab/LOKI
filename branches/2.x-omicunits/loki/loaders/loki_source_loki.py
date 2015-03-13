@@ -3,6 +3,7 @@
 import collections
 import itertools
 import sys
+import time #DEBUG
 import traceback
 from loki import loki_source
 
@@ -94,11 +95,11 @@ class Source_loki(loki_source.Source):
 		# decide which post-processing steps are required
 		ppCallOrder = [
 			'normalizeGenomeBuilds',
-			'cleanupSNPMerges',
+		#	'cleanupSNPMerges',
 			'updateMergedSNPLoci',
-			'cleanupSNPLoci',
-			'updateMergedSNPEntrezRoles',
-			'cleanupSNPEntrezRoles',
+		#	'cleanupSNPLoci',
+		#	'updateMergedSNPEntrezRoles',
+		#	'cleanupSNPEntrezRoles',
 			'updateMergedGWASAnnotations',
 			'updateRegionZones',
 			'defineOmicUnits',
@@ -126,7 +127,6 @@ class Source_loki(loki_source.Source):
 		#if vers/pp mismatch
 		
 		# call all necessary post-processing methods
-		import time #TODO
 		self._options = options
 		self._nameUnits = None
 		donePP = set()
@@ -135,16 +135,16 @@ class Source_loki(loki_source.Source):
 			# which update tables that trigger later steps
 			if oldHGs:
 				curPP.add('normalizeGenomeBuilds') # snp_locus, region
-			if ('snp_merge' in tablesUpdated):
-				curPP.add('cleanupSNPMerges') # snp_merge
+		#	if ('snp_merge' in tablesUpdated):
+		#		curPP.add('cleanupSNPMerges') # snp_merge
 			if ('snp_merge' in tablesUpdated) or ('snp_locus' in tablesUpdated):
 				curPP.add('updateMergedSNPLoci') # snp_locus
-			if ('snp_locus' in tablesUpdated):
-				curPP.add('cleanupSNPLoci') # snp_locus
-			if ('snp_merge' in tablesUpdated) or ('snp_entrez_role' in tablesUpdated):
-				curPP.add('updateMergedSNPEntrezRoles') # snp_entrez_role
-			if ('snp_entrez_role' in tablesUpdated):
-				curPP.add('cleanupSNPEntrezRoles') # snp_entrez_role
+		#	if ('snp_locus' in tablesUpdated):
+		#		curPP.add('cleanupSNPLoci') # snp_locus
+		#	if ('snp_merge' in tablesUpdated) or ('snp_entrez_role' in tablesUpdated):
+		#		curPP.add('updateMergedSNPEntrezRoles') # snp_entrez_role
+		#	if ('snp_entrez_role' in tablesUpdated):
+		#		curPP.add('cleanupSNPEntrezRoles') # snp_entrez_role
 			if ('snp_merge' in tablesUpdated) or ('gwas' in tablesUpdated):
 				curPP.add('updateMergedGWASAnnotations') # gwas
 			#TODO: cleanupGWASAnnotations?
@@ -161,7 +161,7 @@ class Source_loki(loki_source.Source):
 			
 			# run the step only if needed
 			if pp in curPP:
-				t0 = time.time()
+				t0 = time.time() #DEBUG
 				savepoint = 'updateDatabase_postprocess_%s' % (pp,)
 				cursor.execute("SAVEPOINT '%s'" % (savepoint,))
 				try:
@@ -183,7 +183,7 @@ class Source_loki(loki_source.Source):
 				finally:
 					cursor.execute("RELEASE SAVEPOINT '%s'" % (savepoint,))
 					self._loki.setDatabaseSetting('postProcess', ','.join(curPP - donePP))
-				self.log("(%ds)\n" % (time.time()-t0)) #TODO
+				self.log("(%ds)\n" % (time.time()-t0)) #DEBUG
 			#if pp in curPP
 		#foreach ppCallOrder
 		
@@ -199,8 +199,7 @@ class Source_loki(loki_source.Source):
 	
 	
 	def doPostProcessStep(self, step):
-		import time
-		t0 = time.time()
+		t0 = time.time() #DEBUG
 		
 		cursor = self._db.cursor()
 		savepoint = 'updateDatabase_postprocess_%s' % (step,)
@@ -213,7 +212,7 @@ class Source_loki(loki_source.Source):
 		finally:
 			cursor.execute("RELEASE SAVEPOINT '%s'" % (savepoint,))
 		
-		self.log("(%ds)\n" % (time.time()-t0))
+		self.log("(%ds)\n" % (time.time()-t0)) #DEBUG
 	#doPostProcessStep()
 	
 	
@@ -319,7 +318,7 @@ class Source_loki(loki_source.Source):
 	#normalizeGenomeBuilds()
 	
 	
-	def cleanupSNPMerges(self):
+	def cleanupSNPMerges_DEPRECATED(self):
 		self.log("verifying SNP merge records ...")
 		self.prepareTableForQuery('snp_merge')
 		dbc = self._db.cursor()
@@ -383,7 +382,7 @@ JOIN `db`.`snp_merge` AS sm
 	#updateMergedSNPLoci()
 	
 	
-	def cleanupSNPLoci(self):
+	def cleanupSNPLoci_DEPRECATED(self):
 		self.log("verifying SNP loci ...")
 		self.prepareTableForQuery('snp_locus')
 		dbc = self._db.cursor()
@@ -424,7 +423,7 @@ JOIN `db`.`snp_merge` AS sm
 	#cleanupSNPLoci()
 	
 	
-	def updateMergedSNPEntrezRoles(self):
+	def updateMergedSNPEntrezRoles_DEPRECATED(self):
 		self.log("checking for merged SNP roles ...")
 		self.prepareTableForQuery('snp_entrez_role')
 		self.prepareTableForQuery('snp_merge')
@@ -459,7 +458,7 @@ JOIN `db`.`snp_merge` AS sm
 	#updateMergedSNPEntrezRoles()
 	
 	
-	def cleanupSNPEntrezRoles(self):
+	def cleanupSNPEntrezRoles_DEPRECATED(self):
 		self.log("verifying SNP roles ...")
 		self.prepareTableForQuery('snp_entrez_role')
 		dbc = self._db.cursor()
@@ -895,27 +894,33 @@ WHERE rn.namespace_id IN (%s)"""
 		cursor.execute("DELETE FROM `db`.`snp_unit_role`")
 		namespaceID = self._loki.getNamespaceID('entrez_gid')
 		if namespaceID:
+			self.prepareTableForQuery('snp_entrez_role')
+			self.prepareTableForQuery('snp_merge')
 			def generate_rows():
-				for rsID,entrezID,roleID,sourceID in self._db.cursor().execute("SELECT rs, ''||entrez_id, role_id, source_id FROM `db`.`snp_entrez_role`"):
+				sql = """
+SELECT COALESCE(sm.rsCurrent, ser.rs), ''||ser.entrez_id, ser.role_id, ser.source_id
+FROM `db`.`snp_entrez_role` AS ser
+LEFT JOIN `db`.`snp_merge` AS sm
+  ON sm.rsMerged = ser.rs
+"""
+				for rsID,entrezID,roleID,sourceID in self._db.cursor().execute(sql):
 					for unitID in nameUnits[(namespaceID,entrezID)]:
 						yield (rsID,unitID,roleID,sourceID)
-			cursor.executemany("INSERT INTO `db`.`snp_unit_role` (rs, unit_id, role_id, source_id) VALUES (?,?,?,?)", generate_rows())
-		
-		# cull duplicate roles
+			cursor.executemany("INSERT OR IGNORE INTO `db`.`snp_unit_role` (rs, unit_id, role_id, source_id) VALUES (?,?,?,?)", generate_rows())
 		self.prepareTableForQuery('snp_unit_role')
-		cull = set()
-		sql = "SELECT GROUP_CONCAT(_ROWID_) FROM `db`.`snp_unit_role` GROUP BY rs, unit_id, role_id HAVING COUNT() > 1"
-		for row in cursor.execute(sql):
-			cull.update( (long(i),) for i in row[0].split(',')[1:] )
-		if cull:
-			self.flagTableUpdate('snp_unit_role')
-			cursor.executemany("DELETE FROM `db`.`snp_unit_role` WHERE _ROWID_ = ?", cull)
 		
-		numTotal = numSNPs = numGenes = 0
+	#	# cull duplicate roles
+	#	cull = set()
+	#	sql = "SELECT GROUP_CONCAT(_ROWID_) FROM `db`.`snp_unit_role` GROUP BY rs, unit_id, role_id HAVING COUNT() > 1"
+	#	for row in cursor.execute(sql):
+	#		cull.update( (long(i),) for i in row[0].split(',')[1:] )
+	#	if cull:
+	#		self.flagTableUpdate('snp_unit_role')
+	#		cursor.executemany("DELETE FROM `db`.`snp_unit_role` WHERE _ROWID_ = ?", cull)
+		
+		numTotal = numSNPs = numUnits = 0
 		for row in cursor.execute("SELECT COUNT(), COUNT(DISTINCT rs), COUNT(DISTINCT unit_id) FROM `db`.`snp_unit_role`"):
-			numTotal = row[0]
-			numSNPs = row[1]
-			numUnits = row[2]
+			numTotal,numSNPs,numUnits = row
 		self.log(" OK: %d roles (%d SNPs, %d units)\n" % (numTotal,numSNPs,numUnits))
 	#resolveSNPUnitRoles()
 	
