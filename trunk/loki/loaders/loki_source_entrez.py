@@ -10,7 +10,7 @@ class Source_entrez(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.1 (2014-06-25)'
+		return '2.1 (2014-06-25)' # last modified 2015-04-08 but only a screen reporting issue, no data rebuild required
 	#getVersionString()
 	
 	
@@ -268,10 +268,10 @@ class Source_entrez(loki_source.Source):
 					setBadVers.update(genes)
 			
 			# print stats
-			setBadVers.difference_update(buildGenes[build])
-			setBadChr.difference_update(buildGenes[build], setBadVers)
-			setBadBuild.difference_update(buildGenes[build], setBadVers, setBadChr)
-			setBadNC.difference_update(buildGenes[build], setBadVers, setBadChr, setBadNC)
+			setBadVers.difference_update(buildGenes[grcBuild])
+			setBadChr.difference_update(buildGenes[grcBuild], setBadVers)
+			setBadBuild.difference_update(buildGenes[grcBuild], setBadVers, setBadChr)
+			setBadNC.difference_update(buildGenes[grcBuild], setBadVers, setBadChr, setBadNC)
 			numRegions = len(buildRegions[grcBuild])
 			numGenes = len(buildGenes[grcBuild])
 			numNames0 = numNames
