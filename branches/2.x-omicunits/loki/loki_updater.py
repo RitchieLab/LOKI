@@ -73,7 +73,7 @@ class Updater(object):
 		if self._updating:
 			self.flagTableUpdate(table)
 			if table not in self._tablesDeindexed:
-			#	print "deindexing %s" % table #DEBUG
+			#	print "deindexing %s" % table #TODO DEBUG
 				self._tablesDeindexed.add(table)
 				self._loki.dropDatabaseIndecies(None, 'db', table)
 				#TODO if table is a hybrid pre/post-proc, drop all source=0 rows now
@@ -83,7 +83,7 @@ class Updater(object):
 	def prepareTableForQuery(self, table):
 		if self._updating:
 			if table in self._tablesDeindexed:
-			#	print "reindexing %s" % table #DEBUG
+			#	print "reindexing %s" % table #TODO DEBUG
 				self._tablesDeindexed.remove(table)
 				self._loki.createDatabaseIndecies(None, 'db', table)
 	#prepareTableForQuery()
@@ -213,31 +213,28 @@ class Updater(object):
 						os.makedirs(path)
 					os.chdir(path)
 					
-					# skip file fingerprinting for the LOKI postprocessor
+					# download and fingerprint files
 					filehash = dict()
-					if srcName != 'loki':
-						# download files into a local cache
-						if not cacheOnly:
-							self.logPush("downloading %s data ...\n" % srcName)
-							srcObj.download(options)
-							self.logPop("... OK\n")
-						
-						# calculate source file metadata
-						# all timestamps are assumed to be in UTC, but if a source
-						# provides file timestamps with no TZ (like via FTP) we use them
-						# as-is and assume they're supposed to be UTC
-						self.log("analyzing %s data files ..." % srcName)
-						for filename in os.listdir('.'):
-							stat = os.stat(filename)
-							md5 = hashlib.md5()
-							with open(filename,'rb') as f:
+					if not cacheOnly:
+						self.logPush("downloading %s data ...\n" % srcName)
+						srcObj.download(options)
+						self.logPop("... OK\n")
+					
+					# calculate source file metadata
+					# all timestamps are assumed to be in UTC, but if a source
+					# provides file timestamps with no TZ (like via FTP) we use them
+					# as-is and assume they're supposed to be UTC
+					self.log("analyzing %s data files ..." % srcName)
+					for filename in os.listdir('.'):
+						stat = os.stat(filename)
+						md5 = hashlib.md5()
+						with open(filename,'rb') as f:
+							chunk = f.read(8*1024*1024)
+							while chunk:
+								md5.update(chunk)
 								chunk = f.read(8*1024*1024)
-								while chunk:
-									md5.update(chunk)
-									chunk = f.read(8*1024*1024)
-							filehash[filename] = (filename, long(stat.st_size), long(stat.st_mtime), md5.hexdigest())
-						self.log(" OK\n")
-					#if postprocessor
+						filehash[filename] = (filename, long(stat.st_size), long(stat.st_mtime), md5.hexdigest())
+					self.log(" OK\n")
 					
 					# compare current options, loader version, and file metadata to the last update to see if anything changed
 					changed = forceUpdate or (options != prevOptions)
@@ -338,5 +335,6 @@ class Updater(object):
 			return False
 		return True
 	#updateDatabase()
+	
 	
 #Updater

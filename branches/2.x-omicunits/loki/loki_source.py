@@ -381,7 +381,7 @@ class Source(object):
 	def addSNPMerges(self, snpMerges):
 		# snpMerges=[ (rsMerged,rsCurrent), ... ]
 		self.prepareTableForUpdate('snp_merge')
-		sql = "INSERT OR IGNORE INTO `db`.`snp_merge` (rsMerged,rsCurrent,source_id) VALUES (?,?,%d)" % (self.getSourceID(),)
+		sql = "INSERT INTO `db`.`snp_merge` (rsMerged,rsCurrent,source_id) VALUES (?,?,%d)" % (self.getSourceID(),)
 		with self._db:
 			self._db.cursor().executemany(sql, snpMerges)
 	#addSNPMerges()
@@ -390,8 +390,7 @@ class Source(object):
 	def addSNPLoci(self, snpLoci):
 		# snpLoci=[ (rs,chr,pos,validated), ... ]
 		self.prepareTableForUpdate('snp_locus')
-		sql = "INSERT OR IGNORE INTO `db`.`snp_locus` (rs,chr,pos,validated,source_id) VALUES (?1,?2,?3,?4,%d)" % (self.getSourceID(),)
-		sql += "; UPDATE `db`.`snp_locus` SET validated = MAX(validated,?4), source_id = (CASE WHEN validated = ?4 THEN source_id ELSE %d END) WHERE rs = ?1 AND chr = ?2 AND pos = ?3" % (self.getSourceID(),)
+		sql = "INSERT INTO `db`.`snp_locus` (rs,chr,pos,validated,source_id) VALUES (?1,?2,?3,?4,%d)" % (self.getSourceID(),)
 		with self._db:
 			self._db.cursor().executemany(sql, snpLoci)
 	#addSNPLoci()
@@ -400,8 +399,7 @@ class Source(object):
 	def addChromosomeSNPLoci(self, chromosome, snpLoci):
 		# snpLoci=[ (rs,pos,validated), ... ]
 		self.prepareTableForUpdate('snp_locus')
-		sql = "INSERT OR IGNORE INTO `db`.`snp_locus` (rs,chr,pos,validated,source_id) VALUES (?1,%d,?2,?3,%d)" % (chromosome,self.getSourceID(),)
-		sql += "; UPDATE `db`.`snp_locus` SET validated = MAX(validated,?3), source_id = (CASE WHEN validated = ?3 THEN source_id ELSE %d END) WHERE rs = ?1 AND chr = %d AND pos = ?2" % (self.getSourceID(),chromosome)
+		sql = "INSERT INTO `db`.`snp_locus` (rs,chr,pos,validated,source_id) VALUES (?1,%d,?2,?3,%d)" % (chromosome,self.getSourceID(),)
 		with self._db:
 			self._db.cursor().executemany(sql, snpLoci)
 	#addChromosomeSNPLoci()
@@ -410,7 +408,7 @@ class Source(object):
 	def addSNPEntrezRoles(self, snpRoles):
 		# snpRoles=[ (rs,entrez_id,role_id), ... ]
 		self.prepareTableForUpdate('snp_entrez_role')
-		sql = "INSERT OR IGNORE INTO `db`.`snp_entrez_role` (rs,entrez_id,role_id,source_id) VALUES (?,?,?,%d)" % (self.getSourceID(),)
+		sql = "INSERT INTO `db`.`snp_entrez_role` (rs,entrez_id,role_id,source_id) VALUES (?,?,?,%d)" % (self.getSourceID(),)
 		with self._db:
 			self._db.cursor().executemany(sql, snpRoles)
 	#addSNPEntrezRoles()

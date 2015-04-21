@@ -2,6 +2,7 @@
 
 import collections
 import itertools
+import re
 import sys
 import time #DEBUG
 import traceback
@@ -17,7 +18,7 @@ class Source_loki(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '3.0 (2014-10-21)'
+		return '3.0 (2015-03-16)'
 	#getVersionString()
 	
 	
@@ -69,7 +70,13 @@ class Source_loki(loki_source.Source):
 	
 	
 	def download(self, options):
-		pass
+		# download the latest source files
+		# http://genome.ucsc.edu/FAQ/FAQreleases.html
+		# http://genome.ucsc.edu/goldenPath/releaseLog.html
+		# TODO: find a better machine-readable source for this data
+		self.downloadFilesFromHTTP('genome.ucsc.edu', {
+			'FAQreleases.html': '/FAQ/FAQreleases.html',
+		})
 	#download()
 	
 	
@@ -77,29 +84,67 @@ class Source_loki(loki_source.Source):
 		cursor = self._db.cursor()
 		logIndent = self.logIndent()
 		
-		# cross-map GRCh/UCSChg build versions for all sources, and set the new target
-		ucscGRC = dict()
+		# process the latest GRCh/UCSChg conversions
+		with open('FAQreleases.html','rU') as datafile:
+			self.log("updating GRCh:UCSChg genome build identities ...")
+			page = datafile.read()
+			rowHuman = False
+			for tablerow in re.finditer(r'<tr>.*?</tr>', page, re.IGNORECASE | re.DOTALL):
+				cols = tuple(match.group()[4:-5].strip().lower() for match in re.finditer(r'<td>.*?</td>', tablerow.group(), re.IGNORECASE | re.DOTALL))
+				if cols and ((cols[0] == 'human') or (rowHuman and (cols[0] in ('','&nbsp;')))):
+					rowHuman = True
+					grch = ucschg = None
+					try:
+						if cols[1].startswith('hg'):
+							ucschg = int(cols[1][2:])
+						if cols[3].startswith('genome reference consortium grch'):
+							grch = int(cols[3][32:])
+						if cols[3].startswith('ncbi build '):
+							grch = int(cols[3][11:])
+					except:
+						pass
+					if grch and ucschg:
+						cursor.execute("INSERT OR REPLACE INTO `db`.`grch_ucschg` (grch,ucschg) VALUES (?,?)", (grch,ucschg))
+				else:
+					rowHuman = False
+			#foreach tablerow
+			self.log(" OK\n")
+		#with datafile
+		
+		# cross-map GRCh/UCSChg build versions for all sources
+		ucscGRC = collections.defaultdict(int)
 		for row in self._db.cursor().execute("SELECT grch,ucschg FROM `db`.`grch_ucschg`"):
-			ucscGRC[row[1]] = max(row[0], ucscGRC.get(row[1]))
+			ucscGRC[row[1]] = max(row[0], ucscGRC[row[1]])
 			cursor.execute("UPDATE `db`.`source` SET grch = ? WHERE grch IS NULL AND ucschg = ?", (row[0],row[1]))
 			cursor.execute("UPDATE `db`.`source` SET ucschg = ? WHERE ucschg IS NULL AND grch = ?", (row[1],row[0]))
 		cursor.execute("UPDATE `db`.`source` SET current_ucschg = ucschg WHERE current_ucschg IS NULL")
-		targetHG = None
-		for row in cursor.execute("SELECT current_ucschg FROM `db`.`source` WHERE current_ucschg IS NOT NULL"):
-			targetHG = max(row[0], targetHG)
-		if (targetHG != self._loki.getDatabaseSetting('ucschg',int)):
-			self.log("database genome build: GRCh%s / UCSChg%s\n" % (ucscGRC.get(targetHG,'?'), targetHG or '?'))
+		
+		# check for any source with an unrecognized GRCh build
+		mismatch = False
+		for row in cursor.execute("SELECT source, grch, ucschg FROM `db`.`source` WHERE (grch IS NULL) != (ucschg IS NULL)"):
+			self.log("WARNING: unrecognized genome build for '%s' (NCBI GRCh%s, UCSC hg%s)\n" % (row[0],(row[1] or "?"),(row[2] or "?")))
+			mismatch = True
+		if mismatch:
+			self.log("WARNING: database may contain incomparable genome positions!\n")
+		
+		# check all sources' UCSChg build versions and set the latest as the target
+		hgSources = collections.defaultdict(set)
+		for row in cursor.execute("SELECT source_id, current_ucschg FROM `db`.`source` WHERE current_ucschg IS NOT NULL"):
+			hgSources[row[1]].add(row[0])
+		if hgSources:
+			targetHG = max(hgSources)
+			self.log("database genome build: GRCh%s / UCSChg%s\n" % (ucscGRC.get(targetHG,'?'), targetHG))
+			targetUpdated = (self._loki.getDatabaseSetting('ucschg',int) != targetHG)
 			self._loki.setDatabaseSetting('ucschg', targetHG)
-		oldHGs = sum(1 for row in cursor.execute("SELECT 1 FROM `db`.`source` WHERE current_ucschg IS NOT NULL AND current_ucschg != ?", (targetHG,)))
 		
 		# decide which post-processing steps are required
 		ppCallOrder = [
 			'normalizeGenomeBuilds',
-		#	'cleanupSNPMerges',
+			'cleanupSNPMerges',
 			'updateMergedSNPLoci',
-		#	'cleanupSNPLoci',
+			'cleanupSNPLoci',
 		#	'updateMergedSNPEntrezRoles',
-		#	'cleanupSNPEntrezRoles',
+			'cleanupSNPEntrezRoles',
 			'updateMergedGWASAnnotations',
 			'updateRegionZones',
 			'defineOmicUnits',
@@ -133,18 +178,18 @@ class Source_loki(loki_source.Source):
 		for pp in ppCallOrder:
 			# re-scan step triggers before each step, to catch steps
 			# which update tables that trigger later steps
-			if oldHGs:
+			if hgSources and (min(hgSources) != targetHG):
 				curPP.add('normalizeGenomeBuilds') # snp_locus, region
-		#	if ('snp_merge' in tablesUpdated):
-		#		curPP.add('cleanupSNPMerges') # snp_merge
+			if ('snp_merge' in tablesUpdated):
+				curPP.add('cleanupSNPMerges') # snp_merge
 			if ('snp_merge' in tablesUpdated) or ('snp_locus' in tablesUpdated):
 				curPP.add('updateMergedSNPLoci') # snp_locus
-		#	if ('snp_locus' in tablesUpdated):
-		#		curPP.add('cleanupSNPLoci') # snp_locus
+			if ('snp_locus' in tablesUpdated):
+				curPP.add('cleanupSNPLoci') # snp_locus
 		#	if ('snp_merge' in tablesUpdated) or ('snp_entrez_role' in tablesUpdated):
 		#		curPP.add('updateMergedSNPEntrezRoles') # snp_entrez_role
-		#	if ('snp_entrez_role' in tablesUpdated):
-		#		curPP.add('cleanupSNPEntrezRoles') # snp_entrez_role
+			if ('snp_entrez_role' in tablesUpdated):
+				curPP.add('cleanupSNPEntrezRoles') # snp_entrez_role
 			if ('snp_merge' in tablesUpdated) or ('gwas' in tablesUpdated):
 				curPP.add('updateMergedGWASAnnotations') # gwas
 			#TODO: cleanupGWASAnnotations?
@@ -318,7 +363,7 @@ class Source_loki(loki_source.Source):
 	#normalizeGenomeBuilds()
 	
 	
-	def cleanupSNPMerges_DEPRECATED(self):
+	def cleanupSNPMerges(self):
 		self.log("verifying SNP merge records ...")
 		self.prepareTableForQuery('snp_merge')
 		dbc = self._db.cursor()
@@ -382,7 +427,7 @@ JOIN `db`.`snp_merge` AS sm
 	#updateMergedSNPLoci()
 	
 	
-	def cleanupSNPLoci_DEPRECATED(self):
+	def cleanupSNPLoci(self):
 		self.log("verifying SNP loci ...")
 		self.prepareTableForQuery('snp_locus')
 		dbc = self._db.cursor()
@@ -458,7 +503,7 @@ JOIN `db`.`snp_merge` AS sm
 	#updateMergedSNPEntrezRoles()
 	
 	
-	def cleanupSNPEntrezRoles_DEPRECATED(self):
+	def cleanupSNPEntrezRoles(self):
 		self.log("verifying SNP roles ...")
 		self.prepareTableForQuery('snp_entrez_role')
 		dbc = self._db.cursor()
@@ -907,16 +952,28 @@ LEFT JOIN `db`.`snp_merge` AS sm
 					for unitID in nameUnits[(namespaceID,entrezID)]:
 						yield (rsID,unitID,roleID,sourceID)
 			cursor.executemany("INSERT OR IGNORE INTO `db`.`snp_unit_role` (rs, unit_id, role_id, source_id) VALUES (?,?,?,?)", generate_rows())
-		self.prepareTableForQuery('snp_unit_role')
 		
-	#	# cull duplicate roles
-	#	cull = set()
-	#	sql = "SELECT GROUP_CONCAT(_ROWID_) FROM `db`.`snp_unit_role` GROUP BY rs, unit_id, role_id HAVING COUNT() > 1"
-	#	for row in cursor.execute(sql):
-	#		cull.update( (long(i),) for i in row[0].split(',')[1:] )
-	#	if cull:
-	#		self.flagTableUpdate('snp_unit_role')
-	#		cursor.executemany("DELETE FROM `db`.`snp_unit_role` WHERE _ROWID_ = ?", cull)
+		# cull duplicate roles
+		self.prepareTableForQuery('snp_unit_role')
+		cull = list()
+		if 0: #TODO
+			sql = "SELECT GROUP_CONCAT(_ROWID_) FROM `db`.`snp_unit_role` GROUP BY rs, unit_id, role_id HAVING COUNT() > 1"
+			for row in cursor.execute(sql):
+				rowids = row[0].split(',')
+				cull.extend( (long(rowids[i]),) for i in xrange(1,len(rowids)) )
+		else:
+			lastRole = None
+			sql = "SELECT _ROWID_, rs, unit_id, role_id FROM `db`.`snp_unit_role` ORDER BY rs, unit_id, role_id"
+			for row in cursor.execute(sql):
+				role = (row[1],row[2],row[3])
+				if lastRole == role:
+					cull.append( (row[0],) )
+				else:
+					lastRole = role
+		#if sql/python method
+		if cull:
+			self.flagTableUpdate('snp_unit_role')
+			cursor.executemany("DELETE FROM `db`.`snp_unit_role` WHERE _ROWID_ = ?", cull)
 		
 		numTotal = numSNPs = numUnits = 0
 		for row in cursor.execute("SELECT COUNT(), COUNT(DISTINCT rs), COUNT(DISTINCT unit_id) FROM `db`.`snp_unit_role`"):

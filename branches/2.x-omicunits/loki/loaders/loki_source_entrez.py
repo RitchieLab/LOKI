@@ -11,7 +11,7 @@ class Source_entrez(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '3.0 (2013-09-16)'
+		return '3.0 (2015-01-23)'
 	#getVersionString()
 	
 	
@@ -229,8 +229,12 @@ class Source_entrez(loki_source.Source):
 					errBound.append(entrezGID)
 				else:
 					# store the region by build version number, so we can pick the majority build later
-					# (positions are 0-based per ftp://ftp.ncbi.nlm.nih.gov/gene/DATA/README)
 					buildEntrez[build.group(1)].add(entrezGID)
+					# Entrez sequences use 0-based closed intervals, according to:
+					#   ftp://ftp.ncbi.nlm.nih.gov/gene/DATA/README
+					#   http://www.ncbi.nlm.nih.gov/books/NBK3840/#genefaq.Representation_of_nucleotide_pos
+					# and comparison of web-reported boundary coordinates to gene length (len = end - start + 1).
+					# Since LOKI uses 1-based closed intervals, we add 1 to all coordinates.
 					buildRegions[build.group(1)].add( (entrezGID,int(chm),long(posMin)+1,long(posMax)+1) )
 			#if taxonomy is 9606 (human)
 		#foreach line

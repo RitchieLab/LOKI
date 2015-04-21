@@ -26,7 +26,7 @@ class Source_chainfiles(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.1 (2014-03-07)'
+		return '2.2 (2014-06-27)'
 	#getVersionString()
 	
 	
@@ -108,12 +108,17 @@ class Source_chainfiles(loki_source.Source):
 	def _parseChain(self, chain_hdr):
 		"""
 		Parses the chain header to extract the information required 
-		for insertion into the database
+		for insertion into the database.
+		UCSC chain files use 0-based half-open intervals according to:
+		  https://genome.ucsc.edu/goldenPath/help/chain.html
+		Since LOKI uses 1-based closed intervals, we add 1 to start positions.
 		"""
 		
 		# get the 1st line
 		hdr = chain_hdr.strip().split('\n')[0].strip()
+		
 		# Parse the first line
+		# "chain" score oldChr oldSize oldDir oldStart oldEnd newChr newSize newDir newStart newEnd id
 		wds = hdr.split()
 		
 		if wds[0] != "chain":
@@ -124,19 +129,19 @@ class Source_chainfiles(loki_source.Source):
 			
 		is_fwd = (wds[9] == "+")
 		if is_fwd:
-			new_start = int(wds[10])
+			new_start = int(wds[10]) + 1
 			new_end = int(wds[11])
 		else:
 			# NOTE: If we're going backward, this will mean that 
 			# end < start
 			new_start = int(wds[8]) - int(wds[10])
-			new_end = int(wds[8]) - int(wds[11])
+			new_end = int(wds[8]) - int(wds[11]) + 1
 		
 		
 		# I want a tuple of (score, old_chr, old_start, old_end,
 		# new_chr, new_start, new_end, is_forward)
 		return (int(wds[1]), 
-			self._loki.chr_num[wds[2][3:]], int(wds[5]), int(wds[6]),
+			self._loki.chr_num[wds[2][3:]], int(wds[5]) + 1, int(wds[6]),
 			self._loki.chr_num.get(wds[7][3:],-1), new_start, new_end,
 			int(is_fwd))
 		
@@ -152,14 +157,14 @@ class Source_chainfiles(loki_source.Source):
 			
 		_data_txform = []
 		for l in _data:
-			_data_txform.append((curr_pos, curr_pos + l[0], new_pos))
+			_data_txform.append((curr_pos, curr_pos + l[0] - 1, new_pos))
 			curr_pos = curr_pos + l[0] + l[1]
 			if chain_tuple[7]:
 				new_pos = new_pos + l[0] + l[2]
 			else:
 				new_pos = new_pos - l[0] - l[2]
 			
-		_data_txform.append((curr_pos, curr_pos + int(chain_data.split()[-1]), new_pos))
+		_data_txform.append((curr_pos, curr_pos + int(chain_data.split()[-1]) - 1, new_pos))
 		
 		return _data_txform
 	

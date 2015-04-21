@@ -1,31 +1,33 @@
 CHANGELOG
 
-2.1.1b1 (2014-03-04)
+2.2.1 (2014-06-27)
+- fixed a bug in liftOver when the input start position was inside a gap
+- fixed a bug in the coordinate normalization of the chainfiles loader
+- normalized the region coordinate convention across LOKI
+- added the "extra" data field in all liftOver inputs and outputs
+- made loki-build verbose by default, with --quiet to suppress notices
+
+2.2.0 (2014-05-27)
 - added support for HTTP (but not SOCKS) proxy servers for downloading source
   data via HTTP
+- added support for parsing updated genome build identities from
+  http://genome.ucsc.edu/FAQ/FAQreleases.html
+- added warnings for unrecognized builds which could lead to mismatched data
+- added a tally of SNP role records with unrecognized Entrez GeneIDs
+- added support for (mandatory) "extra" data fields on all lookup inputs,
+  which is returned with all corresponding output records
 
 2.1.0 (2013-07-19)
-- release
-
-2.1.0rc1 (2013-07-18)
 - updated dbsnp loader to handle incomplete SNP roles in dbSNP's data download
-
-2.1.0b1 (2013-06-11)
 - added "gwas" catalog source loader and supporting tables and methods
 
-2.0.1b3 (2013-05-02)
+2.0.1 (2013-05-02)
 - updated pfam loader to 2.1 to handle the new release's file format
 - fixed loki-build option --temp-directory to apply to SQLite temp files
-
-2.0.1b2 (2013-03-21)
 - fixed loki-build option --archive to skip re-archive if --cache-only is used
 - fixed a bug in the stack trace output in the event of an error during update
-
-2.0.1b1 (2013-03-14)
 - fixed a bug in the updater which would mask the original error if the error-
   handler itself caused an additional error
-
-2.0.1a1 (2013-03-05)
 - added a source file metadata check to skip updates when the source loader
   code and all data files are unchanged since the last update
 - new loki-build option --force-update to skip the metadata check
@@ -35,27 +37,4 @@ CHANGELOG
 - fixed a bug in the UCSC ECR loader that increased the minimum region size
 
 2.0.0 (2013-02-14)
-- all loader versions normalized for 2.0 release
-
-2.0.0rc2 (2013-01-25)
-- added special identifier type '=' to lookup by *_id numbers
-
-2.0.0rc1 (2013-01-23)
-- improved dbSNP update speed on network filesystems by up to 20x
-- reduced the temporary storage requirements for building LD profiles by ~6x
-  per population; without --keep-data, peak storage is ~10gb + 10gb per pop
-
-2.0.0b4 (2012-12-11)
-- errors during source updates are now caught and reported, allowing the update
-  process to continue with the other sources rather than crashing immediately
-- loki-build now skips finalization if any sources encounter errors
-
-2.0.0b3 (2012-11-29)
-- fixed a bug in the reporting of ambiguous gene and group identifiers
-
-2.0.0b2 (2012-10-29)
-- fixed a bug in LD profile lookups
-
-2.0.0b1 (2012-10-16)
 - first public release
-

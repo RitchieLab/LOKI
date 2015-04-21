@@ -11,18 +11,19 @@ class Source_reactome(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '3.0 (2013-09-16)'
+		return '3.0 (2015-03-23)'
 	#getVersionString()
 	
 	
 	def download(self, options):
 		# download the latest source files
 		self.downloadFilesFromHTTP('www.reactome.org', {
+			'ReactomePathways.txt'                        : '/download/current/ReactomePathways.txt',
+			'ReactomePathwaysRelation.txt'                : '/download/current/ReactomePathwaysRelation.txt',
 			'ReactomePathways.gmt.zip'                    : '/download/current/ReactomePathways.gmt.zip',
-			'uniprot_2_pathways.txt'                      : '/download/current/uniprot_2_pathways.txt',
-			'uniprot_2_pathways.stid.txt'                 : '/download/current/uniprot_2_pathways.stid.txt',
-			'curated_and_inferred_uniprot_2_pathways.txt' : '/download/current/curated_and_inferred_uniprot_2_pathways.txt',
-			'homo_sapiens.interactions.txt.gz'            : '/download/current/homo_sapiens.interactions.txt.gz',
+			'UniProt2Reactome.txt'                        : '/download/current/UniProt2Reactome.txt',
+			'Ensembl2Reactome.txt'                        : '/download/current/Ensembl2Reactome.txt',
+		#	'homo_sapiens.interactions.txt.gz'            : '/download/current/homo_sapiens.interactions.txt.gz',
 		#	'gene_association.reactome'                   : '/download/current/gene_association.reactome',
 		})
 	#download()
@@ -44,12 +45,18 @@ class Source_reactome(loki_source.Source):
 			('pathway',      0),
 			('reactome_id',  0),
 		])
-		relationshipID = dict()
+		relationshipID = self.addRelationships([
+			('',),
+		])
 		gtypeID = self.addGTypes([
 			('pathway',),
 		])
 		
 		# initialize storage
+		numPath = 0
+		reactPath = dict()
+		pathReact = dict()
+		listRelationships = list()
 		numAssoc = 0
 		nsAssoc = {
 			'symbol'      : { 'path':set(), 'react':set() },
@@ -58,274 +65,293 @@ class Source_reactome(loki_source.Source):
 			'ensembl_pid' : { 'path':set(), 'react':set() },
 			'uniprot_pid' : { 'path':set(), 'react':set() },
 		}
-		pathReact = dict()
-		reactPath = dict()
-		#reactLinks = collections.defaultdict(set)
 		
 		# process pathways
+		# <react_id>\t<description>\t<species>
+		self.log("processing pathways ...")
+		numNewPath = 0
+		numMismatch = 0
+		with open('ReactomePathways.txt', 'rU') as pathFile:
+			# no header
+			for line in pathFile:
+				words = line.decode('latin-1').rstrip().split("\t")
+				if line.startswith('#') or (len(words) < 3) or (words[2] != "Homo sapiens"):
+					continue
+				reactID = words[0]
+				path = words[1]
+				
+				if reactID not in reactPath:
+					numNewPath += 1
+					reactPath[reactID] = path
+					pathReact[path] = reactID
+				elif reactPath[reactID] != path:
+					numMismatch += 1
+			#for line in pathFile
+		#with pathFile
+		self.log(" OK: %d pathways (%d mismatches)\n" % (numNewPath,numMismatch))
+		numPath += numNewPath
+		
+		# process pathway relationships
+		# <parent>\t<child>
+		self.log("processing pathway hierarchy ...")
+		numRelations = 0
+		with open('ReactomePathwaysRelation.txt', 'rU') as relFile:
+			# no header
+			for line in relFile:
+				words = line.decode('latin-1').rstrip().split("\t")
+				if line.startswith('#') or (len(words) < 2):
+					continue
+				
+				numRelations += 1
+				listRelationships.append( (words[0],words[1]) )
+		#with relFile
+		self.log(" OK: %d relationships\n" % (numRelations,))
+		
+		# process gene sets
 		# <description>\t"Reactome Pathway"\t<symbol1>\t<symbol2>...
-		self.log("verifying pathway archive ...")
-		setPath = set()
-		setID = set()
-		with zipfile.ZipFile('ReactomePathways.gmt.zip','r') as pathZip:
-			err = pathZip.testzip()
+		self.log("verifying gene set archive ...")
+		numNewPath = 0
+		numNewAssoc = 0
+		with zipfile.ZipFile('ReactomePathways.gmt.zip','r') as geneZip:
+			err = geneZip.testzip()
 			if err:
 				self.log(" ERROR\n")
-				self.log("CRC failed for %s\n" % err)
-				return False
+				raise Exception("CRC failed for %s\n" % err)
 			self.log(" OK\n")
-			self.log("processing pathways ...")
-			for info in pathZip.infolist():
-				# there should be only one, but just in case..
+			self.log("processing gene sets ...")
+			for info in geneZip.infolist():
+				# there should be only one file in the archive, but just in case..
 				if info.filename == 'ReactomePathways.gmt':
-					pathFile = pathZip.open(info,'rU')
-					for line in pathFile:
+					geneFile = geneZip.open(info,'rU')
+					for line in geneFile:
 						words = line.decode('latin-1').rstrip().split("\t")
 						if line.startswith('#') or (len(words) < 3) or (words[1] != "Reactome Pathway"):
 							continue
 						path = words[0]
 						
 						if path not in pathReact:
-							pathReact[path] = None
+							numPath += 1
+							numNewPath += 1
+							reactID = "REACT_unknown_%d" % (numPath,)
+							pathReact[path] = reactID
+							reactPath[reactID] = path
+						
 						for n in xrange(2, len(words)):
 							numAssoc += 1
-							setPath.add(path)
-							setID.add(words[n])
+							numNewAssoc += 1
 							nsAssoc['symbol']['path'].add( (path,numAssoc,words[n]) )
 						#foreach gene symbol
-					#foreach line in pathFile
-					pathFile.close()
-				#if file is the one we want
-			#foreach file in pathZip
-			self.log(" OK: %d associations (%d pathways, %d identifiers)\n" % (numAssoc, len(setPath), len(setID)))
-		#with pathZip
+					#foreach line in geneFile
+					geneFile.close()
+				#if file ok
+			#foreach file in geneZip
+			self.log(" OK: %d associations (%d new pathways)\n" % (numNewAssoc,numNewPath))
+		#with geneZip
 		
-		# process uniprot mappings
-		# <uniprot>\t<reactID>\t<description>\t<url>
-		self.log("processing stable protein associations ...")
-		newAssoc = 0
-		setPath = set()
-		setID = set()
-		with open('uniprot_2_pathways.stid.txt', 'rU') as assocFile:
+		# TODO: ChEBI mappings?
+		
+		# process ensembl mappings (to lowest reactome pathway, not parents)
+		# http://www.reactome.org/download/mapping.README.txt
+		# <mapID>\t<reactID>\t<url>\t<pathway>\t<evidence>\t<species>
+		self.log("processing ensembl associations ...")
+		numNewPath = 0
+		numMismatch = 0
+		numNewAssoc = 0
+		with open('Ensembl2Reactome.txt', 'rU') as assocFile:
 			for line in assocFile:
-				words = line.decode('latin-1').split("\t")
-				if line.startswith('#') or (len(words) < 3):
+				words = line.decode('latin-1').rstrip().split("\t")
+				if line.startswith('#') or (len(words) < 6) or (words[5] != "Homo sapiens"):
+					continue
+				ensemblID = words[0]
+				reactID = words[1]
+				path = words[3]
+				
+				if ensemblID.startswith('ENSG'):
+					ns = 'ensembl_gid'
+				elif ensemblID.startswith('ENSP'):
+					ns = 'ensembl_pid'
+				else:
+					continue
+				
+				if reactID not in reactPath:
+					numPath += 1
+					numNewPath += 1
+					reactPath[reactID] = path
+					pathReact[path] = reactID
+				elif reactPath[reactID] != path:
+					numMismatch += 1
+					continue
+				
+				numAssoc += 1
+				numNewAssoc += 1
+				nsAssoc[ns]['path'].add( (path,numAssoc,ensemblID) )
+			#foreach line in assocFile
+		#with assocFile
+		self.log(" OK: %d associations (%d new pathways, %d mismatches)\n" % (numNewAssoc,numNewPath,numMismatch))
+		
+		# process uniprot mappings (to lowest reactome pathway, not parents)
+		# http://www.reactome.org/download/mapping.README.txt
+		# <mapID>\t<reactID>\t<url>\t<pathway>\t<evidence>\t<species>
+		self.log("processing uniprot associations ...")
+		numNewPath = 0
+		numMismatch = 0
+		numNewAssoc = 0
+		with open('UniProt2Reactome.txt', 'rU') as assocFile:
+			for line in assocFile:
+				words = line.decode('latin-1').rstrip().split("\t")
+				if line.startswith('#') or (len(words) < 6) or (words[5] != "Homo sapiens"):
 					continue
 				uniprotPID = words[0]
 				reactID = words[1]
-				path = words[2]
+				path = words[3]
 				
-				pathReact[path] = reactID
-				reactPath[reactID] = path
+				if reactID not in reactPath:
+					numPath += 1
+					numNewPath += 1
+					reactPath[reactID] = path
+					pathReact[path] = reactID
+				elif reactPath[reactID] != path:
+					numMismatch += 1
+					continue
+				
 				numAssoc += 1
-				newAssoc += 1
-				setPath.add(path)
-				setID.add(uniprotPID)
+				numNewAssoc += 1
 				nsAssoc['uniprot_pid']['path'].add( (path,numAssoc,uniprotPID) )
 			#foreach line in assocFile
 		#with assocFile
-		self.log(" OK: %d associations (%d pathways, %d identifiers)\n" % (newAssoc, len(setPath), len(setID)))
+		self.log(" OK: %d associations (%d new pathways, %d mismatches)\n" % (numNewAssoc,numNewPath,numMismatch))
+		numPath += numNewPath
+		numAssoc += numNewAssoc
 		
-		# process (unstable?) uniprot mappings
-		# <uniprot>\t"UniProt:"<uniprot>\t[<count>]: <description>; <description>; ...\t<url>
-		self.log("processing additional protein associations ...")
-		newAssoc = 0
-		setPath = set()
-		setID = set()
-		with open('uniprot_2_pathways.txt', 'rU') as assocFile:
-			for line in assocFile:
-				words = line.decode('latin-1').split("\t")
-				if line.startswith('#') or (len(words) < 3):
-					continue
-				uniprotPID = words[0]
-				pathList = words[2]
-				if pathList.startswith('['): # "[42 processes]: desc; desc; ..."
-					pathList = pathList.split(']:',1)[1]
-				
-				for path in pathList.split(';'):
-					path = path.strip()
-					if path not in pathReact:
-						pathReact[path] = None
-					numAssoc += 1
-					newAssoc += 1
-					setPath.add(path)
-					setID.add(uniprotPID)
-					nsAssoc['uniprot_pid']['path'].add( (path,numAssoc,uniprotPID) )
-				#foreach pathway description
-			#foreach line in assocFile
-		#with assocFile
-		self.log(" OK: %d associations (%d pathways, %d identifiers)\n" % (newAssoc, len(setPath), len(setID)))
+		# TODO: process interaction associations?
 		
-		# process curated/inferred uniprot mappings
 		if 0:
-			# <uniprot>\t"UniProt:"<uniprot>\t[<count>]: description; description; ...\t<url>\t<species>
-			self.log("processing curated+inferred protein associations ...")
-			newAssoc = 0
-			setPath = set()
-			setID = set()
-			with open('curated_and_inferred_uniprot_2_pathways.txt', 'rU') as assocFile:
-				for line in assocFile:
-					words = line.decode('latin-1').split("\t")
-					if line.startswith('#') or (len(words) < 5) or words[4].rstrip() != "Homo sapiens":
-						continue
-					uniprotPID = words[0]
-					pathList = words[2]
-					if pathList.startswith('['): # "[42 processes]: desc; desc; ..."
-						pathList = pathList.split(']:',1)[1]
-					
-					for path in pathList.split(';'):
-						path = path.strip()
-						if path not in pathReact:
-							pathReact[path] = None
-						numAssoc += 1
-						newAssoc += 1
-						setPath.add(path)
-						setID.add(uniprotPID)
-						nsAssoc['uniprot_pid']['path'].add( (path,numAssoc,uniprotPID) )
-				#foreach line in assocFile
-			#with assocFile
-			self.log(" OK: %d associations (%d pathways, %d identifiers)\n" % (newAssoc, len(setPath), len(setID)))
-		
-		# process interaction associations
-		# <uniprot>\t<ensembl>\t<entrez>\t<uniprot>\t<ensembl>\t<entrez>\t<type>\t<reactID>["<->"<reactID>]
-		self.log("processing protein interactions ...")
-		newAssoc = 0
-		setPath = set()
-		setID = set()
-		iaFile = self.zfile('homo_sapiens.interactions.txt.gz') #TODO:context manager,iterator
-		for line in iaFile:
-			words = line.decode('latin-1').split("\t")
-			if line.startswith('#') or len(words) < 8:
-				continue
-			uniprotP1 = words[0][8:]  if words[0].startswith('UniProt:')     else None
-			ensemblG1 = words[1][8:]  if words[1].startswith('ENSEMBL:ENSG') else None
-			ensemblP1 = words[1][8:]  if words[1].startswith('ENSEMBL:ENSP') else None
-			entrezG1  = words[2][12:] if words[2].startswith('Entrez Gene:') else None
-			uniprotP2 = words[3][8:]  if words[3].startswith('UniProt:')     else None
-			ensemblG2 = words[4][8:]  if words[4].startswith('ENSEMBL:ENSG') else None
-			ensemblP2 = words[4][8:]  if words[4].startswith('ENSEMBL:ENSP') else None
-			entrezG2  = words[5][12:] if words[5].startswith('Entrez Gene:') else None
-			relationship = words[6]
-			reactIDs = words[7].split('<->')
-			reactID1 = reactIDs[0].split('.',1)[0]
-			if reactID1 not in reactPath:
-				reactPath[reactID1] = None
-			setPath.add(reactID1)
-			
-			numAssoc += 1
-			newAssoc += 1
-			if uniprotP1:
-				nsAssoc['uniprot_pid']['react'].add( (reactID1,numAssoc,uniprotP1) )
-				setID.add(('uniprot_pid',uniprotP1))
-			if ensemblG1:
-				nsAssoc['ensembl_gid']['react'].add( (reactID1,numAssoc,ensemblG1) )
-				setID.add(('ensembl_gid',ensemblG1))
-			if ensemblP1:
-				nsAssoc['ensembl_pid']['react'].add( (reactID1,numAssoc,ensemblP1) )
-				setID.add(('ensembl_pid',ensemblP1))
-			if entrezG1:
-				nsAssoc['entrez_gid']['react'].add( (reactID1,numAssoc,entrezG1) )
-				setID.add(('entrez_gid',entrezG1))
-			
-			numAssoc += 1
-			newAssoc += 1
-			if uniprotP2:
-				nsAssoc['uniprot_pid']['react'].add( (reactID1,numAssoc,uniprotP2) )
-				setID.add(('uniprot_pid',uniprotP2))
-			if ensemblG2:
-				nsAssoc['ensembl_gid']['react'].add( (reactID1,numAssoc,ensemblG2) )
-				setID.add(('ensembl_gid',ensemblG2))
-			if ensemblP2:
-				nsAssoc['ensembl_pid']['react'].add( (reactID1,numAssoc,ensemblP2) )
-				setID.add(('ensembl_pid',ensemblP2))
-			if entrezG2:
-				nsAssoc['entrez_gid']['react'].add( (reactID1,numAssoc,entrezG2) )
-				setID.add(('entrez_gid',entrezG2))
-			
-			if len(reactIDs) > 1 and reactIDs[0] == reactIDs[1]:
-				reactID2 = reactIDs[1].split('.',1)[0]
-				if reactID2 not in reactPath:
-					reactPath[reactID2] = None
-				setPath.add(reactID2)
+			# http://www.reactome.org/download/interactions.README.txt
+			# <uniprot>\t<ensembl>\t<entrez>\t<uniprot>\t<ensembl>\t<entrez>\t<reacttype>\t<reactID>["<->"<reactID>]\t<pubmedIDs>
+			self.log("processing protein interactions ...")
+			numNewPath = 0
+			numNewAssoc = 0
+			iaFile = self.zfile('homo_sapiens.interactions.txt.gz') #TODO:context manager,iterator
+			for line in iaFile:
+				words = line.decode('latin-1').rstrip().split("\t")
+				if line.startswith('#') or (len(words) < 8):
+					continue
+				uniprotP1 = words[0][8:]  if words[0].startswith('UniProt:')     else None
+				ensemblG1 = words[1][8:]  if words[1].startswith('ENSEMBL:ENSG') else None
+				ensemblP1 = words[1][8:]  if words[1].startswith('ENSEMBL:ENSP') else None
+				entrezG1  = words[2][12:] if words[2].startswith('Entrez Gene:') else None
+				uniprotP2 = words[3][8:]  if words[3].startswith('UniProt:')     else None
+				ensemblG2 = words[4][8:]  if words[4].startswith('ENSEMBL:ENSG') else None
+				ensemblP2 = words[4][8:]  if words[4].startswith('ENSEMBL:ENSP') else None
+				entrezG2  = words[5][12:] if words[5].startswith('Entrez Gene:') else None
+				reacttype = words[6]
+				reactIDs = words[7].split('<->')
+				reactID1 = reactIDs[0].split('.',1)[0]
+				reactID2 = reactIDs[1].split('.',1)[0] if (len(reactIDs) > 1) else None
+				reactID2 = reactID2 if (reactID2 != reactID1) else None
+				
+				# if reacttype is "direct_complex" or "indirect_complex", the interactors are in the same group (or supergroup);
+				# if "reaction" or "neighbouring_reaction", they are not in the same group but interact anyway
 				
 				numAssoc += 1
 				newAssoc += 1
 				if uniprotP1:
-					nsAssoc['uniprot_pid']['react'].add( (reactID2,numAssoc,uniprotP1) )
+					nsAssoc['uniprot_pid']['react'].add( (reactID1,numAssoc,uniprotP1) )
 					setID.add(('uniprot_pid',uniprotP1))
 				if ensemblG1:
-					nsAssoc['ensembl_gid']['react'].add( (reactID2,numAssoc,ensemblG1) )
+					nsAssoc['ensembl_gid']['react'].add( (reactID1,numAssoc,ensemblG1) )
 					setID.add(('ensembl_gid',ensemblG1))
 				if ensemblP1:
-					nsAssoc['ensembl_pid']['react'].add( (reactID2,numAssoc,ensemblP1) )
+					nsAssoc['ensembl_pid']['react'].add( (reactID1,numAssoc,ensemblP1) )
 					setID.add(('ensembl_pid',ensemblP1))
 				if entrezG1:
-					nsAssoc['entrez_gid']['react'].add( (reactID2,numAssoc,entrezG1) )
+					nsAssoc['entrez_gid']['react'].add( (reactID1,numAssoc,entrezG1) )
 					setID.add(('entrez_gid',entrezG1))
 				
 				numAssoc += 1
 				newAssoc += 1
 				if uniprotP2:
-					nsAssoc['uniprot_pid']['react'].add( (reactID2,numAssoc,uniprotP2) )
+					nsAssoc['uniprot_pid']['react'].add( (reactID1,numAssoc,uniprotP2) )
 					setID.add(('uniprot_pid',uniprotP2))
 				if ensemblG2:
-					nsAssoc['ensembl_gid']['react'].add( (reactID2,numAssoc,ensemblG2) )
+					nsAssoc['ensembl_gid']['react'].add( (reactID1,numAssoc,ensemblG2) )
 					setID.add(('ensembl_gid',ensemblG2))
 				if ensemblP2:
-					nsAssoc['ensembl_pid']['react'].add( (reactID2,numAssoc,ensemblP2) )
+					nsAssoc['ensembl_pid']['react'].add( (reactID1,numAssoc,ensemblP2) )
 					setID.add(('ensembl_pid',ensemblP2))
 				if entrezG2:
-					nsAssoc['entrez_gid']['react'].add( (reactID2,numAssoc,entrezG2) )
+					nsAssoc['entrez_gid']['react'].add( (reactID1,numAssoc,entrezG2) )
 					setID.add(('entrez_gid',entrezG2))
 				
-				#TODO: decide if we want the links
-				#if relationship not in relationshipID:
-				#	relationshipID[relationship] = self.addRelationship(relationship)
-				#reactLinks[reactID1].add( (reactID2,relationshipID[relationship]) )
-				#reactLinks[reactID2].add( (reactID1,relationshipID[relationship]) )
-			#if 2 reactions
-		#foreach line in iaFile
-		self.log(" OK: %d associations (%d pathways, %d identifiers)\n" % (newAssoc, len(setPath), len(setID)))
-		
-		# merge pathway-description and reactome-ID paths
-		self.log("cross-referencing pathway mappings ...")
-		listGroup = list()
-		pathGroup = dict()
-		reactGroup = dict()
-		for path,react in itertools.chain(pathReact.iteritems(), ((path,react) for react,path in reactPath.iteritems())):
-			if path and (path in pathGroup):
-				if react:
-					reactGroup[react] = pathGroup[path]
-			elif react and (react in reactGroup):
-				if path:
-					pathGroup[path] = reactGroup[react]
-			else:
-				if path:
-					pathGroup[path] = len(listGroup)
-				if react:
-					reactGroup[react] = len(listGroup)
-				listGroup.append( (react,path) )
-		#foreach pathway
-		self.log(" OK: %d total pathways\n" % (len(listGroup),))
+				if len(reactIDs) > 1 and reactIDs[0] == reactIDs[1]:
+					reactID2 = reactIDs[1].split('.',1)[0]
+					if reactID2 not in reactPath:
+						reactPath[reactID2] = None
+					setPath.add(reactID2)
+					
+					numAssoc += 1
+					newAssoc += 1
+					if uniprotP1:
+						nsAssoc['uniprot_pid']['react'].add( (reactID2,numAssoc,uniprotP1) )
+						setID.add(('uniprot_pid',uniprotP1))
+					if ensemblG1:
+						nsAssoc['ensembl_gid']['react'].add( (reactID2,numAssoc,ensemblG1) )
+						setID.add(('ensembl_gid',ensemblG1))
+					if ensemblP1:
+						nsAssoc['ensembl_pid']['react'].add( (reactID2,numAssoc,ensemblP1) )
+						setID.add(('ensembl_pid',ensemblP1))
+					if entrezG1:
+						nsAssoc['entrez_gid']['react'].add( (reactID2,numAssoc,entrezG1) )
+						setID.add(('entrez_gid',entrezG1))
+					
+					numAssoc += 1
+					newAssoc += 1
+					if uniprotP2:
+						nsAssoc['uniprot_pid']['react'].add( (reactID2,numAssoc,uniprotP2) )
+						setID.add(('uniprot_pid',uniprotP2))
+					if ensemblG2:
+						nsAssoc['ensembl_gid']['react'].add( (reactID2,numAssoc,ensemblG2) )
+						setID.add(('ensembl_gid',ensemblG2))
+					if ensemblP2:
+						nsAssoc['ensembl_pid']['react'].add( (reactID2,numAssoc,ensemblP2) )
+						setID.add(('ensembl_pid',ensemblP2))
+					if entrezG2:
+						nsAssoc['entrez_gid']['react'].add( (reactID2,numAssoc,entrezG2) )
+						setID.add(('entrez_gid',entrezG2))
+					
+					#TODO: decide if we want the links
+					#if relationship not in relationshipID:
+					#	relationshipID[relationship] = self.addRelationship(relationship)
+					#reactLinks[reactID1].add( (reactID2,relationshipID[relationship]) )
+					#reactLinks[reactID2].add( (reactID1,relationshipID[relationship]) )
+				#if 2 reactions
+			#foreach line in iaFile
+			self.log(" OK: %d associations (%d pathways, %d identifiers)\n" % (newAssoc, len(setPath), len(setID)))
+		#TODO
 		
 		# store pathways
 		self.log("writing pathways to the database ...")
-		listGID = self.addTypedGroups(gtypeID['pathway'], (((group[1] or group[0]),(group[0] if group[1] else None)) for group in listGroup))
-		pathGID = { path:listGID[pathGroup[path]] for path in pathGroup }
-		reactGID = { react:listGID[reactGroup[react]] for react in reactGroup }
+		listReact = list(reactPath.iterkeys())
+		listGID = self.addTypedGroups(gtypeID['pathway'], ((reactID, reactPath[reactID]) for reactID in listReact))
+		reactGID = dict(zip(listReact, listGID))
 		self.log(" OK\n")
 		
 		# store pathway names
 		self.log("writing pathway names to the database ...")
-		self.addGroupNamespacedNames(namespaceID['pathway'], ((gid,path) for path,gid in pathGID.iteritems()))
-		self.addGroupNamespacedNames(namespaceID['reactome_id'], ((gid,react) for react,gid in reactGID.iteritems()))
+		self.addGroupNamespacedNames(namespaceID['reactome_id'], ((gid,reactID) for reactID,gid in reactGID.iteritems()))
+		self.addGroupNamespacedNames(namespaceID['pathway'], ((gid,reactPath[reactID]) for reactID,gid in reactGID.iteritems()))
+		self.log(" OK\n")
+		
+		# store pathway relationships
+		self.log("writing pathway relationships to the database ...")
+		self.addGroupParentRelationships( (reactGID[parentID],reactGID[childID],relationshipID['']) for parentID,childID in listRelationships if ((parentID in reactGID) and (childID in reactGID)) )
 		self.log(" OK\n")
 		
 		# store gene associations
 		self.log("writing gene associations to the database ...")
 		for ns in nsAssoc:
-			self.addGroupMemberNamespacedNames(namespaceID[ns], ((pathGID[assoc[0]],assoc[1],assoc[2]) for assoc in nsAssoc[ns]['path']))
-			self.addGroupMemberNamespacedNames(namespaceID[ns], ((reactGID[assoc[0]],assoc[1],assoc[2]) for assoc in nsAssoc[ns]['react']))
+			self.addGroupMemberNamespacedNames(namespaceID[ns], ((reactGID[reactID],num,name) for reactID,num,name in nsAssoc[ns]['react']))
+			self.addGroupMemberNamespacedNames(namespaceID[ns], ((reactGID[pathReact[path]],num,name) for path,num,name in nsAssoc[ns]['path']))
 		self.log(" OK\n")
 	#update()
 	

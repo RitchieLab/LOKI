@@ -17,7 +17,7 @@ class Database(object):
 	def getVersionTuple(cls):
 		# tuple = (major,minor,revision,dev,build,date)
 		# dev must be in ('a','b','rc','release') for lexicographic comparison
-		return (3,0,0,'a',2,'2015-03-13')
+		return (3,0,0,'a',3,'2015-03-26')
 	#getVersionTuple()
 	
 	
@@ -96,7 +96,7 @@ class Database(object):
 """,
 				'data': [
 					('schema','4'),
-					('ucschg','0'),
+					('ucschg',None),
 					('zone_size','100000'),
 					('optimized','0'),
 					('finalized','0'),
@@ -117,11 +117,8 @@ class Database(object):
   ucschg INTEGER NOT NULL
 )
 """,
-				# hardcode translations between GRCh/NCBI and UCSC 'hg' genome build numbers
-				# TODO: find a source for this so we can transition to new builds without a code update, i.e.
-				#         http://genome.ucsc.edu/FAQ/FAQreleases.html
-				#         http://genome.ucsc.edu/goldenPath/releaseLog.html
-				#       these aren't meant to be machine-readable but might be good enough if they're kept updated
+				# translations known at time of writing are still provided,
+				# but additional translations will also be fetched at update
 				'data': [
 					(34,16),
 					(35,17),
@@ -295,30 +292,28 @@ class Database(object):
 (
   rsMerged INTEGER NOT NULL,
   rsCurrent INTEGER NOT NULL,
-  source_id TINYINT NOT NULL,
-  PRIMARY KEY (rsMerged,rsCurrent)
+  source_id TINYINT NOT NULL
 )
 """,
 				'index': {
-				#	'snp_merge__merge_current': '(rsMerged,rsCurrent)',
+					'snp_merge__merge_current': '(rsMerged,rsCurrent)',
 				}
 			}, #.db.snp_merge
 			
 			
-			'snp_locus': {
+			'snp_locus': { # all coordinates in LOKI are 1-based closed intervals
 				'table': """
 (
   rs INTEGER NOT NULL,
   chr TINYINT NOT NULL,
   pos BIGINT NOT NULL,
   validated TINYINT NOT NULL,
-  source_id TINYINT NOT NULL,
-  PRIMARY KEY (chr,pos,rs)
+  source_id TINYINT NOT NULL
 )
 """,
 				'index': {
 					'snp_locus__rs_chr_pos': '(rs,chr,pos)',
-				#	'snp_locus__chr_pos_rs': '(chr,pos,rs)',
+					'snp_locus__chr_pos_rs': '(chr,pos,rs)',
 				#	'snp_locus__valid_chr_pos_rs': '(validated,chr,pos,rs)', # would be nice but adds >1GB to the file size :/
 				}
 			}, #.db.snp_locus
@@ -334,7 +329,7 @@ class Database(object):
 )
 """,
 				'index': {
-				#	'snp_entrez_role__rs_entrez_role': '(rs,entrez_id,role_id)',
+					'snp_entrez_role__rs_entrez_role': '(rs,entrez_id,role_id)',
 				}
 			}, #.db.snp_entrez_role
 			
@@ -345,12 +340,11 @@ class Database(object):
   rs INTEGER NOT NULL,
   unit_id INTEGER NOT NULL,
   role_id INTEGER NOT NULL,
-  source_id TINYINT NOT NULL,
-  PRIMARY KEY (rs,unit_id,role_id)
+  source_id TINYINT NOT NULL
 )
 """,
 				'index': {
-				#	'snp_unit_role__rs_unit_role': '(rs,unit_id,role_id)',
+					'snp_unit_role__rs_unit_role': '(rs,unit_id,role_id)',
 					'snp_unit_role__unit_rs_role': '(unit_id,rs,role_id)',
 				}
 			}, #.db.snp_unit_role
@@ -594,7 +588,7 @@ class Database(object):
 			# gwas tables
 			
 			
-			'gwas': { #TODO: primary key?
+			'gwas': { # all coordinates in LOKI are 1-based closed intervals #TODO: primary key? 
 				'table': """
 (
   gwas_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -621,7 +615,7 @@ class Database(object):
 			# liftover tables
 			
 			
-			'chain': {
+			'chain': { # all coordinates in LOKI are 1-based closed intervals
 				'table': """
 (
   chain_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -644,7 +638,7 @@ class Database(object):
 			}, #.db.chain
 			
 			
-			'chain_data': {
+			'chain_data': { # all coordinates in LOKI are 1-based closed intervals
 				'table': """
 (
   chain_id INTEGER NOT NULL,
@@ -673,7 +667,7 @@ class Database(object):
 		# initialize instance properties
 		self._is_test = testing
 		self._updating = updating
-		self._verbose = False
+		self._verbose = True
 		self._logger = None
 		self._logFile = sys.stderr
 		self._logIndent = 0
@@ -1435,19 +1429,19 @@ class Database(object):
 	
 	
 	def generateCurrentRSesByRSes(self, rses, tally=None):
-		# rses=[ rs, ... ]
+		# rses=[ (rsInput,extra), ... ]
 		# tally=dict()
-		# yield:[ (rsInput,rsCurrent), ... ]
+		# yield:[ (rsInput,extra,rsCurrent), ... ]
 		sql = """
-SELECT i.rsMerged, COALESCE(sm.rsCurrent, i.rsMerged) AS rsCurrent
-FROM (SELECT ? AS rsMerged) AS i
+SELECT i.rsMerged, i.extra, COALESCE(sm.rsCurrent, i.rsMerged) AS rsCurrent
+FROM (SELECT ? AS rsMerged, ? AS extra) AS i
 LEFT JOIN `db`.`snp_merge` AS sm USING (rsMerged)
 """
 		with self._db:
 			if tally != None:
 				numMerge = numMatch = 0
-				for row in self._db.cursor().executemany(sql, itertools.izip(rses)):
-					if row[1] != row[0]:
+				for row in self._db.cursor().executemany(sql, rses):
+					if row[2] != row[0]:
 						numMerge += 1
 					else:
 						numMatch += 1
@@ -1455,54 +1449,50 @@ LEFT JOIN `db`.`snp_merge` AS sm USING (rsMerged)
 				tally['merge'] = numMerge
 				tally['match'] = numMatch
 			else:
-				for row in self._db.cursor().executemany(sql, itertools.izip(rses)):
+				for row in self._db.cursor().executemany(sql, rses):
 					yield row
 	#generateCurrentRSesByRSes()
 	
 	
 	def generateSNPLociByRSes(self, rses, minMatch=1, maxMatch=1, validated=None, tally=None, errorCallback=None):
-		# rses=[ rs, ... ]
+		# rses=[ (rs,extra), ... ]
 		# tally=dict()
-		# yield:[ (rs,chr,pos), ... ]
+		# yield:[ (rs,extra,chr,pos), ... ]
 		sql = """
-SELECT i.rs, sl.chr, sl.pos
-FROM (SELECT ? AS rs) AS i
+SELECT i.rs, i.extra, sl.chr, sl.pos
+FROM (SELECT ? AS rs, ? AS extra) AS i
 LEFT JOIN `db`.`snp_locus` AS sl
   ON sl.rs = i.rs
+ORDER BY sl.chr, sl.pos
 """
 		if validated != None:
 			sql += "  AND sl.validated = %d" % (1 if validated else 0)
 		
-		rs = matches = None
-		numZero = numOne = numMany = 0
+		minMatch = int(minMatch) if (minMatch != None) else 0
+		maxMatch = int(maxMatch) if (maxMatch != None) else None
+		tag = matches = None
+		n = numZero = numOne = numMany = 0
 		with self._db:
-			for row in itertools.chain(self._db.cursor().executemany(sql, itertools.izip(rses)), [(None,None,None)]):
-				if rs != row[0]:
-					if rs:
+			for row in itertools.chain(self._db.cursor().executemany(sql, rses), [(None,None,None,None)]):
+				if tag != row[0:2]:
+					if tag:
 						if not matches:
 							numZero += 1
-							if minMatch < 1:
-								yield (rs,None,None)
-							elif errorCallback:
-								errorCallback(rs, "no matches")
 						elif len(matches) == 1:
 							numOne += 1
-							if minMatch <= len(matches) <= maxMatch:
-								for match in matches:
-									yield match
-							elif errorCallback:
-								errorCallback(rs, "1 match")
 						else:
 							numMany += 1
-							if minMatch <= len(matches) <= maxMatch:
-								for match in matches:
-									yield match
-							elif errorCallback:
-								errorCallback(rs, "%d matches" % len(matches))
-					rs = row[0]
-					matches = set()
-				if row[1] and row[2]:
-					matches.add(row)
+						
+						if minMatch <= len(matches) <= (maxMatch if (maxMatch != None) else len(matches)):
+							for match in (matches or [tag+(None,None)]):
+								yield match
+						elif errorCallback:
+							errorCallback("\t".join((t or "") for t in tag), "%s match%s at index %d" % ((len(matches) or "no"),("" if len(matches) == 1 else "es"),n))
+					tag = row[0:2]
+					matches = list()
+					n += 1
+				if row[2] and row[3]:
+					matches.append(row)
 			#foreach row
 		if tally != None:
 			tally['zero'] = numZero
@@ -1523,26 +1513,26 @@ LEFT JOIN `db`.`snp_locus` AS sl
 	
 	
 	def generateUnitsByIDs(self, ids):
-		# ids=[ id, ... ]
-		# yield:[ (id,utype_id,label,description), ... ]
-		sql = "SELECT unit_id, utype_id, label, description FROM `db`.`unit` WHERE unit_id = ?"
+		# ids=[ (id,extra), ... ]
+		# yield:[ (id,extra,utype_id,label,description), ... ]
+		sql = "SELECT unit_id, ?2 AS extra, utype_id, label, description FROM `db`.`unit` WHERE unit_id = ?1"
 		return self._db.cursor().executemany(sql, itertools.izip(ids))
 	#generateUnitsByIDs()
 	
 	
 	def _lookupUnitIDs(self, utypeID, identifiers, minMatch, maxMatch, tally, errorCallback):
 		# utypeID=int or Falseish for any
-		# identifiers=[ (namespace,name), ... ]
+		# identifiers=[ (namespace,name,extra), ... ]
 		#   namespace magic values: '*' for any, '@' for labels, '=' for unit_id
 		# minMatch=int or Falseish for none
 		# maxMatch=int or Falseish for none
 		# tally=dict() or None
-		# errorCallback=callable(input,error)
-		# yields (namespace,name,id)
+		# errorCallback=callable(position,input,error)
+		# yields (namespace,name,extra,id)
 		
 		sql = """
-SELECT i.namespace, i.identifier, COALESCE(uID.unit_id,uLabel.unit_id,uName.unit_id) AS unit_id
-FROM (SELECT ?1 AS namespace, ?2 AS identifier) AS i
+SELECT i.namespace, i.identifier, i.extra, COALESCE(uID.unit_id,uLabel.unit_id,uName.unit_id) AS unit_id
+FROM (SELECT ?1 AS namespace, ?2 AS identifier, ?3 AS extra) AS i
 LEFT JOIN `db`.`unit` AS uID
   ON i.namespace = '='
   AND uID.unit_id = 1*i.identifier
@@ -1564,27 +1554,30 @@ LEFT JOIN `db`.`unit` AS uName
   AND ( ({0} IS NULL) OR (uName.utype_id = {0}) )
 """.format(int(utypeID) if utypeID else "NULL")
 		
-		identifier = matches = None
-		numZero = numOne = numMany = 0
+		minMatch = int(minMatch) if (minMatch != None) else 0
+		maxMatch = int(maxMatch) if (maxMatch != None) else None
+		tag = matches = None
+		n = numZero = numOne = numMany = 0
 		with self._db:
-			for row in itertools.chain(self._db.cursor().executemany(sql, identifiers), [(None,None,None)]):
-				if identifier != row[:-1]:
-					if identifier:
-						n = len(matches)
-						if n < 1:
+			for row in itertools.chain(self._db.cursor().executemany(sql, identifiers), [(None,None,None,None)]):
+				if tag != row[0:3]:
+					if tag:
+						if not matches:
 							numZero += 1
-						elif n == 1:
+						elif len(matches) == 1:
 							numOne += 1
 						else:
 							numMany += 1
-						if (minMatch or n) <= n <= (maxMatch or n):
-							for match in (matches or [identifier+(None,)]):
+						
+						if minMatch <= len(matches) <= (maxMatch if (maxMatch != None) else len(matches)):
+							for match in (matches or [tag+(None,)]):
 								yield match
 						elif errorCallback:
-							errorCallback("\t".join(identifier), "%s match%s" % ((n or "no"),("" if n == 1 else "es")))
-					identifier = row[:-1]
+							errorCallback("\t".join((t or "") for t in tag), "%s match%s at index %d" % ((len(matches) or "no"),("" if len(matches) == 1 else "es"),n))
+					tag = row[0:3]
 					matches = set()
-				if row[-1]:
+					n += 1
+				if row[3]:
 					matches.add(row)
 			#foreach row
 		if tally != None:
@@ -1595,24 +1588,24 @@ LEFT JOIN `db`.`unit` AS uName
 	
 	
 	def generateUnitIDsByIdentifiers(self, identifiers, minMatch=1, maxMatch=1, tally=None, errorCallback=None):
-		# identifiers=[ (namespace,name), ... ]
+		# identifiers=[ (namespace,name,extra), ... ]
 		return self._lookupUnitIDs(None, identifiers, minMatch, maxMatch, tally, errorCallback)
 	#generateUnitIDsByIdentifiers()
 	
 	
 	def generateTypedUnitIDsByIdentifiers(self, utypeID, identifiers, minMatch=1, maxMatch=1, tally=None, errorCallback=None):
-		# identifiers=[ (namespace,name), ... ]
+		# identifiers=[ (namespace,name,extra), ... ]
 		return self._lookupUnitIDs(utypeID, identifiers, minMatch, maxMatch, tally, errorCallback)
 	#generateTypedUnitIDsByIdentifiers()
 	
 	
 	def _searchUnitIDs(self, utypeID, texts):
 		# utypeID=int or Falseish for any
-		# texts=[ (text,), ... ]
-		# yields (label,id)
+		# texts=[ (text,extra), ... ]
+		# yields (extra,label,id)
 		
 		sql = """
-SELECT u.label, u.unit_id
+SELECT ?2 AS extra, u.label, u.unit_id
 FROM `db`.`unit` AS u
 LEFT JOIN `db`.`unit_name` AS un USING (unit_id)
 WHERE
@@ -1638,12 +1631,14 @@ GROUP BY u.unit_id
 	
 	
 	def generateUnitIDsBySearch(self, searches):
-		return self._searchUnitIDs(None, itertools.izip(searches))
+		# searches=[ (text,extra), ... ]
+		return self._searchUnitIDs(None, searches)
 	#generateUnitIDsBySearch()
 	
 	
 	def generateTypedUnitIDsBySearch(self, utypeID, searches):
-		return self._searchUnitIDs(utypeID, itertools.izip(searches))
+		# searches=[ (text,extra), ... ]
+		return self._searchUnitIDs(utypeID, searches)
 	#generateTypedUnitIDsBySearch()
 	
 	
@@ -1687,26 +1682,26 @@ GROUP BY namespace_id
 	
 	
 	def generateGroupsByIDs(self, ids):
-		# ids=[ id, ... ]
-		# yield:[ (id,gtype_id,label,description), ... ]
-		sql = "SELECT group_id, gtype_id, label, description FROM `db`.`group` WHERE group_id = ?"
-		return self._db.cursor().executemany(sql, itertools.izip(ids))
+		# ids=[ (id,extra), ... ]
+		# yield:[ (id,extra,gtype_id,label,description), ... ]
+		sql = "SELECT group_id, ?2 AS extra, gtype_id, label, description FROM `db`.`group` WHERE group_id = ?1"
+		return self._db.cursor().executemany(sql, ids)
 	#generateGroupsByIDs()
 	
 	
 	def _lookupGroupIDs(self, gtypeID, identifiers, minMatch, maxMatch, tally, errorCallback):
 		# gtypeID=int or Falseish for any
-		# identifiers=[ (namespace,name), ... ]
+		# identifiers=[ (namespace,name,extra), ... ]
 		#   namespace magic values: '*' for any, '@' for labels, '=' for unit_id
 		# minMatch=int or Falseish for none
 		# maxMatch=int or Falseish for none
 		# tally=dict() or None
 		# errorCallback=callable(input,error)
-		# yields (namespace,name,id)
+		# yields (namespace,name,extra,id)
 		
 		sql = """
-SELECT i.namespace, i.identifier, COALESCE(gID.group_id,gLabel.group_id,gName.group_id) AS group_id
-FROM (SELECT ?1 AS namespace, ?2 AS identifier) AS i
+SELECT i.namespace, i.identifier, i.extra, COALESCE(gID.group_id,gLabel.group_id,gName.group_id) AS group_id
+FROM (SELECT ?1 AS namespace, ?2 AS identifier, ?3 AS extra) AS i
 LEFT JOIN `db`.`group` AS gID
   ON i.namespace = '='
   AND gID.group_id = 1*i.identifier
@@ -1728,27 +1723,30 @@ LEFT JOIN `db`.`group` AS gName
   AND ( ({0} IS NULL) OR (gName.gtype_id = {0}) )
 """.format(int(gtypeID) if gtypeID else "NULL")
 		
-		identifier = matches = None
-		numZero = numOne = numMany = 0
+		minMatch = int(minMatch) if (minMatch != None) else 0
+		maxMatch = int(maxMatch) if (maxMatch != None) else None
+		tag = matches = None
+		n = numZero = numOne = numMany = 0
 		with self._db:
-			for row in itertools.chain(self._db.cursor().executemany(sql, identifiers), [(None,None,None)]):
-				if identifier != row[:-1]:
-					if identifier:
-						n = len(matches)
-						if n < 1:
+			for row in itertools.chain(self._db.cursor().executemany(sql, identifiers), [(None,None,None,None)]):
+				if tag != row[0:3]:
+					if tag:
+						if not matches:
 							numZero += 1
-						elif n == 1:
+						elif len(matches) == 1:
 							numOne += 1
 						else:
 							numMany += 1
-						if (minMatch or n) <= n <= (maxMatch or n):
-							for match in (matches or [identifier+(None,)]):
+						
+						if minMatch <= len(matches) <= (maxMatch if (maxMatch != None) else len(matches)):
+							for match in (matches or [tag+(None,)]):
 								yield match
 						elif errorCallback:
-							errorCallback("\t".join(identifier), "%s match%s" % ((n or "no"),("" if n == 1 else "es")))
-					identifier = row[:-1]
+							errorCallback("\t".join((t or "") for t in tag), "%s match%s at index %d" % ((len(matches) or "no"),("" if len(matches) == 1 else "es"),n))
+					tag = row[0:3]
 					matches = set()
-				if row[-1]:
+					n += 1
+				if row[3]:
 					matches.add(row)
 			#foreach row
 		if tally != None:
@@ -1759,24 +1757,24 @@ LEFT JOIN `db`.`group` AS gName
 	
 	
 	def generateGroupIDsByIdentifiers(self, identifiers, minMatch=1, maxMatch=1, tally=None, errorCallback=None):
-		# identifiers=[ (namespace,name), ... ]
+		# identifiers=[ (namespace,name,extra), ... ]
 		return self._lookupGroupIDs(None, identifiers, minMatch, maxMatch, tally, errorCallback)
 	#generateGroupIDsByIdentifiers()
 	
 	
 	def generateTypedGroupIDsByIdentifiers(self, gtypeID, identifiers, minMatch=1, maxMatch=1, tally=None, errorCallback=None):
-		# identifiers=[ (namespace,name), ... ]
+		# identifiers=[ (namespace,name,extra), ... ]
 		return self._lookupGroupIDs(gtypeID, identifiers, minMatch, maxMatch, tally, errorCallback)
 	#generateTypedGroupIDsByIdentifiers()
 	
 	
 	def _searchGroupIDs(self, gtypeID, texts):
 		# gtypeID=int or Falseish for any
-		# texts=[ (text,), ... ]
-		# yields (label,id)
+		# texts=[ (text,extra), ... ]
+		# yields (extra,label,id)
 		
 		sql = """
-SELECT g.label, g.group_id
+SELECT ?2 AS extra, g.label, g.group_id
 FROM `db`.`group` AS g
 LEFT JOIN `db`.`group_name` AS gn USING (group_id)
 WHERE
@@ -1802,12 +1800,14 @@ GROUP BY g.group_id
 	
 	
 	def generateGroupIDsBySearch(self, searches):
-		return self._searchGroupIDs(None, itertools.izip(searches))
+		# searches=[ (text,extra), ... ]
+		return self._searchGroupIDs(None, searches)
 	#generateGroupIDsBySearch()
 	
 	
 	def generateTypedGroupIDsBySearch(self, gtypeID, searches):
-		return self._searchGroupIDs(gtypeID, itertools.izip(searches))
+		# searches=[ (text,extra), ... ]
+		return self._searchGroupIDs(gtypeID, searches)
 	#generateTypedGroupIDsBySearch()
 	
 	
@@ -1897,24 +1897,20 @@ ORDER BY c.old_chr, score DESC, cd.old_start
 		#if chains are cached
 		
 		for c in chains['keys'].get(chrom, []):
-			# if the region overlaps the chain...
+			# if the region overlaps the chain... (1-based, closed intervals)
 			if start <= c[2] and end >= c[1]:
 				data = chains['data'][chrom][c]
-				idx = bisect.bisect(data, (start, sys.maxint, sys.maxint))
-				if idx:
-					idx = idx-1
-				
-				if idx < len(data) - 1 and start == data[idx + 1]:
+				idx = bisect.bisect(data, (start, sys.maxint, sys.maxint)) - 1
+				while (idx < 0) or (data[idx][1] < start):
 					idx = idx + 1
-				
-				while idx < len(data) and data[idx][0] < end:
+				while (idx < len(data)) and (data[idx][0] <= end):
 					yield (c[-1], data[idx][0], data[idx][1], data[idx][2], c[4], c[5])
 					idx = idx + 1
 		#foreach chain
 	#_generateApplicableLiftOverChains()
 	
 	
-	def _liftOverRegionUsingChains(self, label, start, end, first_seg, end_seg, total_mapped_sz):
+	def _liftOverRegionUsingChains(self, label, start, end, extra, first_seg, end_seg, total_mapped_sz):
 		"""
 		Map a region given the 1st and last segment as well as the total mapped size
 		"""
@@ -1941,33 +1937,28 @@ ORDER BY c.old_chr, score DESC, cd.old_start
 		
 		# old_startHere, detect if we have mapped a sufficient fraction 
 		# of the region.  liftOver uses a default of 95%
-		mapped_size = total_mapped_sz - front_diff - (end_seg[2] - end_seg[1]) + end_diff
+		mapped_size = total_mapped_sz - front_diff - (end_seg[2] - end_seg[1] + 1) + end_diff + 1
 		
-		if mapped_size / float(end - start) >= 0.95: # TODO: configurable threshold?
-			mapped_reg = (label, first_seg[5], new_start, new_end)
+		if mapped_size / float(end - start + 1) >= 0.95: # TODO: configurable threshold?
+			mapped_reg = (label, first_seg[5], new_start, new_end, extra)
 		
 		return mapped_reg
 	#_liftOverRegionUsingChains()
 	
 	
 	def generateLiftOverRegions(self, oldHG, newHG, regions, tally=None, errorCallback=None):
-		# regions=[ (label,chr,posMin,posMax), ... ]
+		# regions=[ (label,chr,posMin,posMax,extra), ... ]
 		oldHG = int(oldHG)
 		newHG = int(newHG)
 		numNull = numLift = 0
 		for region in regions:
-			label,chrom,start,end = region
+			label,chrom,start,end,extra = region
 			
-			# We need to actually lift regions to detect dropped sections
-			is_region = True
-			
-			# If the start and end are swapped, reverse them, please
 			if start > end:
-				(start, end) = (end, start)
-			elif start == end:
-				is_region = False
-				end = start + 1	
+				start,end = end,start
+			is_region = (start != end)
 			
+			# find and apply chains
 			mapped_reg = None
 			curr_chain = None
 			total_mapped_sz = 0
@@ -1978,26 +1969,26 @@ ORDER BY c.old_chr, score DESC, cd.old_start
 					curr_chain = seg[0]
 					first_seg = seg
 					end_seg = seg
-					total_mapped_sz = seg[2] - seg[1]
+					total_mapped_sz = seg[2] - seg[1] + 1
 				elif seg[0] != curr_chain:
-					mapped_reg = self._liftOverRegionUsingChains(label, start, end, first_seg, end_seg, total_mapped_sz)
+					mapped_reg = self._liftOverRegionUsingChains(label, start, end, extra, first_seg, end_seg, total_mapped_sz)
 					if mapped_reg:
 						break
 					curr_chain = seg[0]
 					first_seg = seg
 					end_seg = seg
-					total_mapped_sz = seg[2] - seg[1]
+					total_mapped_sz = seg[2] - seg[1] + 1
 				else:
 					end_seg = seg
-					total_mapped_sz = total_mapped_sz + seg[2] - seg[1]
+					total_mapped_sz = total_mapped_sz + seg[2] - seg[1] + 1
 			
 			if not mapped_reg and first_seg is not None:
-				mapped_reg = self._liftOverRegionUsingChains(label, start, end, first_seg, end_seg, total_mapped_sz)
+				mapped_reg = self._liftOverRegionUsingChains(label, start, end, extra, first_seg, end_seg, total_mapped_sz)
 			
 			if mapped_reg:
 				numLift += 1
 				if not is_region:
-					mapped_reg = (mapped_reg[0], mapped_reg[1], mapped_reg[2], mapped_reg[2])
+					mapped_reg = (mapped_reg[0], mapped_reg[1], mapped_reg[2], mapped_reg[2], extra)
 				yield mapped_reg
 			else:
 				numNull += 1
@@ -2012,10 +2003,10 @@ ORDER BY c.old_chr, score DESC, cd.old_start
 	
 	
 	def generateLiftOverLoci(self, oldHG, newHG, loci, tally=None, errorCallback=None):
-		# loci=[ (label,chr,pos), ... ]
-		regions = ((l[0],l[1],l[2],l[2]) for l in loci)
-		for r in self.generateLiftOverRegions(oldHG, newHG, regions, tally, errorCallback):
-			yield r[0:3]
+		# loci=[ (label,chr,pos,extra), ... ]
+		regions = ((l[0],l[1],l[2],l[2],l[3]) for l in loci)
+		newloci = ((r[0],r[1],r[2],r[4]) for r in self.generateLiftOverRegions(oldHG, newHG, regions, tally, errorCallback))
+		return newloci
 	#generateLiftOverLoci()
 	
 	

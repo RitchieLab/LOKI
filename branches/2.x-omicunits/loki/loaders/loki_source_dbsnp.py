@@ -49,27 +49,24 @@ class Source_dbsnp(loki_source.Source):
 	@classmethod
 	def getOptions(cls):
 		return {
-			'loci'   : '[all|validated]  --  store all or only validated SNP loci (default: all)',
-			'merges' : '[yes|no]  --  process and store RS# merge history (default: yes)',
-			'roles'  : '[yes|no]  --  process and store SNP roles (default: yes)',
+			'unvalidated' : '[yes|no]  --  store SNP loci which have not been validated (default: yes)',
+			'suspect'     : '[yes|no]  --  store SNP loci which are suspect (default: no)', # http://www.ncbi.nlm.nih.gov/projects/SNP/docs/rs_attributes.html#suspect
+			'withdrawn'   : '[yes|no]  --  store SNP loci which have been withdrawn (default: no)',
+			'merges'      : '[yes|no]  --  process and store RS# merge history (default: yes)',
+			'roles'       : '[yes|no]  --  process and store SNP roles (default: yes)',
 		}
 	#getOptions()
 	
 	
 	def validateOptions(self, options):
-		options.setdefault('loci', 'all')
+		options.setdefault('unvalidated', 'yes')
+		options.setdefault('suspect', 'no')
+		options.setdefault('withdrawn', 'no')
 		options.setdefault('merges', 'yes')
 		options.setdefault('roles', 'yes')
 		for o,v in options.iteritems():
 			v = v.strip().lower()
-			if o == 'loci':
-				if 'all'.startswith(v):
-					v = 'all'
-				elif 'validated'.startswith(v):
-					v = 'validated'
-				else:
-					return "loci must be 'all' or 'validated'"
-			elif o in ('roles','merges'):
+			if o in ('unvalidated','suspect','withdrawn','merges','roles'):
 				if 'yes'.startswith(v):
 					v = 'yes'
 				elif 'no'.startswith(v):
@@ -134,7 +131,7 @@ CREATE TABLE [RsMergeArch]
 			self.log("processing SNP merge records ...")
 			mergeFile = self.zfile('RsMergeArch.bcp.gz') #TODO:context manager,iterator
 			numMerge = 0
-			listMerge = list()
+			setMerge = set()
 			for line in mergeFile:
 				words = line.split("\t")
 				if not (len(words) > 6 and words[0] and words[6]):
@@ -143,25 +140,25 @@ CREATE TABLE [RsMergeArch]
 				#rsNew = long(words[1])
 				rsCur = long(words[6])
 				
-				listMerge.append( (rsOld,rsCur) )
+				setMerge.add( (rsOld,rsCur) )
 				
-				# write to the database after each 2.5 million, to keep memory usage down
-				if len(listMerge) >= 2500000:
-					numMerge += len(listMerge)
+				# write to the database periodically, to keep memory usage down
+				if len(setMerge) >= 5000000:
+					numMerge += len(setMerge)
 					self.log(" ~%1.1f million so far\n" % (numMerge/1000000.0)) #TODO: time estimate
 					self.log("writing SNP merge records to the database ...")
-					self.addSNPMerges(listMerge)
-					listMerge = list()
+					self.addSNPMerges(setMerge)
+					setMerge = set()
 					self.log(" OK\n")
 					self.log("processing SNP merge records ...")
 			#foreach line in mergeFile
-			numMerge += len(listMerge)
-			self.log(" OK: %d merged RS#s\n" % numMerge)
-			if listMerge:
+			numMerge += len(setMerge)
+			self.log(" OK: ~%d merged RS#s\n" % numMerge)
+			if setMerge:
 				self.log("writing SNP merge records to the database ...")
-				self.addSNPMerges(listMerge)
+				self.addSNPMerges(setMerge)
 				self.log(" OK\n")
-			listMerge = None
+			setMerge = None
 		#if merges
 		
 		# process SNP role function codes
@@ -231,7 +228,7 @@ CREATE TABLE [b137_SNPContigLocusId]
 )
 """
 			self.log("processing SNP roles ...")
-			listRole = list()
+			setRole = set()
 			numRole = numOrphan = numInc = 0
 			setOrphan = set()
 			funcFile = self.zfile(self._identifyLatestSNPContig(os.listdir('.')))
@@ -244,30 +241,30 @@ CREATE TABLE [b137_SNPContigLocusId]
 				
 				if rs and entrez and code:
 					try:
-						listRole.append( (rs,entrez,roleID[code]) )
+						setRole.add( (rs,entrez,roleID[code]) )
 					except KeyError:
 						setOrphan.add(code)
 						numOrphan += 1
 				else:
 					numInc += 1
 				
-				# write to the database after each 2.5 million, to keep memory usage down
-				if len(listRole) >= 2500000:
-					numRole += len(listRole)
+				# write to the database periodically, to keep memory usage down
+				if len(setRole) >= 5000000:
+					numRole += len(setRole)
 					self.log(" ~%1.1f million so far\n" % (numRole/1000000.0)) #TODO: time estimate
 					self.log("writing SNP roles to the database ...")
-					self.addSNPEntrezRoles(listRole)
-					listRole = list()
+					self.addSNPEntrezRoles(setRole)
+					setRole = set()
 					self.log(" OK\n")
 					self.log("processing SNP roles ...")
 			#foreach line in funcFile
-			numRole += len(listRole)
-			self.log(" OK: %d roles\n" % (numRole,))
-			if listRole:
+			numRole += len(setRole)
+			self.log(" OK: ~%d roles\n" % (numRole,))
+			if setRole:
 				self.log("writing SNP roles to the database ...")
-				self.addSNPEntrezRoles(listRole)
+				self.addSNPEntrezRoles(setRole)
 				self.log(" OK\n")
-			listRole = None
+			setRole = None
 			
 			# warn about orphans
 			self.logPush()
@@ -280,8 +277,13 @@ CREATE TABLE [b137_SNPContigLocusId]
 		#if roles
 		
 		# process chromosome report files
+		# dbSNP chromosome reports use 1-based coordinates since b125, according to:
+		#   http://www.ncbi.nlm.nih.gov/books/NBK44414/#Reports.the_xml_dump_for_build_126_has_a
+		# This matches LOKI's convention.
 		grcBuild = None
-		snpLociValid = (options['loci'] == 'validated')
+		includeUnvalidated = (options['unvalidated'] == 'yes')
+		includeSuspect = (options['suspect'] == 'yes')
+		includeWithdrawn = (options['withdrawn'] == 'yes')
 		for fileChm in self._chmList:
 			self.log("processing chromosome %s SNPs ..." % fileChm)
 			chmFile = self.zfile('chr_%s.txt.gz' % fileChm)
@@ -306,15 +308,17 @@ CREATE TABLE [b137_SNPContigLocusId]
 			listChrPos = collections.defaultdict(list)
 			setBadBuild = set()
 			setBadVers = set()
-			setBadValid = set()
+			setBadFilter = set()
 			setBadChr = set()
 			for line in chmFile:
 				words = line.split("\t")
 				rs = words[0].strip()
+				withdrawn = (int(words[2].strip()) > 0)
 				chm = words[6].strip()
 				pos = words[11].strip()
-				valid = 1 if (int(words[16]) > 0) else 0
+				validated = 1 if (int(words[16].strip()) > 0) else 0
 				build = reBuild.search(words[21])
+				suspect = (int(words[22].strip()) > 0)
 				
 				if rs != '' and chm != '' and pos != '':
 					rs = long(rs)
@@ -323,8 +327,12 @@ CREATE TABLE [b137_SNPContigLocusId]
 						setBadBuild.add(rs)
 					elif grcBuild and grcBuild != build.group(1):
 						setBadVers.add(rs)
-					elif snpLociValid and not valid:
-						setBadValid.add(rs)
+					elif not (validated or includeUnvalidated):
+						setBadFilter.add(rs)
+					elif suspect and not includeSuspect:
+						setBadFilter.add(rs)
+					elif withdrawn and not includeWithdrawn:
+						setBadFilter.add(rs)
 					elif (fileChm != 'PAR') and (chm != fileChm):
 						setBadChr.add(rs)
 					elif (fileChm == 'PAR') and (chm != 'X') and (chm != 'Y'):
@@ -332,33 +340,28 @@ CREATE TABLE [b137_SNPContigLocusId]
 					else:
 						if not grcBuild:
 							grcBuild = build.group(1)
-						listChrPos[chm].append( (rs,pos,valid) )
+						listChrPos[chm].append( (rs,pos,validated) )
 				#if rs/chm/pos provided
 			#foreach line in chmFile
 			
 			# print results
-			listRS = list()
 			for chm,listPos in listChrPos.iteritems():
-				listRS.extend(rs for rs,pos,valid in listPos)
-			setBadValid.difference_update(listRS, setBadChr)
-			setBadVers.difference_update(listRS, setBadChr, setBadValid)
-			setBadBuild.difference_update(listRS, setBadChr, setBadValid, setBadVers)
-			listRS.sort()
-			lastRS = None
-			numRS = 0
-			for rs in listRS:
-				if lastRS != rs:
-					numRS += 1
-				lastRS = rs
-			listRS = None
-			self.log(" OK: %d SNPs, %d loci\n" % (numRS,sum(len(listChrPos[chm]) for chm in listChrPos)))
+				for rs,_,_ in listPos:
+					setBadChr.discard(rs)
+					setBadFilter.discard(rs)
+					setBadVers.discard(rs)
+					setBadBuild.discard(rs)
+			setBadFilter.difference_update(setBadChr)
+			setBadVers.difference_update(setBadChr, setBadFilter)
+			setBadBuild.difference_update(setBadChr, setBadFilter, setBadVers)
+			self.log(" OK: %d SNP loci\n" % (sum(len(listPos) for chm,listPos in listChrPos.iteritems()),))
 			self.logPush()
 			if setBadBuild:
 				self.log("WARNING: %d SNPs not mapped to any GRCh build\n" % (len(setBadBuild)))
 			if setBadVers:
 				self.log("WARNING: %d SNPs mapped to GRCh build version other than %s\n" % (len(setBadVers),grcBuild))
-			if setBadValid:
-				self.log("WARNING: %d SNPs not validated\n" % (len(setBadValid)))
+			if setBadFilter:
+				self.log("WARNING: %d SNPs skipped (unvalidated, suspect and/or withdrawn)\n" % (len(setBadFilter)))
 			if setBadChr:
 				self.log("WARNING: %d SNPs on mismatching chromosome\n" % (len(setBadChr)))
 			self.logPop()
@@ -367,7 +370,7 @@ CREATE TABLE [b137_SNPContigLocusId]
 			self.log("writing chromosome %s SNPs to the database ..." % fileChm)
 			for chm,listPos in listChrPos.iteritems():
 				self.addChromosomeSNPLoci(self._loki.chr_num[chm], listPos)
-			setSNP = listChrPos = setSNP = setBadBuild = setBadVers = setBadValid = setBadChr = None
+			setSNP = listChrPos = setBadBuild = setBadVers = setBadFilter = setBadChr = None
 			self.log(" OK\n")
 		#foreach chromosome
 		

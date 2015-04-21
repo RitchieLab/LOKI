@@ -37,7 +37,7 @@ class Source_ensembl(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '3.0 (2014-09-18)'
+		return '3.0 (2015-03-23)'
 	#getVersionString()
 	
 	
@@ -95,7 +95,6 @@ class Source_ensembl(loki_source.Source):
 		<Attribute name = "ensembl_peptide_id" />
 		<Attribute name = "refseq_peptide" />
 		<Attribute name = "uniprot_swissprot" />
-		<Attribute name = "uniprot_swissprot_accession" />
 	</Dataset>
 </Query>
 """
@@ -299,7 +298,7 @@ class Source_ensembl(loki_source.Source):
 		numInc = 0
 		with open('biomart_martservice_ensp_refs.txt','rU') as datafile:
 			header = datafile.next().rstrip()
-			if not header.startswith("Ensembl Protein ID	RefSeq Protein ID [e.g. NP_001005353]	UniProt/SwissProt ID	UniProt/SwissProt Accession"):
+			if not header.startswith("Ensembl Protein ID	RefSeq Protein ID [e.g. NP_001005353]	UniProt/SwissProt ID"):
 				self.log(" ERROR: unrecognized file header\n")
 				self.log("%s\n" % header)
 				return False
@@ -311,7 +310,6 @@ class Source_ensembl(loki_source.Source):
 				ensp = words[0]
 				refseqPID = words[1]
 				uniprotPID = words[2]
-				uniprotAcc = words[3]
 				
 				if not ensp:
 					continue
@@ -321,8 +319,6 @@ class Source_ensembl(loki_source.Source):
 					nsNames[(nsID['ensembl_pid'],nsID['refseq_pid'])].add( (ensp,refseqPID) )
 				if uniprotPID:
 					nsNames[(nsID['ensembl_pid'],nsID['uniprot_pid'])].add( (ensp,uniprotPID) )
-				if uniprotAcc:
-					nsNames[(nsID['ensembl_pid'],nsID['uniprot_pid'])].add( (ensp,uniprotAcc) )
 			#foreach line
 		#with datafile
 		numNames0 = numNames

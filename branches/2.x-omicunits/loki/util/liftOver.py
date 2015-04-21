@@ -172,21 +172,30 @@ class liftOver(object):
 		return mapped_reg
 
 if __name__ == "__main__":
-	import loki_db
+	from loki import loki_db
+	
+	if len(sys.argv) < 5:
+		print "usage: %s <input> <lokidb> <output> <unmap> [oldhg=19] [newhg=38]" % (sys.argv[0],)
+		sys.exit(2)
+	
 	db = loki_db.Database(sys.argv[2])
 	
-	old = int(sys.argv[5]) if (len(sys.argv) > 5) else 18
-	new = int(sys.argv[6]) if (len(sys.argv) > 6) else 19
-	lo = liftOver(db, old, new, False)
-	f = file(sys.argv[1])
-	m = file(sys.argv[3],'w')
-	u = file(sys.argv[4],'w')
+	old = int(sys.argv[5]) if (len(sys.argv) > 5) else 19
+	new = int(sys.argv[6]) if (len(sys.argv) > 6) else 38
+	#lo = liftOver(db, old, new, False)
+	f = (sys.stdin  if (sys.argv[1] == '-') else file(sys.argv[1],'r'))
+	m = (sys.stdout if (sys.argv[3] == '-') else file(sys.argv[3],'w'))
+	u = (sys.stderr if (sys.argv[4] == '-') else file(sys.argv[4],'w'))
 	
-	for l in f:
-		wds = l.split()
-		chrm = lo._db.chr_num.get(wds[0][3:],-1)
-		n = lo.liftRegion(chrm, int(wds[1]), int(wds[2]))
-		if n:
-			print >> m, "chr" + lo._db.chr_list[n[0]-1], n[1], n[2]
-		else:
-			print >> u, l
+	def generateInputs(f):
+		for l in f:
+			wds = l.split()
+			if wds[0].lower().startswith('chr'):
+				wds[0] = wds[0][3:]
+			yield (l.strip().replace(" ",":").replace("\t",":"), db.chr_num.get(wds[0],-1), int(wds[1]), int(wds[2]), None)
+	
+	def errorCallback(r):
+		print >> u, "\t".join(str(c) for c in r)
+	
+	for r in db.generateLiftOverRegions(old, new, generateInputs(f), errorCallback=errorCallback):
+		print >> m, "chr%s\t%s\t%d\t%d" % (db.chr_name.get(r[1],r[1]), r[0], r[2], r[3])
