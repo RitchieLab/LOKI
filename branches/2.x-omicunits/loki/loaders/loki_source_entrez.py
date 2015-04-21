@@ -258,7 +258,7 @@ class Source_entrez(loki_source.Source):
 		errBuild = [x for x in errBuild if (x not in setCull)]
 		setCull.update(errBuild)
 		errNC = [x for x in errNC if (x not in setCull)]
-		setCull.update(errNC)
+		#setCull.update(errNC)
 		setCull = None
 		
 		# print region stats
