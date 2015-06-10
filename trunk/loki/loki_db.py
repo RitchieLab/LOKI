@@ -17,7 +17,7 @@ class Database(object):
 	def getVersionTuple(cls):
 		# tuple = (major,minor,revision,dev,build,date)
 		# dev must be in ('a','b','rc','release') for lexicographic comparison
-		return (2,2,1,'a',4,'2015-01-16')
+		return (2,2,1,'a',5,'2015-06-09')
 	#getVersionTuple()
 	
 	
@@ -933,9 +933,13 @@ class Database(object):
 		# fetch current schema
 		cursor = self._db.cursor()
 		current = dict()
-		dbMaster = "`sqlite_temp_master`" if (dbName == "temp") else ("`%s`.`sqlite_master`" % dbName)
-		for row in cursor.execute("SELECT tbl_name,type,name,COALESCE(sql,'') FROM %s WHERE type IN ('table','index')" % dbMaster):
-			tblName,objType,idxName,objDef = row
+		dbMaster = "`sqlite_temp_master`" if (dbName == "temp") else ("`%s`.`sqlite_master`" % (dbName,))
+		sql = "SELECT tbl_name,type,name,COALESCE(sql,'') FROM %s WHERE type IN ('table','index')" % (dbMaster,)
+		for row in cursor.execute(sql):
+			tblName = row[0].encode('utf8')
+			objType = row[1].encode('utf8')
+			idxName = row[2].encode('utf8')
+			objDef = row[3].encode('utf8')
 			if tblName not in current:
 				current[tblName] = {'table':None, 'index':{}}
 			if objType == 'table':
@@ -943,10 +947,18 @@ class Database(object):
 			elif objType == 'index':
 				current[tblName]['index'][idxName] = " ".join(objDef.strip().split())
 		tblEmpty = dict()
-		for tblName in current:
-			tblEmpty[tblName] = True
-			for row in cursor.execute("SELECT 1 FROM `%s`.`%s` LIMIT 1" % (dbName,tblName)):
-				tblEmpty[tblName] = False
+		sql = None
+		try:
+			for tblName in current:
+				tblEmpty[tblName] = True
+				sql = "SELECT 1 FROM `%s`.`%s` LIMIT 1" % (dbName,tblName)
+				for row in cursor.execute(sql):
+					tblEmpty[tblName] = False
+		except:
+			print "dbName =", repr(dbName)
+			print "tblName =", repr(tblName)
+			print "sql =", repr(sql)
+			raise
 		# audit requested objects
 		schema = schema or self._schema[dbName]
 		if tblList and isinstance(tblList, str):
