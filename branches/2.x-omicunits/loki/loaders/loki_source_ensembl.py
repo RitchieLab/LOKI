@@ -193,7 +193,7 @@ class Source_ensembl(loki_source.Source):
 		regionGenes = set()
 		regionPath = self._identifyLatestFilename(os.listdir('.'))
 		for line in self.zfile(regionPath): #TODO:context manager,iterator
-			words = [ w.strip() for w in line.split("\t") ]
+			words = [ w.strip() for w in line.strip().split("\t") ]
 			chm = words[0]
 			if chm in self._loki.chr_num:
 				chm = self._loki.chr_num[chm]
@@ -264,7 +264,7 @@ class Source_ensembl(loki_source.Source):
 				self.log("%s\n" % header)
 				return False
 			for line in datafile:
-				words = [ w.strip() for w in line.split("\t") ]
+				words = [ w.strip() for w in line.strip().split("\t") ]
 				if len(words) < 4:
 					numInc += 1
 					continue
@@ -303,8 +303,8 @@ class Source_ensembl(loki_source.Source):
 				self.log("%s\n" % header)
 				return False
 			for line in datafile:
-				words = [ w.strip() for w in line.split("\t") ]
-				if len(words) < 4:
+				words = [ w.strip() for w in line.strip().split("\t") ]
+				if len(words) < 3:
 					numInc += 1
 					continue
 				ensp = words[0]
