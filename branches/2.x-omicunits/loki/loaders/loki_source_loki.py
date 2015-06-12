@@ -561,7 +561,12 @@ JOIN `db`.`snp_merge` AS sm
 			insert = list(dbc.execute(sql))
 			if insert:
 				self.flagTableUpdate('gwas')
-				dbc.executemany("INSERT INTO `db`.`gwas` (rs, chr, pos, trait, snps, orbeta, allele95ci, riskAfreq, pubmed_id, source_id)", insert)
+				sql = """
+INSERT INTO `db`.`gwas`
+(rs, chr, pos, trait, snps, orbeta, allele95ci, riskAfreq, pubmed_id, source_id)
+VALUES (?,?,?,?,?,?,?,?,?,?)
+"""
+				dbc.executemany(sql, insert)
 			self.log(" OK: %d annotations copied\n" % (len(insert),))
 	#updateMergedGWASAnnotations()
 	
