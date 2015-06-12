@@ -37,7 +37,7 @@ class Source_ensembl(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '3.0 (2015-03-23)'
+		return '3.0 (2015-06-12)'
 	#getVersionString()
 	
 	
@@ -298,7 +298,7 @@ class Source_ensembl(loki_source.Source):
 		numInc = 0
 		with open('biomart_martservice_ensp_refs.txt','rU') as datafile:
 			header = datafile.next().rstrip()
-			if not header.startswith("Ensembl Protein ID	RefSeq Protein ID [e.g. NP_001005353]	UniProt/SwissProt ID"):
+			if not header.startswith("Ensembl Protein ID	RefSeq Protein ID [e.g. NP_001005353]	UniProt/SwissProt Accession"):
 				self.log(" ERROR: unrecognized file header\n")
 				self.log("%s\n" % header)
 				return False
