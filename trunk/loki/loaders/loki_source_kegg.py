@@ -78,7 +78,8 @@ class Source_kegg(loki_source.Source):
 		else: # api==rest
 			self.downloadFilesFromHTTP('rest.kegg.jp', {
 				'list-pathway-hsa':  '/list/pathway/hsa',
-				'link-hsa-pathway':  '/link/hsa/pathway',
+#				'link-hsa-pathway':  '/link/hsa/pathway',
+				'link-pathway-hsa':  '/link/pathway/hsa',
 			})
 		#if api==rest/soap/cache
 	#download()
@@ -137,17 +138,30 @@ class Source_kegg(loki_source.Source):
 		self.log("processing gene associations ...")
 		entrezAssoc = set()
 		numAssoc = 0
-		with open('link-hsa-pathway','rU') as assocFile:
-			for line in assocFile:
-				words = line.split("\t")
-				pathID = words[0]
-				hsaGene = words[1].rstrip()
-				
-				if (pathID in pathGID) and (hsaGene.startswith("hsa:")):
-					numAssoc += 1
-					entrezAssoc.add( (pathGID[pathID],numAssoc,hsaGene[4:]) )
-				#if pathway and gene are ok
-			#foreach line in assocFile
+		if 0:
+			with open('link-hsa-pathway','rU') as assocFile:
+				for line in assocFile:
+					words = line.split("\t")
+					pathID = words[0]
+					hsaGene = words[1].rstrip()
+					
+					if (pathID in pathGID) and (hsaGene.startswith("hsa:")):
+						numAssoc += 1
+						entrezAssoc.add( (pathGID[pathID],numAssoc,hsaGene[4:]) )
+					#if pathway and gene are ok
+				#foreach line in assocFile
+		else:
+			with open('link-pathway-hsa','rU') as assocFile:
+				for line in assocFile:
+					words = line.split("\t")
+					hsaGene = words[0]
+					pathID = words[1].strip()
+					
+					if (pathID in pathGID) and (hsaGene.startswith("hsa:")):
+						numAssoc += 1
+						entrezAssoc.add( (pathGID[pathID],numAssoc,hsaGene[4:]) )
+					#if pathway and gene are ok
+				#foreach line in assocFile
 		#with assocFile
 		self.log(" OK: %d associations\n" % (numAssoc,))
 		
