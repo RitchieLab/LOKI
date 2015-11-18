@@ -7,6 +7,7 @@ import itertools
 import os
 import sys
 import time
+import urllib
 import urllib2
 import zlib
 
@@ -818,18 +819,28 @@ class Source(object):
 	#downloadFilesFromFTP()
 	
 	
-	def getHTTPHeaders(self, remHost, remURL):
-		request = urllib2.Request('http://'+remHost+remURL)
-		request.get_method = lambda: 'HEAD'
-		response = urllib2.urlopen(request)
-		info = response.info()
-		headers = dict( (h.lower(),info[h]) for h in info )
+	def getHTTPHeaders(self, remHost, remURL, reqData=None, reqHeaders=None):
+		class NoRedirection(urllib2.HTTPErrorProcessor):
+			def http_response(self, request, response):
+				return response
+			https_response = http_response	
+		#NoRedirection
+		opener = urllib2.build_opener(NoRedirection)
+		
+		if reqData and (type(reqData) != str):
+			reqData = urllib.urlencode(reqData, True)
+		request = urllib2.Request(url='http://'+remHost+remURL, data=reqData, headers=(reqHeaders or {}))
+		if not reqData:
+			request.get_method = lambda: 'HEAD'
+		response = opener.open(request)
+		respInfo = response.info()
+		respHeaders = dict( (h.lower(),respInfo[h]) for h in respInfo )
 		response.close()
-		return headers
+		return respHeaders
 	#getHTTPHeaders()
 	
 	
-	def downloadFilesFromHTTP(self, remHost, remFiles):
+	def downloadFilesFromHTTP(self, remHost, remFiles, reqHeaders=None):
 		# remFiles={'filename.ext':'/path/on/remote/host/to/filename.ext',...}
 		
 		# check local file sizes and times
@@ -850,7 +861,7 @@ class Source(object):
 		# check remote file sizes and times
 		self.log("identifying changed files ...")
 		for locPath in remFiles:
-			request = urllib2.Request('http://'+remHost+remFiles[locPath])
+			request = urllib2.Request(url='http://'+remHost+remFiles[locPath], data=None, headers=(reqHeaders or {}))
 			request.get_method = lambda: 'HEAD'
 			response = urllib2.urlopen(request)
 			info = response.info()
@@ -878,7 +889,8 @@ class Source(object):
 				self.log("%s: downloading ..." % locPath)
 				#TODO: download to temp file, then rename?
 				with open(locPath, 'wb') as locFile:
-					response = urllib2.urlopen('http://'+remHost+remFiles[locPath])
+					request = urllib2.Request(url='http://'+remHost+remFiles[locPath], data=None, headers=(reqHeaders or {}))
+					response = urllib2.urlopen(request)
 					while True:
 						data = response.read()
 						if not data:

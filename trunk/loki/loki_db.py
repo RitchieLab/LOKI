@@ -17,7 +17,7 @@ class Database(object):
 	def getVersionTuple(cls):
 		# tuple = (major,minor,revision,dev,build,date)
 		# dev must be in ('a','b','rc','release') for lexicographic comparison
-		return (2,2,1,'a',5,'2015-06-09')
+		return (2,2,2,'a',1,'2015-08-14')
 	#getVersionTuple()
 	
 	
@@ -936,10 +936,7 @@ class Database(object):
 		dbMaster = "`sqlite_temp_master`" if (dbName == "temp") else ("`%s`.`sqlite_master`" % (dbName,))
 		sql = "SELECT tbl_name,type,name,COALESCE(sql,'') FROM %s WHERE type IN ('table','index')" % (dbMaster,)
 		for row in cursor.execute(sql):
-			tblName = row[0].encode('utf8')
-			objType = row[1].encode('utf8')
-			idxName = row[2].encode('utf8')
-			objDef = row[3].encode('utf8')
+			tblName,objType,idxName,objDef = row
 			if tblName not in current:
 				current[tblName] = {'table':None, 'index':{}}
 			if objType == 'table':
@@ -948,17 +945,11 @@ class Database(object):
 				current[tblName]['index'][idxName] = " ".join(objDef.strip().split())
 		tblEmpty = dict()
 		sql = None
-		try:
-			for tblName in current:
-				tblEmpty[tblName] = True
-				sql = "SELECT 1 FROM `%s`.`%s` LIMIT 1" % (dbName,tblName)
-				for row in cursor.execute(sql):
-					tblEmpty[tblName] = False
-		except:
-			print "dbName =", repr(dbName)
-			print "tblName =", repr(tblName)
-			print "sql =", repr(sql)
-			raise
+		for tblName in current:
+			tblEmpty[tblName] = True
+			sql = "SELECT 1 FROM `%s`.`%s` LIMIT 1" % (dbName,tblName)
+			for row in cursor.execute(sql):
+				tblEmpty[tblName] = False
 		# audit requested objects
 		schema = schema or self._schema[dbName]
 		if tblList and isinstance(tblList, str):
@@ -971,7 +962,7 @@ class Database(object):
 				if tblName in current:
 					if current[tblName]['table'] == ("CREATE TABLE `%s` %s" % (tblName, " ".join(schema[tblName]['table'].strip().split()))):
 						if 'data' in schema[tblName] and schema[tblName]['data']:
-							sql = "INSERT OR IGNORE INTO `%s`.`%s` VALUES (%s)" % (dbName, tblName, ("?,"*len(schema[tblName]['data'][0]))[:-1])
+							sql = u"INSERT OR IGNORE INTO `%s`.`%s` VALUES (%s)" % (dbName, tblName, ("?,"*len(schema[tblName]['data'][0]))[:-1])
 							# TODO: change how 'data' is defined so it can be tested without having to try inserting
 							try:
 								cursor.executemany(sql, schema[tblName]['data'])

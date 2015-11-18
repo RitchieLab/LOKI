@@ -15,7 +15,7 @@ class Source_pfam(loki_source.Source):
 	
 	def download(self, options):
 		# download the latest source files
-		self.downloadFilesFromFTP('ftp.sanger.ac.uk', {
+		self.downloadFilesFromFTP('ftp.ebi.ac.uk', {
 			'pfamA.txt.gz':                      '/pub/databases/Pfam/current_release/database_files/pfamA.txt.gz',
 			'pfamA_reg_full_significant.txt.gz': '/pub/databases/Pfam/current_release/database_files/pfamA_reg_full_significant.txt.gz',
 			'pfamseq.txt.gz':                    '/pub/databases/Pfam/current_release/database_files/pfamseq.txt.gz',
