@@ -17,7 +17,7 @@ class Database(object):
 	def getVersionTuple(cls):
 		# tuple = (major,minor,revision,dev,build,date)
 		# dev must be in ('a','b','rc','release') for lexicographic comparison
-		return (2,2,2,'a',1,'2015-08-14')
+		return (2,3,0,'a',1,'2015-12-14')
 	#getVersionTuple()
 	
 	
@@ -1366,7 +1366,7 @@ ORDER BY sl.chr, sl.pos
 	def _lookupBiopolymerIDs(self, typeID, identifiers, minMatch, maxMatch, tally, errorCallback):
 		# typeID=int or Falseish for any
 		# identifiers=[ (namespace,name,extra), ... ]
-		#   namespace='' for any, '-' for labels, '=' for biopolymer_id
+		#   namespace='' or '*' for any, '-' for labels, '=' for biopolymer_id
 		# minMatch=int or Falseish for none
 		# maxMatch=int or Falseish for none
 		# tally=dict() or None
@@ -1386,7 +1386,7 @@ LEFT JOIN `db`.`biopolymer` AS bLabel
   AND ( ({0} IS NULL) OR (bLabel.type_id = {0}) )
 LEFT JOIN `db`.`namespace` AS n
   ON i.namespace NOT IN ('=','-')
-  AND n.namespace = COALESCE(NULLIF(LOWER(TRIM(i.namespace)),''),n.namespace)
+  AND n.namespace = COALESCE(NULLIF(NULLIF(LOWER(TRIM(i.namespace)),''),'*'),n.namespace)
 LEFT JOIN `db`.`biopolymer_name` AS bn
   ON i.namespace NOT IN ('=','-')
   AND bn.name = i.identifier
@@ -1534,7 +1534,7 @@ GROUP BY namespace_id
 	def _lookupGroupIDs(self, typeID, identifiers, minMatch, maxMatch, tally, errorCallback):
 		# typeID=int or Falseish for any
 		# identifiers=[ (namespace,name,extra), ... ]
-		#   namespace='' for any, '-' for labels, '=' for group_id
+		#   namespace='' or '*' for any, '-' for labels, '=' for group_id
 		# minMatch=int or Falseish for none
 		# maxMatch=int or Falseish for none
 		# tally=dict() or None
@@ -1554,7 +1554,7 @@ LEFT JOIN `db`.`group` AS gLabel
   AND ( ({0} IS NULL) OR (gLabel.type_id = {0}) )
 LEFT JOIN `db`.`namespace` AS n
   ON i.namespace NOT IN ('=','-')
-  AND n.namespace = COALESCE(NULLIF(LOWER(TRIM(i.namespace)),''),n.namespace)
+  AND n.namespace = COALESCE(NULLIF(NULLIF(LOWER(TRIM(i.namespace)),''),'*'),n.namespace)
 LEFT JOIN `db`.`group_name` AS gn
   ON i.namespace NOT IN ('=','-')
   AND gn.name = i.identifier
