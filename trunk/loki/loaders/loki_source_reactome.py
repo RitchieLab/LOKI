@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-#import collections
+import collections
 import itertools
 import zipfile
 from loki import loki_source
@@ -149,7 +149,7 @@ class Source_reactome(loki_source.Source):
 			self.log(" OK: %d associations (%d new pathways)\n" % (numNewAssoc,numNewPath))
 		#with geneZip
 		
-		# TODO: ChEBI mappings?
+		# TODO: ChEBI or miRBase mappings?
 		
 		# process ensembl mappings (to lowest reactome pathway, not parents)
 		# http://www.reactome.org/download/mapping.README.txt
@@ -226,7 +226,8 @@ class Source_reactome(loki_source.Source):
 		
 		# TODO: process interaction associations?
 		
-		if 0:
+		if False:
+			tally = collections.defaultdict(int)
 			# http://www.reactome.org/download/interactions.README.txt
 			# <uniprot>\t<ensembl>\t<entrez>\t<uniprot>\t<ensembl>\t<entrez>\t<reacttype>\t<reactID>["<->"<reactID>]\t<pubmedIDs>
 			self.log("processing protein interactions ...")
@@ -251,83 +252,79 @@ class Source_reactome(loki_source.Source):
 				reactID2 = reactIDs[1].split('.',1)[0] if (len(reactIDs) > 1) else None
 				reactID2 = reactID2 if (reactID2 != reactID1) else None
 				
-				# if reacttype is "direct_complex" or "indirect_complex", the interactors are in the same group (or supergroup);
-				# if "reaction" or "neighbouring_reaction", they are not in the same group but interact anyway
+				# if reacttype is "direct_complex" or "indirect_complex",
+				# the interactors are in the same group (or supergroup)
+				# and only one REACTOME pathway will be given in column 8;
+				# if reacttype is "reaction" or "neighbouring_reaction",
+				# they are not in the same group but interact anyway, but
+				# there will still be only one pathway named in column 8
+				# for "reaction" (and two for "neighboring_reaction")
 				
-				numAssoc += 1
-				newAssoc += 1
-				if uniprotP1:
-					nsAssoc['uniprot_pid']['react'].add( (reactID1,numAssoc,uniprotP1) )
-					setID.add(('uniprot_pid',uniprotP1))
-				if ensemblG1:
-					nsAssoc['ensembl_gid']['react'].add( (reactID1,numAssoc,ensemblG1) )
-					setID.add(('ensembl_gid',ensemblG1))
-				if ensemblP1:
-					nsAssoc['ensembl_pid']['react'].add( (reactID1,numAssoc,ensemblP1) )
-					setID.add(('ensembl_pid',ensemblP1))
-				if entrezG1:
-					nsAssoc['entrez_gid']['react'].add( (reactID1,numAssoc,entrezG1) )
-					setID.add(('entrez_gid',entrezG1))
+				if (not reactID1):
+					tally['no react 1'] += 1
+				elif (reactID1 not in reactPath):
+					tally['no such react 1'] += 1
+				else:
+					in1 = of1 = 0
+					if (uniprotP1):
+						in1 += max(((alias == uniprotP1) and (path == reactPath[reactID1])) for path,_,alias in nsAssoc['uniprot_pid']['path'])
+						of1 += 1
+					if (ensemblG1):
+						in1 += max(((alias == ensemblG1) and (path == reactPath[reactID1])) for path,_,alias in nsAssoc['ensembl_gid']['path'])
+						of1 += 1
+					if (ensemblP1):
+						in1 += max(((alias == ensemblP1) and (path == reactPath[reactID1])) for path,_,alias in nsAssoc['ensembl_pid']['path'])
+						of1 += 1
+					tally['%d/%d protein 1 in react 1' % (in1,of1)] += 1
+					
+					in2 = of2 = 0
+					if (uniprotP2):
+						in2 += max(((alias == uniprotP2) and (path == reactPath[reactID1])) for path,_,alias in nsAssoc['uniprot_pid']['path'])
+						of2 += 1
+					if (ensemblG2):
+						in2 += max(((alias == ensemblG2) and (path == reactPath[reactID1])) for path,_,alias in nsAssoc['ensembl_gid']['path'])
+						of2 += 1
+					if (ensemblP2):
+						in2 += max(((alias == ensemblP2) and (path == reactPath[reactID1])) for path,_,alias in nsAssoc['ensembl_pid']['path'])
+						of2 += 1
+					tally['%d/%d protein 2 in react 1' % (in2,of2)] += 1
+				#if reactID1
 				
-				numAssoc += 1
-				newAssoc += 1
-				if uniprotP2:
-					nsAssoc['uniprot_pid']['react'].add( (reactID1,numAssoc,uniprotP2) )
-					setID.add(('uniprot_pid',uniprotP2))
-				if ensemblG2:
-					nsAssoc['ensembl_gid']['react'].add( (reactID1,numAssoc,ensemblG2) )
-					setID.add(('ensembl_gid',ensemblG2))
-				if ensemblP2:
-					nsAssoc['ensembl_pid']['react'].add( (reactID1,numAssoc,ensemblP2) )
-					setID.add(('ensembl_pid',ensemblP2))
-				if entrezG2:
-					nsAssoc['entrez_gid']['react'].add( (reactID1,numAssoc,entrezG2) )
-					setID.add(('entrez_gid',entrezG2))
-				
-				if len(reactIDs) > 1 and reactIDs[0] == reactIDs[1]:
-					reactID2 = reactIDs[1].split('.',1)[0]
-					if reactID2 not in reactPath:
-						reactPath[reactID2] = None
-					setPath.add(reactID2)
+				if (not reactID2):
+					tally['no react 2'] += 1
+				elif (reactID2 not in reactPath):
+					tally['no such react 2'] += 1
+				else:
+					in1 = of1 = 0
+					if (uniprotP1):
+						in1 += max(((alias == uniprotP1) and (path == reactPath[reactID2])) for path,_,alias in nsAssoc['uniprot_pid']['path'])
+						of1 += 1
+					if (ensemblG1):
+						in1 += max(((alias == ensemblG1) and (path == reactPath[reactID2])) for path,_,alias in nsAssoc['ensembl_gid']['path'])
+						of1 += 1
+					if (ensemblP1):
+						in1 += max(((alias == ensemblP1) and (path == reactPath[reactID2])) for path,_,alias in nsAssoc['ensembl_pid']['path'])
+						of1 += 1
+					tally['%d/%d protein 1 in react 1' % (in1,of1)] += 1
 					
-					numAssoc += 1
-					newAssoc += 1
-					if uniprotP1:
-						nsAssoc['uniprot_pid']['react'].add( (reactID2,numAssoc,uniprotP1) )
-						setID.add(('uniprot_pid',uniprotP1))
-					if ensemblG1:
-						nsAssoc['ensembl_gid']['react'].add( (reactID2,numAssoc,ensemblG1) )
-						setID.add(('ensembl_gid',ensemblG1))
-					if ensemblP1:
-						nsAssoc['ensembl_pid']['react'].add( (reactID2,numAssoc,ensemblP1) )
-						setID.add(('ensembl_pid',ensemblP1))
-					if entrezG1:
-						nsAssoc['entrez_gid']['react'].add( (reactID2,numAssoc,entrezG1) )
-						setID.add(('entrez_gid',entrezG1))
-					
-					numAssoc += 1
-					newAssoc += 1
-					if uniprotP2:
-						nsAssoc['uniprot_pid']['react'].add( (reactID2,numAssoc,uniprotP2) )
-						setID.add(('uniprot_pid',uniprotP2))
-					if ensemblG2:
-						nsAssoc['ensembl_gid']['react'].add( (reactID2,numAssoc,ensemblG2) )
-						setID.add(('ensembl_gid',ensemblG2))
-					if ensemblP2:
-						nsAssoc['ensembl_pid']['react'].add( (reactID2,numAssoc,ensemblP2) )
-						setID.add(('ensembl_pid',ensemblP2))
-					if entrezG2:
-						nsAssoc['entrez_gid']['react'].add( (reactID2,numAssoc,entrezG2) )
-						setID.add(('entrez_gid',entrezG2))
-					
-					#TODO: decide if we want the links
-					#if relationship not in relationshipID:
-					#	relationshipID[relationship] = self.addRelationship(relationship)
-					#reactLinks[reactID1].add( (reactID2,relationshipID[relationship]) )
-					#reactLinks[reactID2].add( (reactID1,relationshipID[relationship]) )
-				#if 2 reactions
+					in2 = of2 = 0
+					if (uniprotP2):
+						in2 += max(((alias == uniprotP2) and (path == reactPath[reactID2])) for path,_,alias in nsAssoc['uniprot_pid']['path'])
+						of2 += 1
+					if (ensemblG2):
+						in2 += max(((alias == ensemblG2) and (path == reactPath[reactID2])) for path,_,alias in nsAssoc['ensembl_gid']['path'])
+						of2 += 1
+					if (ensemblP2):
+						in2 += max(((alias == ensemblP2) and (path == reactPath[reactID2])) for path,_,alias in nsAssoc['ensembl_pid']['path'])
+						of2 += 1
+					tally['%d/%d protein 2 in react 1' % (in2,of2)] += 1
+				#if reactID1
 			#foreach line in iaFile
-			self.log(" OK: %d associations (%d pathways, %d identifiers)\n" % (newAssoc, len(setPath), len(setID)))
+			self.log(" OK: %d associations (%d new pathways)\n" % (numNewAssoc,numNewPath))
+			numPath += numNewPath
+			numAssoc += numNewAssoc
+			for k,v in tally.iteritems():
+				print k, v
 		#TODO
 		
 		# store pathways
