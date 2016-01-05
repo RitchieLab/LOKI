@@ -3,6 +3,7 @@
 from loki import loki_source
 
 import collections
+import re
 
 
 class Source_msigdb(loki_source.Source):
@@ -10,12 +11,46 @@ class Source_msigdb(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.0 (2015-04-22)'
+		return '2.0 (2015-08-14)'
 	#getVersionString()
 	
 	
+	@classmethod
+	def getOptions(cls):
+		return {
+			'email'  : '<address>  --  email address registered with GSEA/MSigDB (required)',
+		}
+	#getOptions()
+	
+	
+	def validateOptions(self, options):
+		for o,v in options.iteritems():
+			v = v.strip().lower()
+			if o == 'email':
+				if '@' in v:
+					v = v.strip()
+				else:
+					return "invalid email address"
+			else:
+				return "unknown option '%s'" % o
+			options[o] = v
+		return True
+	#validateOptions()
+	
+	
 	def download(self, options):
-		pass
+		# post the user's registered email address to get a session cookie
+		headers = self.getHTTPHeaders('www.broadinstitute.org', '/gsea/j_spring_security_check', {
+			'j_username': options.get('email','anonymous@example.com'),
+			'j_password': 'password',
+			'login': 'login'
+		})
+		cookie = re.findall('(?:^|, )JSESSIONID=([0-9A-Za-z]+)(?:,|;|$)', headers['set-cookie'])[-1]
+		
+		# use the cookie to actually download the file
+		self.downloadFilesFromHTTP('www.broadinstitute.org', {
+			'msigdb.v5.0.entrez.gmt' : '/gsea/resources/msigdb/5.0/msigdb.v5.0.entrez.gmt'
+		}, {'Cookie': 'JSESSIONID='+cookie})
 	#download()
 	
 	
@@ -40,7 +75,7 @@ class Source_msigdb(loki_source.Source):
 		setGroup = set()
 		entrezAssoc = list()
 		numAssoc = 0
-		with open('c5.all.v5.0.entrez.gmt','rU') as gsFile:
+		with open('msigdb.v5.0.entrez.gmt','rU') as gsFile:
 			for line in gsFile:
 				words = line.split("\t")
 				label = words[0]
