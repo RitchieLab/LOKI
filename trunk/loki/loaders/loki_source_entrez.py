@@ -413,7 +413,7 @@ class Source_entrez(loki_source.Source):
 			#if unigene name header ok
 		#with ugFile
 		
-		if 0:
+		if True:
 			# process uniprot gene names from entrez
 			self.log("processing uniprot gene names ...")
 			upFile = self.zfile('gene_refseq_uniprotkb_collab.gz') #TODO:context manager,iterator
@@ -438,11 +438,11 @@ class Source_entrez(loki_source.Source):
 				numNames = sum(len(nsNames[ns]) for ns in nsNames)
 				self.log(" OK: %d identifiers\n" % (numNames-numNames0))
 			#if header ok
-		
-		# process uniprot gene names from uniprot (no header!)
-		self.log("processing uniprot gene names ...")
-		upFile = self.zfile('HUMAN_9606_idmapping_selected.tab.gz') #TODO:context manager,iterator
-		""" /* ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/idmapping/README */
+		else:
+			# process uniprot gene names from uniprot (no header!)
+			self.log("processing uniprot gene names ...")
+			upFile = self.zfile('HUMAN_9606_idmapping_selected.tab.gz') #TODO:context manager,iterator
+			""" /* ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/idmapping/README */
 1. UniProtKB-AC
 2. UniProtKB-ID
 3. GeneID (EntrezGene)
@@ -467,68 +467,69 @@ class Source_entrez(loki_source.Source):
 22. Ensembl_PRO
 23. Additional PubMed
 """
-		for line in upFile:
-			words = line.split("\t")
-			uniprotAcc = words[0]
-			uniprotID = words[1]
-			found = False
-			for word2 in words[2].split(';'):
-				entrezID = int(word2.strip()) if word2 else None
-				if entrezID and (entrezID in entrezBID):
-					nsNameNames['uniprot_pid'].add( (namespaceID['entrez_gid'],entrezID,uniprotAcc) )
-					nsNameNames['uniprot_gid'].add( (namespaceID['entrez_gid'],entrezID,uniprotID) )
-					found = True
-			#foreach entrezID mapping
-			if not found:
-				for word3 in words[3].split(';'):
-					refseqID = word3.strip().split('.',1)[0] if word3 else None
-					if refseqID:
-						nsNameNames['uniprot_pid'].add( (namespaceID['refseq_pid'],refseqID,uniprotAcc) )
-						nsNameNames['uniprot_pid'].add( (namespaceID['refseq_gid'],refseqID,uniprotAcc) )
-						nsNameNames['uniprot_gid'].add( (namespaceID['refseq_pid'],refseqID,uniprotID) )
-						nsNameNames['uniprot_gid'].add( (namespaceID['refseq_gid'],refseqID,uniprotID) )
-				#foreach refseq mapping
-				for word14 in words[14].split(';'):
-					mimID = word14.strip() if word14 else None
-					if mimID:
-						nsNameNames['uniprot_pid'].add( (namespaceID['mim_id'],mimID,uniprotAcc) )
-						nsNameNames['uniprot_gid'].add( (namespaceID['mim_id'],mimID,uniprotID) )
-				#foreach mim mapping
-				for word15 in words[15].split(';'):
-					unigeneID = word15.strip() if word15 else None
-					if unigeneID:
-						nsNameNames['uniprot_pid'].add( (namespaceID['unigene_gid'],unigeneID,uniprotAcc) )
-						nsNameNames['uniprot_gid'].add( (namespaceID['unigene_gid'],unigeneID,uniprotID) )
-				#foreach mim mapping
-				for word19 in words[19].split(';'):
-					ensemblGID = word19.strip() if word19 else None
-					if ensemblGID:
-						nsNameNames['uniprot_pid'].add( (namespaceID['ensembl_gid'],ensemblGID,uniprotAcc) )
-						nsNameNames['uniprot_gid'].add( (namespaceID['ensembl_gid'],ensemblGID,uniprotID) )
-				#foreach ensG mapping
-				for word20 in words[20].split(';'):
-					ensemblTID = word20.strip() if word20 else None
-					if ensemblTID:
-						nsNameNames['uniprot_pid'].add( (namespaceID['ensembl_gid'],ensemblTID,uniprotAcc) )
-						nsNameNames['uniprot_gid'].add( (namespaceID['ensembl_gid'],ensemblTID,uniprotID) )
-				#foreach ensT mapping
-				for word21 in words[21].split(';'):
-					ensemblPID = word21.strip() if word21 else None
-					if ensemblPID:
-						nsNameNames['uniprot_pid'].add( (namespaceID['ensembl_pid'],ensemblPID,uniprotAcc) )
-						nsNameNames['uniprot_gid'].add( (namespaceID['ensembl_pid'],ensemblPID,uniprotID) )
-				#foreach ensP mapping
-			#if no entrezID match
-		#foreach line in upFile
-		
-		# print stats
-		numNames0 = numNames
-		numNames = sum(len(nsNames[ns]) for ns in nsNames)
-		numNameNames0 = numNameNames
-		numNameNames = sum(len(set(n[2] for n in nsNameNames[ns])) for ns in nsNameNames)
-		numNameRefs0 = numNameRefs
-		numNameRefs = sum(len(nsNameNames[ns]) for ns in nsNameNames)
-		self.log(" OK: %d identifiers (%d references)\n" % (numNames-numNames0+numNameNames-numNameNames0,numNameRefs-numNameRefs0))
+			for line in upFile:
+				words = line.split("\t")
+				uniprotAcc = words[0]
+				uniprotID = words[1]
+				found = False
+				for word2 in words[2].split(';'):
+					entrezID = int(word2.strip()) if word2 else None
+					if entrezID and (entrezID in entrezBID):
+						nsNameNames['uniprot_pid'].add( (namespaceID['entrez_gid'],entrezID,uniprotAcc) )
+						nsNameNames['uniprot_gid'].add( (namespaceID['entrez_gid'],entrezID,uniprotID) )
+						found = True
+				#foreach entrezID mapping
+				if not found:
+					for word3 in words[3].split(';'):
+						refseqID = word3.strip().split('.',1)[0] if word3 else None
+						if refseqID:
+							nsNameNames['uniprot_pid'].add( (namespaceID['refseq_pid'],refseqID,uniprotAcc) )
+							nsNameNames['uniprot_pid'].add( (namespaceID['refseq_gid'],refseqID,uniprotAcc) )
+							nsNameNames['uniprot_gid'].add( (namespaceID['refseq_pid'],refseqID,uniprotID) )
+							nsNameNames['uniprot_gid'].add( (namespaceID['refseq_gid'],refseqID,uniprotID) )
+					#foreach refseq mapping
+					for word14 in words[14].split(';'):
+						mimID = word14.strip() if word14 else None
+						if mimID:
+							nsNameNames['uniprot_pid'].add( (namespaceID['mim_id'],mimID,uniprotAcc) )
+							nsNameNames['uniprot_gid'].add( (namespaceID['mim_id'],mimID,uniprotID) )
+					#foreach mim mapping
+					for word15 in words[15].split(';'):
+						unigeneID = word15.strip() if word15 else None
+						if unigeneID:
+							nsNameNames['uniprot_pid'].add( (namespaceID['unigene_gid'],unigeneID,uniprotAcc) )
+							nsNameNames['uniprot_gid'].add( (namespaceID['unigene_gid'],unigeneID,uniprotID) )
+					#foreach mim mapping
+					for word19 in words[19].split(';'):
+						ensemblGID = word19.strip() if word19 else None
+						if ensemblGID:
+							nsNameNames['uniprot_pid'].add( (namespaceID['ensembl_gid'],ensemblGID,uniprotAcc) )
+							nsNameNames['uniprot_gid'].add( (namespaceID['ensembl_gid'],ensemblGID,uniprotID) )
+					#foreach ensG mapping
+					for word20 in words[20].split(';'):
+						ensemblTID = word20.strip() if word20 else None
+						if ensemblTID:
+							nsNameNames['uniprot_pid'].add( (namespaceID['ensembl_gid'],ensemblTID,uniprotAcc) )
+							nsNameNames['uniprot_gid'].add( (namespaceID['ensembl_gid'],ensemblTID,uniprotID) )
+					#foreach ensT mapping
+					for word21 in words[21].split(';'):
+						ensemblPID = word21.strip() if word21 else None
+						if ensemblPID:
+							nsNameNames['uniprot_pid'].add( (namespaceID['ensembl_pid'],ensemblPID,uniprotAcc) )
+							nsNameNames['uniprot_gid'].add( (namespaceID['ensembl_pid'],ensemblPID,uniprotID) )
+					#foreach ensP mapping
+				#if no entrezID match
+			#foreach line in upFile
+			
+			# print stats
+			numNames0 = numNames
+			numNames = sum(len(nsNames[ns]) for ns in nsNames)
+			numNameNames0 = numNameNames
+			numNameNames = sum(len(set(n[2] for n in nsNameNames[ns])) for ns in nsNameNames)
+			numNameRefs0 = numNameRefs
+			numNameRefs = sum(len(nsNameNames[ns]) for ns in nsNameNames)
+			self.log(" OK: %d identifiers (%d references)\n" % (numNames-numNames0+numNameNames-numNameNames0,numNameRefs-numNameRefs0))
+		#switch uniprot source
 		
 		# store gene names
 		self.log("writing gene identifiers to the database ...")
@@ -541,14 +542,16 @@ class Source_entrez(loki_source.Source):
 		nsNames = None
 		
 		# store gene names
-		self.log("writing gene identifier references to the database ...")
-		numNameNames = 0
-		for ns in nsNameNames:
-			if nsNameNames[ns]:
-				numNameNames += len(nsNameNames[ns])
-				self.addBiopolymerTypedNameNamespacedNames(typeID['gene'], namespaceID[ns], nsNameNames[ns])
-		self.log(" OK: %d references\n" % (numNameNames,))
-		nsNameNames = None
+		if nsNameNames:
+			self.log("writing gene identifier references to the database ...")
+			numNameNames = 0
+			for ns in nsNameNames:
+				if nsNameNames[ns]:
+					numNameNames += len(nsNameNames[ns])
+					self.addBiopolymerTypedNameNamespacedNames(typeID['gene'], namespaceID[ns], nsNameNames[ns])
+			self.log(" OK: %d references\n" % (numNameNames,))
+			nsNameNames = None
+		#if nsNameNames
 		
 		# store source metadata
 		self.setSourceBuilds(grcBuild, None)
