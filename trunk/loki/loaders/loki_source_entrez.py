@@ -10,7 +10,7 @@ class Source_entrez(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.1 (2014-06-25)' # last modified 2015-04-08 but only a screen reporting issue, no data rebuild required
+		return '2.2 (2016-02-08)'
 	#getVersionString()
 	
 	

@@ -9,7 +9,7 @@ class Source_pfam(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.2 (2016-02-01)'
+		return '2.2 (2016-02-08)'
 	#getVersionString()
 	
 	
