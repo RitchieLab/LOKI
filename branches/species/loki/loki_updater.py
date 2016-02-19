@@ -19,9 +19,10 @@ class Updater(object):
 	# constructor
 	
 	
-	def __init__(self, lokidb, is_test=False):
+	def __init__(self, lokidb, is_test=False, taxID=9606):
 		assert(isinstance(lokidb, loki_db.Database))
 		self._is_test = is_test
+		self._tax_id = taxID
 		self._loki = lokidb
 		self._db = lokidb._db
 		self._sourceLoaders = None
@@ -126,6 +127,12 @@ class Updater(object):
 	#getSourceModuleVersions()
 	
 	
+	def getSourceModuleSpecies(self, sources=None):
+		srcSet = self.loadSourceModules(sources)
+		return { srcName : self._sourceClasses[srcName].getSpecies() for srcName in srcSet }
+	#getSourceModuleSpecies()
+	
+	
 	def getSourceModuleOptions(self, sources=None):
 		srcSet = self.loadSourceModules(sources)
 		return { srcName : self._sourceClasses[srcName].getOptions() for srcName in srcSet }
@@ -139,7 +146,10 @@ class Updater(object):
 			if srcName not in self._sourceObjects:
 				if srcName not in self._sourceClasses:
 					raise Exception("loadSourceModules() reported false positive for '%s'" % srcName)
-				self._sourceObjects[srcName] = self._sourceClasses[srcName](self._loki)
+				if self._tax_id not in self._sourceClasses[srcName].getSpecies():
+					self.log("WARNING: source '%s' does not support species %d" % (srcName,self._tax_id))
+					continue
+				self._sourceObjects[srcName] = self._sourceClasses[srcName](self._loki, self._tax_id)
 			#if module not instantiated
 			srcSet.add(srcName)
 		#foreach source

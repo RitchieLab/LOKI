@@ -75,7 +75,10 @@ if __name__ == "__main__":
 			help="suppress warnings and log messages"
 	)
 	parser.add_argument('-t', '--test-data', action='store_true',
-			help="Load testing data only"
+			help="load testing data only"
+	)
+	parser.add_argument('-x', '--taxonomy-id', type=int, metavar='num', default=9606,
+			help="set the taxonomy ID (species) for the database (default: 9606)"
 	)
 	
 	# if no arguments, print usage and exit
@@ -122,9 +125,10 @@ if __name__ == "__main__":
 		os.environ['TMPDIR'] = os.path.abspath(args.temp_directory)
 	
 	# instantiate database object
-	db = loki_db.Database(testing=args.test_data, updating=True)
+	db = loki_db.Database(testing=args.test_data, updating=True, taxID=args.taxonomy_id)
 	db.setVerbose(args.verbose or (not args.quiet))
-	db.attachDatabaseFile(args.knowledge)
+	if not db.attachDatabaseFile(args.knowledge):
+		sys.exit(1)
 	
 	# list sources?
 	if args.list_sources != None:
@@ -132,14 +136,15 @@ if __name__ == "__main__":
 		for srcList in args.list_sources:
 			srcSet |= set(srcList)
 		if (not srcSet) or ('+' in srcSet):
-			print "available source loaders:"
+			print "available source loaders, versions, supported species and options:"
 			srcSet = set()
 		else:
-			print "source loader options:"
+			print "source loader versions, supported species and options:"
 		moduleVersions = db.getSourceModuleVersions(srcSet)
+		moduleSpecies = db.getSourceModuleSpecies(srcSet)
 		moduleOptions = db.getSourceModuleOptions(srcSet)
 		for srcName in sorted(moduleOptions.keys()):
-			print "  %s : %s" % (srcName,moduleVersions[srcName])
+			print "  %s : %s [%s]" % (srcName,moduleVersions[srcName],",".join(str(x) for x in sorted(moduleSpecies[srcName])))
 			if moduleOptions[srcName]:
 				for srcOption in sorted(moduleOptions[srcName].keys()):
 					print "    %s = %s" % (srcOption,moduleOptions[srcName][srcOption])

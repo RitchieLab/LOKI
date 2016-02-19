@@ -21,11 +21,12 @@ class Source(object):
 	# constructor
 	
 	
-	def __init__(self, lokidb):
+	def __init__(self, lokidb, taxID):
 		assert(isinstance(lokidb, loki_db.Database))
 		assert(self.__class__.__name__.startswith('Source_'))
 		self._loki = lokidb
 		self._db = lokidb._db
+		self._tax_id = taxID
 		self._sourceID = self.addSource(self.getSourceName())
 		assert(self._sourceID > 0)
 	#__init__()
@@ -56,6 +57,12 @@ class Source(object):
 		
 		return version
 	#getVersionString()
+	
+	
+	@classmethod
+	def getSpecies(cls):
+		return [9606]
+	#getSpecies()
 	
 	
 	@classmethod

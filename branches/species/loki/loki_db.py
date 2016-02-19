@@ -17,7 +17,7 @@ class Database(object):
 	def getVersionTuple(cls):
 		# tuple = (major,minor,revision,dev,build,date)
 		# dev must be in ('a','b','rc','release') for lexicographic comparison
-		return (2,3,0,'a',1,'2015-12-14')
+		return (2,5,0,'a',1,'2016-02-17')
 	#getVersionTuple()
 	
 	
@@ -94,11 +94,12 @@ class Database(object):
 )
 """,
 				'data': [
-					('schema','3'),
+					('schema','4'),
 					('ucschg',None),
 					('zone_size','100000'),
 					('optimized','0'),
 					('finalized','0'),
+					('taxonomy',None),
 				],
 				'index': {}
 			}, #.db.setting
@@ -573,10 +574,11 @@ class Database(object):
 	# constructor
 	
 	
-	def __init__(self, dbFile=None, testing=False, updating=False, tempMem=False):
+	def __init__(self, dbFile=None, testing=False, updating=False, tempMem=False, taxID=9606):
 		# initialize instance properties
-		self._is_test = testing
-		self._updating = updating
+		self._is_test = bool(testing)
+		self._tax_id = int(taxID)
+		self._updating = bool(updating)
 		self._verbose = True
 		self._logger = None
 		self._logFile = sys.stderr
@@ -781,27 +783,37 @@ class Database(object):
 			with self._db:
 				if self._dbNew:
 					self.createDatabaseObjects(None, 'db')
-					ok = True
 				else:
 					self.updateDatabaseSchema()
-					ok = self.auditDatabaseObjects(None, 'db')
-					if not ok:
+					if not self.auditDatabaseObjects(None, 'db'):
 						err_msg = "Audit of database failed"
+				#if _dbNew
 				
-				if ok and self._updating:
-					ok = self._checkTesting()
-					if not ok:
-						err_msg = "Testing settings do not match loaded database"
+				if self._updating and not err_msg:
+					taxonomy = self.getDatabaseSetting("taxonomy")
+					if taxonomy is None or int(taxonomy) == self._tax_id:
+						self.setDatabaseSetting("taxonomy", self._tax_id)
+					else:
+						err_msg = "Database is for species %s; cannot update to %d" % (taxonomy,self._tax_id)
+					
+					if not err_msg:
+						if not self._checkTesting():
+							err_msg = "Testing settings do not match loaded database"
+				#if _updating and not err_msg
+			#with db
 			
-			if ok:
-				if not quiet:
-					self.logPop("... OK\n")
-			else:
+			if err_msg:
 				self._dbFile = None
 				self._dbNew = None
 				cursor.execute("DETACH DATABASE `db`")
 				if not quiet:
 					self.logPop("... ERROR (" + err_msg + ")\n")
+				return False
+			#if err_msg
+			
+			if not quiet:
+				self.logPop("... OK\n")
+			return True
 		#if new dbFile
 	#attachDatabaseFile()
 	
@@ -926,6 +938,13 @@ class Database(object):
 			self.setDatabaseSetting('schema', 3)
 			self.log(" OK\n")
 		#schema<3
+		
+		if self.getDatabaseSetting('schema',int) < 4:
+			self.log("updating database schema to version 4 ...")
+			self.setDatabaseSetting('taxonomy', 9606)
+			self.setDatabaseSetting('schema', 4)
+			self.log(" OK\n")
+		#schema<4
 	#updateDatabaseSchema()
 	
 	
@@ -1075,7 +1094,7 @@ class Database(object):
 	def getSourceModules(self):
 		if not self._updater:
 			import loki_updater
-			self._updater = loki_updater.Updater(self, self._is_test)
+			self._updater = loki_updater.Updater(self, self._is_test, self._tax_id)
 		return self._updater.getSourceModules()
 	#getSourceModules()
 	
@@ -1083,15 +1102,23 @@ class Database(object):
 	def getSourceModuleVersions(self, sources=None):
 		if not self._updater:
 			import loki_updater
-			self._updater = loki_updater.Updater(self, self._is_test)
+			self._updater = loki_updater.Updater(self, self._is_test, self._tax_id)
 		return self._updater.getSourceModuleVersions(sources)
 	#getSourceModuleVersions()
+	
+	
+	def getSourceModuleSpecies(self, sources=None):
+		if not self._updater:
+			import loki_updater
+			self._updater = loki_updater.Updater(self, self._is_test, self._tax_id)
+		return self._updater.getSourceModuleSpecies(sources)
+	#getSourceModuleSpecies()
 	
 	
 	def getSourceModuleOptions(self, sources=None):
 		if not self._updater:
 			import loki_updater
-			self._updater = loki_updater.Updater(self, self._is_test)
+			self._updater = loki_updater.Updater(self, self._is_test, self._tax_id)
 		return self._updater.getSourceModuleOptions(sources)
 	#getSourceModuleOptions()
 	
@@ -1101,7 +1128,7 @@ class Database(object):
 			raise Exception("ERROR: cannot update a finalized database")
 		if not self._updater:
 			import loki_updater
-			self._updater = loki_updater.Updater(self, self._is_test)
+			self._updater = loki_updater.Updater(self, self._is_test, self._tax_id)
 		return self._updater.updateDatabase(sources, sourceOptions, cacheOnly, forceUpdate)
 	#updateDatabase()
 	
