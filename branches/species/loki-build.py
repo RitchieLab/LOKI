@@ -127,8 +127,6 @@ if __name__ == "__main__":
 	# instantiate database object
 	db = loki_db.Database(testing=args.test_data, updating=True, taxID=args.taxonomy_id)
 	db.setVerbose(args.verbose or (not args.quiet))
-	if not db.attachDatabaseFile(args.knowledge):
-		sys.exit(1)
 	
 	# list sources?
 	if args.list_sources != None:
@@ -174,6 +172,12 @@ if __name__ == "__main__":
 		notSet = set()
 		for srcList in args.update_except:
 			notSet |= set(srcList)
+	
+	# attach db file?
+	if args.knowledge:
+		if not db.attachDatabaseFile(args.knowledge):
+			sys.exit(1)
+	#if knowledge
 	
 	# update?
 	updateOK = True

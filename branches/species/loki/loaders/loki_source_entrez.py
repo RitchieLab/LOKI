@@ -8,10 +8,42 @@ from loki import loki_source
 class Source_entrez(loki_source.Source):
 	
 	
+	##################################################
+	# private instance methods
+	
+	
+	def _identifyLatestAssembly(self, filenames):
+		reFile = re.compile('^GCF_[^_]+_GRC[^0-9]+([0-9]+)(?:.p([0-9])+)?$', re.IGNORECASE)
+		bestvers = bestpatch = 0
+		bestasm = None
+		for filename in filenames:
+			match = reFile.match(filename)
+			if match:
+				filevers = int(match.group(1))
+				filepatch = int(match.group(2) or 0)
+				if (filevers > bestvers) or ((filevers == bestvers and filepatch > bestpatch)):
+					bestvers = filevers
+					bestpatch = filepatch
+					bestasm = match.group(0)
+		#foreach file in path
+		return bestasm
+	#_identifyLatestAssembly()
+	
+	
+	##################################################
+	# source interface
+	
+	
 	@classmethod
 	def getVersionString(cls):
-		return '2.2 (2016-02-08)'
+		return '2.3 (2016-02-26)'
 	#getVersionString()
+	
+	
+	@classmethod
+	def getSpecies(cls):
+		return [9606,10090]
+	#getSpecies()
 	
 	
 	@classmethod
@@ -42,18 +74,42 @@ class Source_entrez(loki_source.Source):
 	
 	
 	def download(self, options):
+		# define a callback to identify the latest sequence version
+		def remFilesCallback(ftp):
+			if self._tax_id == 10090:
+				species = 'Mus_musculus'
+			else: # 9606
+				species = 'Homo_sapiens'
+			#if _tax_id
+			remFiles = {
+				(species+'.gene_info.gz'):         ('/gene/DATA/GENE_INFO/Mammalia/'+species+'.gene_info.gz'),
+				'gene2refseq.gz':                  '/gene/DATA/gene2refseq.gz',
+				'gene_history.gz':                 '/gene/DATA/gene_history.gz',
+				'gene2ensembl.gz':                 '/gene/DATA/gene2ensembl.gz',
+				'gene2unigene':                    '/gene/DATA/gene2unigene',
+				'gene_refseq_uniprotkb_collab.gz': '/gene/DATA/gene_refseq_uniprotkb_collab.gz',
+			}
+			path = '/genomes/refseq/vertebrate_mammalian/'+species+'/reference'
+			ftp.cwd(path)
+			bestasm = self._identifyLatestAssembly(ftp.nlst())
+			if bestasm:
+				remFiles[species+'.assembly_report.txt'] = '%s/%s/%s_assembly_report.txt' % (path,bestasm,bestasm)
+			
+			return remFiles
+		#remFilesCallback
+		
 		# download the latest source files
-		self.downloadFilesFromFTP('ftp.ncbi.nih.gov', {
-			'Homo_sapiens.gene_info.gz':       '/gene/DATA/GENE_INFO/Mammalia/Homo_sapiens.gene_info.gz',
-			'gene2refseq.gz':                  '/gene/DATA/gene2refseq.gz',
-			'gene_history.gz':                 '/gene/DATA/gene_history.gz',
-			'gene2ensembl.gz':                 '/gene/DATA/gene2ensembl.gz',
-			'gene2unigene':                    '/gene/DATA/gene2unigene',
-			'gene_refseq_uniprotkb_collab.gz': '/gene/DATA/gene_refseq_uniprotkb_collab.gz',
-		})
-		self.downloadFilesFromFTP('ftp.uniprot.org', {
-			'HUMAN_9606_idmapping_selected.tab.gz': '/pub/databases/uniprot/current_release/knowledgebase/idmapping/by_organism/HUMAN_9606_idmapping_selected.tab.gz',
-		})
+		self.downloadFilesFromFTP('ftp.ncbi.nih.gov', remFilesCallback)
+		if self._tax_id == 10090:
+			remFiles = {
+				'MOUSE_10090_idmapping_selected.tab.gz': '/pub/databases/uniprot/current_release/knowledgebase/idmapping/by_organism/MOUSE_10090_idmapping_selected.tab.gz',
+			}
+		else: # 9606
+			remFiles = {
+				'HUMAN_9606_idmapping_selected.tab.gz': '/pub/databases/uniprot/current_release/knowledgebase/idmapping/by_organism/HUMAN_9606_idmapping_selected.tab.gz',
+			}
+		#if _tax_id
+		self.downloadFilesFromFTP('ftp.uniprot.org', remFiles)
 	#download()
 	
 	
@@ -108,10 +164,14 @@ class Source_entrez(loki_source.Source):
 			'RGD':       'rgd_id',
 			'miRBase':   'mirbase_id',
 		}
-		geneFile = self.zfile('Homo_sapiens.gene_info.gz') #TODO:context manager,iterator
+		if self._tax_id == 10090:
+			geneFile = self.zfile('Mus_musculus.gene_info.gz') #TODO:context manager,iterator
+		else: # 9606
+			geneFile = self.zfile('Homo_sapiens.gene_info.gz') #TODO:context manager,iterator
+		#if _tax_id
 		for line in geneFile:
-			# quickly filter out all non-9606 (human) taxonomies before taking the time to split()
-			if line.startswith("9606\t"):
+			# quickly filter out all other taxonomies before taking the time to split()
+			if line.startswith(str(self._tax_id) + "\t"):
 				words = line.rstrip().split("\t")
 				entrezID = int(words[1])
 				symbol = words[2]
@@ -139,11 +199,13 @@ class Source_entrez(loki_source.Source):
 				for xref in xrefs:
 					xrefDB,xrefID = xref.split(":",1)
 					# turn ENSG/ENSP/ENST into Ensembl_X
-					if xrefDB == "Ensembl" and xrefID.startswith("ENS") and len(xrefID) > 3:
+					if xrefDB == "Ensembl" and xrefID.startswith("ENSMUS") and len(xrefID) > 6:
+						xrefDB = "Ensembl_%c" % xrefID[6]
+					elif xrefDB == "Ensembl" and xrefID.startswith("ENS") and len(xrefID) > 3:
 						xrefDB = "Ensembl_%c" % xrefID[3]
 					if xrefDB in xrefNS:
 						nsNames[xrefNS[xrefDB]].add( (entrezID,xrefID) )
-			#if taxonomy is 9606 (human)
+			#if taxonomy
 		#foreach line in geneFile
 		
 		# delete any symbol alias which is also the primary name of exactly one other gene
@@ -179,13 +241,39 @@ class Source_entrez(loki_source.Source):
 			nsNames[ns] = names
 		numNames = sum(len(nsNames[ns]) for ns in nsNames)
 		
+		# process assembly chromosome report
+		self.log("processing assembled chromosomes ...")
+		accChm = dict()
+		if self._tax_id == 10090:
+			asmFile = open('Mus_musculus.assembly_report.txt','rU')
+		else: # 9606
+			asmFile = open('Homo_sapiens.assembly_report.txt','rU')
+		#if _tax_id
+		for line in asmFile:
+			if line.startswith("#"):
+				header = line
+			elif not header.startswith("# Sequence-Name	Sequence-Role	Assigned-Molecule	Assigned-Molecule-Location/Type	GenBank-Accn	Relationship	RefSeq-Accn"):
+				self.log(" ERROR: unrecognized file header\n")
+				self.log("%s\n" % header)
+			else:
+				words = line.split("\t")
+				if words[1] == "assembled-molecule":
+					accChm[words[6].split('.')[0].strip()] = words[0].strip()
+			#if header
+		#foreach line
+		self.log("... OK: %d chromosomes\n" % (len(accChm),))
+		
 		# process gene regions
 		# Entrez sequences use 0-based closed intervals, according to:
 		#   http://www.ncbi.nlm.nih.gov/books/NBK3840/#genefaq.Representation_of_nucleotide_pos
 		# and comparison of web-reported boundary coordinates to gene length (len = end - start + 1).
 		# Since LOKI uses 1-based closed intervals, we add 1 to all coordinates.
 		self.log("processing gene regions ...")
-		reBuild = re.compile('GRCh([0-9]+)')
+		if self._tax_id == 10090:
+			reBuild = re.compile('GRCm([0-9]+)')
+		else: # 9606
+			reBuild = re.compile('GRCh([0-9]+)')
+		#if _tax_id
 		buildGenes = collections.defaultdict(set)
 		buildRegions = collections.defaultdict(set)
 		setOrphan = set()
@@ -200,8 +288,8 @@ class Source_entrez(loki_source.Source):
 			self.log("%s\n" % header)
 		else:
 			for line in regionFile:
-				# skip non-9606 (human) taxonomies before taking the time to split()
-				if not line.startswith("9606\t"):
+				# quickly filter out all other taxonomies before taking the time to split()
+				if not line.startswith(str(self._tax_id) + "\t"):
 					continue
 				
 				# grab relevant columns
@@ -237,10 +325,7 @@ class Source_entrez(loki_source.Source):
 					continue
 				
 				# skip chromosome mismatches
-				if genAcc in ('NC_001807','NC_012920'): #TODO: avoid hardcoding this mapping
-					chm = self._loki.chr_num.get('MT')
-				else:
-					chm = self._loki.chr_num.get(genAcc[3:].lstrip('0'))
+				chm = self._loki.chr_num.get(accChm.get(genAcc))
 				if not chm:
 					setBadChr.add(entrezID)
 					continue
@@ -283,9 +368,9 @@ class Source_entrez(loki_source.Source):
 			if setBadNC:
 				self.log("WARNING: %d genes not mapped to whole chromosome\n" % (len(setBadNC)))
 			if setBadBuild:
-				self.log("WARNING: %d genes not mapped to any GRCh build\n" % (len(setBadBuild)))
+				self.log("WARNING: %d genes not mapped to any GRC build\n" % (len(setBadBuild)))
 			if setBadVers:
-				self.log("WARNING: %d genes mapped to GRCh build version other than %s\n" % (len(setBadVers),grcBuild))
+				self.log("WARNING: %d genes mapped to GRC build version other than %s\n" % (len(setBadVers),grcBuild))
 			if setBadChr:
 				self.log("WARNING: %d genes on mismatching chromosome\n" % (len(setBadChr)))
 			self.logPop()
@@ -310,24 +395,25 @@ class Source_entrez(loki_source.Source):
 			self.log("%s\n" % header)
 		else:
 			for line in histFile:
-				# quickly filter out all non-9606 (human) taxonomies before taking the time to split()
-				if line.startswith("9606\t"):
-					words = line.split("\t")
-					entrezID = int(words[1]) if words[1] != "-" else None
-					oldEntrez = int(words[2]) if words[2] != "-" else None
-					oldName = words[3] if words[3] != "-" else None
-					
-					if entrezID and entrezID in entrezBID:
-						if oldEntrez and oldEntrez != entrezID:
-							entrezUpdate[oldEntrez] = entrezID
-							nsNames['entrez_gid'].add( (entrezBID[entrezID],oldEntrez) )
-						if oldName and (oldName not in primaryEntrez or primaryEntrez[oldName] == False):
-							if oldName not in historyEntrez:
-								historyEntrez[oldName] = entrezID
-							elif historyEntrez[oldName] != entrezID:
-								historyEntrez[oldName] = False
-							nsNames['symbol'].add( (entrezBID[entrezID],oldName) )
-				#if taxonomy is 9606 (human)
+				# quickly filter out all other taxonomies before taking the time to split()
+				if not line.startswith(str(self._tax_id) + "\t"):
+					continue
+				
+				words = line.split("\t")
+				entrezID = int(words[1]) if words[1] != "-" else None
+				oldEntrez = int(words[2]) if words[2] != "-" else None
+				oldName = words[3] if words[3] != "-" else None
+				
+				if entrezID and entrezID in entrezBID:
+					if oldEntrez and oldEntrez != entrezID:
+						entrezUpdate[oldEntrez] = entrezID
+						nsNames['entrez_gid'].add( (entrezBID[entrezID],oldEntrez) )
+					if oldName and (oldName not in primaryEntrez or primaryEntrez[oldName] == False):
+						if oldName not in historyEntrez:
+							historyEntrez[oldName] = entrezID
+						elif historyEntrez[oldName] != entrezID:
+							historyEntrez[oldName] = False
+						nsNames['symbol'].add( (entrezBID[entrezID],oldName) )
 			#foreach line in histFile
 			
 			# delete any symbol alias which is also the historical name of exactly one other gene
@@ -357,26 +443,27 @@ class Source_entrez(loki_source.Source):
 			self.log("%s\n" % header)
 		else:
 			for line in ensFile:
-				# quickly filter out all non-9606 (human) taxonomies before taking the time to split()
-				if line.startswith("9606\t"):
-					words = line.split("\t")
-					entrezID = int(words[1])
-					ensemblG = words[2] if words[2] != "-" else None
-					ensemblT = words[4] if words[4] != "-" else None
-					ensemblP = words[6] if words[6] != "-" else None
+				# quickly filter out all other taxonomies before taking the time to split()
+				if not line.startswith(str(self._tax_id) + "\t"):
+					continue
+				
+				words = line.split("\t")
+				entrezID = int(words[1])
+				ensemblG = words[2] if words[2] != "-" else None
+				ensemblT = words[4] if words[4] != "-" else None
+				ensemblP = words[6] if words[6] != "-" else None
+				
+				if ensemblG or ensemblT or ensemblP:
+					while entrezID and (entrezID in entrezUpdate):
+						entrezID = entrezUpdate[entrezID]
 					
-					if ensemblG or ensemblT or ensemblP:
-						while entrezID and (entrezID in entrezUpdate):
-							entrezID = entrezUpdate[entrezID]
-						
-						if entrezID and (entrezID in entrezBID):
-							if ensemblG:
-								nsNames['ensembl_gid'].add( (entrezBID[entrezID],ensemblG) )
-							if ensemblT:
-								nsNames['ensembl_gid'].add( (entrezBID[entrezID],ensemblT) )
-							if ensemblP:
-								nsNames['ensembl_pid'].add( (entrezBID[entrezID],ensemblP) )
-				#if taxonomy is 9606 (human)
+					if entrezID and (entrezID in entrezBID):
+						if ensemblG:
+							nsNames['ensembl_gid'].add( (entrezBID[entrezID],ensemblG) )
+						if ensemblT:
+							nsNames['ensembl_gid'].add( (entrezBID[entrezID],ensemblT) )
+						if ensemblP:
+							nsNames['ensembl_pid'].add( (entrezBID[entrezID],ensemblP) )
 			#foreach line in ensFile
 			
 			# print stats
@@ -440,8 +527,12 @@ class Source_entrez(loki_source.Source):
 			#if header ok
 		else:
 			# process uniprot gene names from uniprot (no header!)
+			if self._tax_id == 10090:
+				upFile = self.zfile('MOUSE_10090_idmapping_selected.tab.gz') #TODO:context manager,iterator
+			else: # 9606
+				upFile = self.zfile('HUMAN_9606_idmapping_selected.tab.gz') #TODO:context manager,iterator
+			#if _tax_id
 			self.log("processing uniprot gene names ...")
-			upFile = self.zfile('HUMAN_9606_idmapping_selected.tab.gz') #TODO:context manager,iterator
 			""" /* ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/idmapping/README */
 1. UniProtKB-AC
 2. UniProtKB-ID
@@ -542,7 +633,7 @@ class Source_entrez(loki_source.Source):
 		nsNames = None
 		
 		# store gene names
-		if nsNameNames:
+		if sum(len(nn) for nn in nsNameNames.itervalues()) > 0:
 			self.log("writing gene identifier references to the database ...")
 			numNameNames = 0
 			for ns in nsNameNames:
