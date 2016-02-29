@@ -8,8 +8,14 @@ class Source_kegg(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.0 (2013-02-14)'
+		return '2.1 (2016-02-29)'
 	#getVersionString()
+	
+	
+	@classmethod
+	def getSpecies(cls):
+		return [9606,10090]
+	#getSpecies()
 	
 	
 	@classmethod
@@ -40,6 +46,12 @@ class Source_kegg(loki_source.Source):
 	
 	
 	def download(self, options):
+		if self._tax_id == 10090:
+			species = 'mmu'
+		else: # 9606
+			species = 'hsa'
+		#if _tax_id
+		
 		if (options.get('api') == 'cache'):
 			# do nothing, update() will just expect the files to already be there
 			pass
@@ -53,8 +65,8 @@ class Source_kegg(loki_source.Source):
 			# fetch pathway list
 			self.log("fetching pathways ...")
 			pathIDs = set()
-			with open('list-pathway-hsa','wb') as pathFile:
-				for pathway in service.list_pathways('hsa'):
+			with open('list-pathway-'+species,'wb') as pathFile:
+				for pathway in service.list_pathways(species):
 					pathID = pathway['entry_id'][0]
 					name = pathway['definition'][0]
 					pathFile.write("%s\t%s\n" % (pathID,name))
@@ -66,10 +78,10 @@ class Source_kegg(loki_source.Source):
 			# fetch genes for each pathway
 			self.log("fetching gene associations ...")
 			numAssoc = 0
-			with open('link-hsa-pathway','wb') as assocFile:
+			with open('link-'+species+'-pathway','wb') as assocFile:
 				for pathID in pathIDs:
-					for hsaGene in service.get_genes_by_pathway(pathID):
-						assocFile.write("%s\t%s\n" % (pathID,hsaGene))
+					for gene in service.get_genes_by_pathway(pathID):
+						assocFile.write("%s\t%s\n" % (pathID,gene))
 						numAssoc += 1
 					#foreach association
 				#foreach pathway
@@ -77,9 +89,9 @@ class Source_kegg(loki_source.Source):
 			self.log(" OK: %d associations\n" % (numAssoc,))
 		else: # api==rest
 			self.downloadFilesFromHTTP('rest.kegg.jp', {
-				'list-pathway-hsa':  '/list/pathway/hsa',
-#				'link-hsa-pathway':  '/link/hsa/pathway',
-				'link-pathway-hsa':  '/link/pathway/hsa',
+				('list-pathway-'+species):     ('/list/pathway/'+species),
+#				('link-'+species+'-pathway'):  ('/link/'+species+'/pathway'),
+				('link-pathway-'+species):     ('/link/pathway/'+species),
 			})
 		#if api==rest/soap/cache
 	#download()
@@ -104,16 +116,23 @@ class Source_kegg(loki_source.Source):
 		
 		# since download() stores SOAP result data in files that look like REST data,
 		# we don't even have to check here -- it's the same local files either way
+		if self._tax_id == 10090:
+			species = 'mmu'
+		else: # 9606
+			species = 'hsa'
+		#if _tax_id
 		
 		# process pathways
 		self.log("processing pathways ...")
 		pathName = {}
-		with open('list-pathway-hsa','rU') as pathFile:
+		with open('list-pathway-'+species,'rU') as pathFile:
 			for line in pathFile:
 				words = line.split("\t")
 				pathID = words[0]
 				name = words[1].rstrip()
-				if name.endswith(" - Homo sapiens (human)"):
+				if self._tax_id == 10090 and name.endswith(' - Mus musculus (mouse)'):
+					name = name[:-23]
+				elif name.endswith(" - Homo sapiens (human)"):
 					name = name[:-23]
 				
 				pathName[pathID] = name
@@ -139,27 +158,27 @@ class Source_kegg(loki_source.Source):
 		entrezAssoc = set()
 		numAssoc = 0
 		if 0:
-			with open('link-hsa-pathway','rU') as assocFile:
+			with open('link-'+species+'-pathway','rU') as assocFile:
 				for line in assocFile:
 					words = line.split("\t")
 					pathID = words[0]
-					hsaGene = words[1].rstrip()
+					gene = words[1].rstrip()
 					
-					if (pathID in pathGID) and (hsaGene.startswith("hsa:")):
+					if (pathID in pathGID) and (gene.startswith(species+":")):
 						numAssoc += 1
-						entrezAssoc.add( (pathGID[pathID],numAssoc,hsaGene[4:]) )
+						entrezAssoc.add( (pathGID[pathID],numAssoc,gene[4:]) )
 					#if pathway and gene are ok
 				#foreach line in assocFile
 		else:
-			with open('link-pathway-hsa','rU') as assocFile:
+			with open('link-pathway-'+species,'rU') as assocFile:
 				for line in assocFile:
 					words = line.split("\t")
-					hsaGene = words[0]
+					gene = words[0]
 					pathID = words[1].strip()
 					
-					if (pathID in pathGID) and (hsaGene.startswith("hsa:")):
+					if (pathID in pathGID) and (gene.startswith(species+":")):
 						numAssoc += 1
-						entrezAssoc.add( (pathGID[pathID],numAssoc,hsaGene[4:]) )
+						entrezAssoc.add( (pathGID[pathID],numAssoc,gene[4:]) )
 					#if pathway and gene are ok
 				#foreach line in assocFile
 		#with assocFile
