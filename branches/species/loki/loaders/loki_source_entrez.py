@@ -139,6 +139,7 @@ class Source_entrez(loki_source.Source):
 			('unigene_gid', 0),
 			('uniprot_gid', 0),
 			('uniprot_pid', 1),
+			('mgi_id',      0),
 		])
 		typeID = self.addTypes([
 			('gene',),
@@ -163,6 +164,7 @@ class Source_entrez(loki_source.Source):
 			'Vega':      'vega_id',
 			'RGD':       'rgd_id',
 			'miRBase':   'mirbase_id',
+			'MGI':       'mgi_id',
 		}
 		if self._tax_id == 10090:
 			geneFile = self.zfile('Mus_musculus.gene_info.gz') #TODO:context manager,iterator
