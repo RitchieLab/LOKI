@@ -9,16 +9,27 @@ class Source_go(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.0 (2013-02-14)'
+		return '2.1 (2016-03-01)'
 	#getVersionString()
+	
+	
+	@classmethod
+	def getSpecies(cls):
+		return [9606,10090]
+	#getSpecies()
 	
 	
 	def download(self, options):
 		# download the latest source files
-		self.downloadFilesFromFTP('ftp.geneontology.org', {
-			'gene_association.goa_human.gz': '/go/gene-associations/gene_association.goa_human.gz',
-			'gene_ontology.1_2.obo':         '/go/ontology/obo_format_1_2/gene_ontology.1_2.obo',
-		})
+		remFiles = {
+			'gene_ontology.1_2.obo': '/go/ontology/obo_format_1_2/gene_ontology.1_2.obo',
+		}
+		if self._tax_id == 10090:
+			remFiles['gene_association.mgi.gz'] = '/go/gene-associations/gene_association.mgi.gz'
+		else: # 9606
+			remFiles['gene_association.goa_human.gz'] = '/go/gene-associations/gene_association.goa_human.gz'
+		#if _tax_id
+		self.downloadFilesFromFTP('ftp.geneontology.org', remFiles)
 	#download()
 	
 	
@@ -34,6 +45,7 @@ class Source_go(loki_source.Source):
 			('ontology',    0),
 			('symbol',      0),
 			('uniprot_pid', 1),
+			('mgi_id',      0),
 		])
 		relationshipID = self.addRelationships([
 			('is_a',),
@@ -156,10 +168,15 @@ class Source_go(loki_source.Source):
 		
 		# process gene associations
 		self.log("processing gene associations ...")
-		assocFile = self.zfile('gene_association.goa_human.gz') #TODO:context manager,iterator
+		if self._tax_id == 10090:
+			assocFile = self.zfile('gene_association.mgi.gz') #TODO:context manager,iterator
+		else: # 9606
+			assocFile = self.zfile('gene_association.goa_human.gz') #TODO:context manager,iterator
+		#if _tax_id
 		nsAssoc = {
 			'uniprot_pid': set(),
-			'symbol':      set()
+			'symbol':      set(),
+			'mgi_id':      set()
 		}
 		numAssoc = numID = 0
 		for line in assocFile:
@@ -178,22 +195,28 @@ class Source_go(loki_source.Source):
 			#desc = words[9]
 			aliases = words[10].split('|')
 			#xrefType = words[11]
-			taxon = words[12]
+			taxon = int(words[12].split(':')[-1])
 			#updated = words[13]
 			#assigner = words[14]
 			#extensions = words[15].split('|')
 			#xrefIDsplice = words[16]
 			
 			# TODO: find out for sure why the old Biofilter loader ignores IEA
-			if xrefDB == 'UniProtKB' and goID in goGID and evidence != 'IEA' and taxon == 'taxon:9606':
+			if (goID in goGID) and (evidence != 'IEA') and (taxon == self._tax_id):
+				if xrefDB == 'UniProtKB':
+					ns = 'uniprot_pid'
+				elif xrefDB == 'MGI':
+					ns = 'mgi_id'
+				else:
+					continue
 				numAssoc += 1
 				numID += 2
-				nsAssoc['uniprot_pid'].add( (goGID[goID],numAssoc,xrefID) )
+				nsAssoc[ns].add( (goGID[goID],numAssoc,xrefID) )
 				nsAssoc['symbol'].add( (goGID[goID],numAssoc,gene) )
 				for alias in aliases:
 					numID += 1
 					# aliases might be either symbols or uniprot identifiers, so try them both ways
-					nsAssoc['uniprot_pid'].add( (goGID[goID],numAssoc,alias) )
+					nsAssoc[ns].add( (goGID[goID],numAssoc,alias) )
 					nsAssoc['symbol'].add( (goGID[goID],numAssoc,alias) )
 			#if association is ok
 		#foreach association
