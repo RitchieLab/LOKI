@@ -9,8 +9,14 @@ class Source_pfam(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.2 (2016-02-08)'
+		return '2.3 (2016-03-02)'
 	#getVersionString()
+	
+	
+	@classmethod
+	def getSpecies(cls):
+		return [9606,10090]
+	#getSpecies()
 	
 	
 	def download(self, options):
@@ -105,6 +111,11 @@ class Source_pfam(loki_source.Source):
 		self.log(" OK\n")
 		
 		# process protein identifiers
+		if self._tax_id == 10090:
+			dbspecies = 'Mus musculus (Mouse)'
+		else: # 9606
+			dbspecies = 'Homo sapiens (Human)'
+		#if _tax_id
 		self.log("processing protein identifiers ...")
 		seqFile = self.zfile('pfamseq.txt.gz') #TODO:context manager,iterator
 		proNames = dict()
@@ -122,7 +133,7 @@ class Source_pfam(loki_source.Source):
 				uniprotAcc = words[1] # pfamseq_acc = P31946 , O43716 , ...
 				species = words[8] # species = Homo sapiens (Human)
 			
-			if species == 'Homo sapiens (Human)':
+			if species == dbspecies:
 				proNames[proteinNum] = (uniprotID,uniprotAcc)
 		#foreach protein
 		self.log(" OK: %d proteins\n" % (len(proNames),))

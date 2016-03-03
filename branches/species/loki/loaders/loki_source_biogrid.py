@@ -9,8 +9,14 @@ class Source_biogrid(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.0 (2013-02-14)'
+		return '2.1 (2016-03-01)'
 	#getVersionString()
+	
+	
+	@classmethod
+	def getSpecies(cls):
+		return [9606,10090]
+	#getSpecies()
 	
 	
 	def download(self, options):
@@ -50,8 +56,13 @@ class Source_biogrid(loki_source.Source):
 				return False
 			self.log(" OK\n")
 			self.log("processing gene interactions ...")
+			if self._tax_id == 10090:
+				species = 'Mus_musculus'
+			else: # 9606
+				species = 'Homo_sapiens'
+			#if _tax_id
 			for info in assocZip.infolist():
-				if info.filename.find('Homo_sapiens') >= 0:
+				if info.filename.find(species) >= 0:
 					assocFile = assocZip.open(info,'r')
 					header = assocFile.next().rstrip()
 					observedHeaders = {
@@ -73,10 +84,10 @@ class Source_biogrid(loki_source.Source):
 						gene2 = words[8]
 						aliases1 = words[9].split('|') if words[9] != "-" else empty
 						aliases2 = words[10].split('|') if words[10] != "-" else empty
-						tax1 = words[15]
-						tax2 = words[16]
+						tax1 = int(words[15])
+						tax2 = int(words[16])
 						
-						if tax1 == '9606' and tax2 == '9606':
+						if tax1 == self._tax_id and tax2 == self._tax_id:
 							member1 = (entrezID1, gene1, syst1) + tuple(aliases1)
 							member2 = (entrezID2, gene2, syst2) + tuple(aliases2)
 							if member1 != member2:
@@ -87,7 +98,7 @@ class Source_biogrid(loki_source.Source):
 						#if interaction is ok
 					#foreach line in assocFile
 					assocFile.close()
-				#if Homo_sapiens file
+				#if species file
 			#foreach file in assocZip
 		#with assocZip
 		numAssoc = len(pairLabels)

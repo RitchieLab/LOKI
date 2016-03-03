@@ -11,8 +11,14 @@ class Source_reactome(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.1 (2015-01-23)'
+		return '2.2 (2016-03-02)'
 	#getVersionString()
+	
+	
+	@classmethod
+	def getSpecies(cls):
+		return [9606,10090]
+	#getSpecies()
 	
 	
 	def download(self, options):
@@ -66,6 +72,11 @@ class Source_reactome(loki_source.Source):
 			'ensembl_pid' : { 'path':set(), 'react':set() },
 			'uniprot_pid' : { 'path':set(), 'react':set() },
 		}
+		if self._tax_id == 10090:
+			species = 'Mus musculus'
+		else: # 9606
+			species = 'Homo sapiens'
+		#if _tax_id
 		
 		# process pathways
 		# <react_id>\t<description>\t<species>
@@ -76,7 +87,7 @@ class Source_reactome(loki_source.Source):
 			# no header
 			for line in pathFile:
 				words = line.decode('latin-1').rstrip().split("\t")
-				if line.startswith('#') or (len(words) < 3) or (words[2] != "Homo sapiens"):
+				if line.startswith('#') or (len(words) < 3) or (words[2] != species):
 					continue
 				reactID = words[0]
 				path = words[1]
@@ -161,18 +172,27 @@ class Source_reactome(loki_source.Source):
 		with open('Ensembl2Reactome.txt', 'rU') as assocFile:
 			for line in assocFile:
 				words = line.decode('latin-1').rstrip().split("\t")
-				if line.startswith('#') or (len(words) < 6) or (words[5] != "Homo sapiens"):
+				if line.startswith('#') or (len(words) < 6) or (words[5] != species):
 					continue
 				ensemblID = words[0]
 				reactID = words[1]
 				path = words[3]
 				
-				if ensemblID.startswith('ENSG'):
-					ns = 'ensembl_gid'
-				elif ensemblID.startswith('ENSP'):
-					ns = 'ensembl_pid'
-				else:
-					continue
+				if self._tax_id == 10090:
+					if ensemblID.startswith('ENSMUSG'):
+						ns = 'ensembl_gid'
+					elif ensemblID.startswith('ENSMUSP'):
+						ns = 'ensembl_pid'
+					else:
+						continue
+				else: # 9606
+					if ensemblID.startswith('ENSG'):
+						ns = 'ensembl_gid'
+					elif ensemblID.startswith('ENSP'):
+						ns = 'ensembl_pid'
+					else:
+						continue
+				#if _tax_id
 				
 				if reactID not in reactPath:
 					numPath += 1
@@ -200,7 +220,7 @@ class Source_reactome(loki_source.Source):
 		with open('UniProt2Reactome.txt', 'rU') as assocFile:
 			for line in assocFile:
 				words = line.decode('latin-1').rstrip().split("\t")
-				if line.startswith('#') or (len(words) < 6) or (words[5] != "Homo sapiens"):
+				if line.startswith('#') or (len(words) < 6) or (words[5] != species):
 					continue
 				uniprotPID = words[0]
 				reactID = words[1]

@@ -14,7 +14,7 @@ class Source_mint(loki_source.Source):
 	
 	
 	def _identifyLatestFilename(self, filenames):
-		reFile = re.compile('^([0-9]+)-([0-9]+)-([0-9]+)-mint-human.txt$', re.IGNORECASE)
+		reFile = re.compile('^([0-9]+)-([0-9]+)-([0-9]+)-mint-full.txt$', re.IGNORECASE)
 		bestdate = datetime.date.min
 		bestfile = None
 		for filename in filenames:
@@ -35,8 +35,14 @@ class Source_mint(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.0 (2013-02-14)'
+		return '2.1 (2016-03-02)'
 	#getVersionString()
+	
+	
+	@classmethod
+	def getSpecies(cls):
+		return [9606,10090]
+	#getSpecies()
 	
 	
 	def download(self, options):
@@ -103,7 +109,7 @@ class Source_mint(loki_source.Source):
 			l = 0
 			for line in assocFile:
 				l += 1
-				words = line.split('\t')
+				words = line.decode('latin-1').split('\t')
 				genes = words[0].split(';')
 				genes.extend(words[1].split(';'))
 				aliases = words[4].split(';')
@@ -124,7 +130,9 @@ class Source_mint(loki_source.Source):
 				
 				# identify interacting genes/proteins
 				for n in xrange(0,len(taxes)):
-					if taxes[n] == "taxid:9606(Homo sapiens)":
+					taxid = taxes[n].split(':',1)[-1].split('(')[0]
+					taxid = int(taxid) if taxid.isdigit() else None
+					if taxid == self._tax_id:
 						numAssoc += 1
 						# the "gene" is a helpful database cross-reference with a label indicating its type
 						xrefDB,xrefID = genes[n].split(':',1)
