@@ -1,6 +1,6 @@
 CHANGELOG
 
-2.2.2 (TBD)
+2.2.2 (2015-12-14)
 - added support for headers in HTTP download requests
 - added special namespace '*', equivalent to '', to lookup by any namespace
 

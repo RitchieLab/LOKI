@@ -9,7 +9,7 @@ class Source_pharmgkb(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.1 (2014-03-07)'
+		return '2.2 (2016-03-28)'
 	#getVersionString()
 	
 	
@@ -73,18 +73,20 @@ class Source_pharmgkb(loki_source.Source):
 				if info.filename == 'genes.tsv':
 					geneFile = geneZip.open(info,'r')
 					header = geneFile.next().rstrip()
-					if not header.startswith("PharmGKB Accession Id	Entrez Id	Ensembl Id	Name	Symbol	Alternate Names	Alternate Symbols	Is VIP	Has Variant Annotation	Cross-references"):
-						self.log(" ERROR\n")
-						self.log("unrecognized file header in '%s': %s\n" % (info.filename,header))
-						return False
+					if header.startswith("PharmGKB Accession Id	Entrez Id	Ensembl Id	Name	Symbol	Alternate Names	Alternate Symbols	Is VIP	Has Variant Annotation	Cross-references"):
+						new2 = 0
+					elif header.startswith("PharmGKB Accession Id	NCBI Gene ID	HGNC ID	Ensembl Id	Name	Symbol	Alternate Names	Alternate Symbols	Is VIP	Has Variant Annotation	Cross-references"):
+						new2 = 1
+					else:
+						raise Exception("ERROR: unrecognized file header in '%s': %s" % (info.filename,header))
 					for line in geneFile:
 						words = line.decode('latin-1').split("\t")
 						pgkbID = words[0]
 						entrezID = words[1]
-						ensemblID = words[2]
-						symbol = words[4]
-						aliases = words[6].split(',') if words[6] != "" else empty
-						xrefs = words[9].strip(', \r\n').split(',') if words[9] != "" else empty
+						ensemblID = words[2+new2]
+						symbol = words[4+new2]
+						aliases = words[6+new2].split(',') if words[6+new2] != "" else empty
+						xrefs = words[9+new2].strip(', \r\n').split(',') if words[9+new2] != "" else empty
 						
 						if entrezID:
 							setNames.add( (namespaceID['entrez_gid'],entrezID,pgkbID) )
@@ -143,6 +145,7 @@ class Source_pharmgkb(loki_source.Source):
 			self.log("processing pathways ...")
 			for info in pathZip.infolist():
 				if info.filename == 'pathways.tsv':
+					# the old format had all pathways in one giant file, delimited by blank lines
 					pathFile = pathZip.open(info,'r')
 					curPath = None
 					for line in pathFile:
@@ -174,6 +177,23 @@ class Source_pharmgkb(loki_source.Source):
 								nsAssoc['symbol'].add( (curPath,numAssoc,symbol) )
 							#if assoc is Gene
 						lastline = line
+					#foreach line in pathFile
+					pathFile.close()
+				elif info.filename.endswith('.tsv'):
+					# the new format has separate "PA###-***.tsv" files for each pathway
+					pathFile = pathZip.open(info,'r')
+					header = next(pathFile)
+					if not header.startswith("From	To	Reaction Type	Controller	Control Type	Cell Type	PubMed Id	Genes"): #	Drugs	Diseases
+						raise Exception("ERROR: unrecognized file header in '%s': %s" % (info.filename,header))
+					parts = info.filename.split('-')
+					curPath = parts[0]
+					parts = parts[1].split('.')
+					pathDesc[curPath] = (parts[0].replace("_"," "),None)
+					for line in pathFile:
+						for symbol in line.decode('latin-1').split("\t")[7].split(","):
+							numAssoc += 1
+							numID += 1
+							nsAssoc['symbol'].add( (curPath,numAssoc,symbol.strip('"')) )
 					#foreach line in pathFile
 					pathFile.close()
 				#if pathways.tsv
