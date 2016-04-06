@@ -840,7 +840,7 @@ class Source(object):
 	#getHTTPHeaders()
 	
 	
-	def downloadFilesFromHTTP(self, remHost, remFiles, reqHeaders=None):
+	def downloadFilesFromHTTP(self, remHost, remFiles, reqHeaders=None, alwaysDownload=False):
 		# remFiles={'filename.ext':'/path/on/remote/host/to/filename.ext',...}
 		
 		# check local file sizes and times
@@ -859,26 +859,28 @@ class Source(object):
 				locTime[locPath] = datetime.datetime.fromtimestamp(stat.st_mtime)
 		
 		# check remote file sizes and times
-		self.log("identifying changed files ...")
-		for locPath in remFiles:
-			request = urllib2.Request(url='http://'+remHost+remFiles[locPath], data=None, headers=(reqHeaders or {}))
-			request.get_method = lambda: 'HEAD'
-			response = urllib2.urlopen(request)
-			info = response.info()
-			
-			content_length = info.getheader('content-length')
-			if content_length:
-				remSize[locPath] = long(content_length)
-			
-			last_modified = info.getheader('last-modified')
-			if last_modified:
-				try:
-					remTime[locPath] = datetime.datetime.strptime(last_modified,'%a, %d %b %Y %H:%M:%S %Z')
-				except ValueError:
-					remTime[locPath] = datetime.datetime.utcnow()
-			
-			response.close()
-		self.log(" OK\n")
+		if not alwaysDownload:
+			self.log("identifying changed files ...")
+			for locPath in remFiles:
+				request = urllib2.Request(url='http://'+remHost+remFiles[locPath], data=None, headers=(reqHeaders or {}))
+				request.get_method = lambda: 'HEAD'
+				response = urllib2.urlopen(request)
+				info = response.info()
+				
+				content_length = info.getheader('content-length')
+				if content_length:
+					remSize[locPath] = long(content_length)
+				
+				last_modified = info.getheader('last-modified')
+				if last_modified:
+					try:
+						remTime[locPath] = datetime.datetime.strptime(last_modified,'%a, %d %b %Y %H:%M:%S %Z')
+					except ValueError:
+						remTime[locPath] = datetime.datetime.utcnow()
+				
+				response.close()
+			self.log(" OK\n")
+		#if not alwaysDownload
 		
 		# download files as needed
 		self.logPush("downloading changed files ...\n")
