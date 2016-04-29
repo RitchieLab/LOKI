@@ -1,5 +1,9 @@
 CHANGELOG
 
+2.2.3 (2016-TBD)
+- updated gwas loader to use the new EBI host and file format
+- added support for downloading from sources which do not support HTTP HEAD
+
 2.2.2 (2015-12-14)
 - added support for headers in HTTP download requests
 - added special namespace '*', equivalent to '', to lookup by any namespace

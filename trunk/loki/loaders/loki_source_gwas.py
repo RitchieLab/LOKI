@@ -14,7 +14,7 @@ class Source_gwas(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.3 (2016-04-06)'
+		return '2.4 (2016-04-29)'
 	#getVersionString()
 	
 	
@@ -38,37 +38,50 @@ class Source_gwas(loki_source.Source):
 		# process gwas cataog
 		# the catalog uses dbSNP positions from b132, which should already be 1-based
 		self.log("processing GWAS catalog annotations ...")
-		reRS = re.compile('rs[0-9]+', re.I)
+		reRS = re.compile('rs([0-9]+)', re.I)
+		reChrPos = re.compile('[^_]chr([0-9XYMT]+):([0-9]+)', re.I)
 		listNone = [None]
 		numInc = 0
 		setGwas = set()
 		if os.path.exists('gwas_catalog_v1.0-associations.tsv'):
 			with open('gwas_catalog_v1.0-associations.tsv','rU') as gwasFile:
 				header = gwasFile.next().rstrip()
-				if header.startswith("DATE ADDED TO CATALOG\tPUBMEDID\tFIRST AUTHOR\tDATE\tJOURNAL\tLINK\tSTUDY\tDISEASE/TRAIT\tINITIAL SAMPLE DESCRIPTION\tREPLICATION SAMPLE DESCRIPTION\tREGION\tCHR_ID\tCHR_POS\tREPORTED GENE(S)\tENTREZ_MAPPED_GENE\tENSEMBL_MAPPED_GENE\tENTREZ_UPSTREAM_GENE_ID\tENTREZ_DOWNSTREAM_GENE_ID\tENSEMBL_UPSTREAM_GENE_ID\tENSEMBL_DOWNSTREAM_GENE_ID\tSNP_GENE_IDS_ENTREZ\tSNP_GENE_IDS_ENSEMBL\tENTREZ_UPSTREAM_GENE_DISTANCE\tENTREZ_DOWNSTREAM_GENE_DISTANCE\tENSEMBL_UPSTREAM_GENE_DISTANCE\tENSEMBL_DOWNSTREAM_GENE_DISTANCE\tSTRONGEST SNP-RISK ALLELE\tSNPS\tMERGED\tSNP_ID_CURRENT\tCONTEXT\tINTERGENIC_ENTREZ\tINTERGENIC_ENSEMBL\tRISK ALLELE FREQUENCY\tP-VALUE\tPVALUE_MLOG\tP-VALUE (TEXT)\tOR or BETA\t95% CI (TEXT)\t"): # PLATFORM [SNPS PASSING QC]\tCNV"):
-					pass
-				else:
+				cols = list(w.strip() for w in header.decode('latin-1').split("\t"))
+				try:
+					colPubmedID = cols.index("PUBMEDID")
+					colTrait = cols.index("DISEASE/TRAIT")
+					colChm = cols.index("CHR_ID")
+					colPos = cols.index("CHR_POS")
+					colRS1 = cols.index("STRONGEST SNP-RISK ALLELE")
+					colRS2 = cols.index("SNPS")
+					colRAF = cols.index("RISK ALLELE FREQUENCY")
+					colORBeta = cols.index("OR or BETA")
+					col95CI = cols.index("95% CI (TEXT)")
+					print (colPubmedID+1),(colTrait+1),(colChm+1),(colPos+1),(colRS1+1),(colRS2+1),(colRAF+1),(colORBeta+1),(col95CI+1)
+				except ValueError as e:
 					self.log(" ERROR\n")
-					raise Exception("unrecognized file header")
+					raise Exception("unrecognized file header: %s" % str(e))
 				for line in gwasFile:
 					line = line.rstrip("\r\n")
 					words = list(w.strip() for w in line.decode('latin-1').split("\t"))
-					if len(words) <= 38:
+					if len(words) <= col95CI:
 						# blank line at the end is normal
 						if (len(words) > 1) or words[0]:
 							numInc += 1
 						continue
-					pubmedID = int(words[1]) if words[1] else None
-					trait = words[7]
-					chm = self._loki.chr_num[words[11]] if (words[11] in self._loki.chr_num) else None
-					pos = long(words[12]) if words[12] else None
-					snps = words[26] + ' ' + words[27]
+					pubmedID = int(words[colPubmedID]) if words[colPubmedID] else None
+					trait = words[colTrait]
+					chm = self._loki.chr_num[words[colChm]] if (words[colChm] in self._loki.chr_num) else None
+					pos = long(words[colPos]) if words[colPos] else None
+					snps = words[colRS1] + ' ' + words[colRS2]
 					rses = set(int(rs[2:]) for rs in reRS.findall(snps)) or listNone
-					riskAfreq = words[33]
-					orBeta = words[37]
-					allele95ci = words[38]
-					for rs in rses:
-						setGwas.add( (rs,chm,pos,trait,snps,orBeta,allele95ci,riskAfreq,pubmedID) )
+					riskAfreq = words[colRAF]
+					orBeta = words[colORBeta]
+					allele95ci = words[col95CI]
+					for rs in set(reRS.findall(snps)):
+						setGwas.add( (int(rs),chm,pos,trait,snps,orBeta,allele95ci,riskAfreq,pubmedID) )
+					for rschm,rspos in set(reChrPos.findall(snps)):
+						setGwas.add( (None,chm or rschm,pos or rspos,trait,snps,orBeta,allele95ci,riskAfreq,pubmedID) )
 				#foreach line
 			#with gwasFile
 		else:
