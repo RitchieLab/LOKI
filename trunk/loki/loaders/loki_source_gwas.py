@@ -57,7 +57,6 @@ class Source_gwas(loki_source.Source):
 					colRAF = cols.index("RISK ALLELE FREQUENCY")
 					colORBeta = cols.index("OR or BETA")
 					col95CI = cols.index("95% CI (TEXT)")
-					print (colPubmedID+1),(colTrait+1),(colChm+1),(colPos+1),(colRS1+1),(colRS2+1),(colRAF+1),(colORBeta+1),(col95CI+1)
 				except ValueError as e:
 					self.log(" ERROR\n")
 					raise Exception("unrecognized file header: %s" % str(e))
