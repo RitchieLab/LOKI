@@ -42,7 +42,7 @@ class Source_dbsnp(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.1 (2013-07-17)'
+		return '2.2 (2016-05-04)'
 	#getVersionString()
 	
 	
@@ -51,7 +51,7 @@ class Source_dbsnp(loki_source.Source):
 		return {
 			'loci'   : '[all|validated]  --  store all or only validated SNP loci (default: all)',
 			'merges' : '[yes|no]  --  process and store RS# merge history (default: yes)',
-			'roles'  : '[yes|no]  --  process and store SNP roles (default: yes)',
+			'roles'  : '[yes|no]  --  process and store SNP roles (default: no)',
 		}
 	#getOptions()
 	
@@ -90,7 +90,7 @@ class Source_dbsnp(loki_source.Source):
 			if options.get('merges',True):
 				remFiles['RsMergeArch.bcp.gz'] = '/snp/organisms/human_9606/database/organism_data/RsMergeArch.bcp.gz'
 			
-			if options.get('roles',True):
+			if options.get('roles',False):
 				remFiles['SnpFunctionCode.bcp.gz'] = '/snp/database/shared_data/SnpFunctionCode.bcp.gz'
 				path = '/snp/organisms/human_9606/database/organism_data'
 				ftp.cwd(path)
@@ -162,7 +162,7 @@ CREATE TABLE [RsMergeArch]
 		#if merges
 		
 		# process SNP role function codes
-		if options.get('roles','yes') == 'yes':
+		if options.get('roles','no') == 'yes':
 			""" /* from dbSNP_main_table.sql.gz */
 CREATE TABLE [SnpFunctionCode]
 (
