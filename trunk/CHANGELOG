@@ -1,6 +1,6 @@
 CHANGELOG
 
-2.2.3 (2016-TBD)
+2.2.3 (2016-05-09)
 - updated gwas loader to use the new EBI host and file format
 - added support for downloading from sources which do not support HTTP HEAD
 

@@ -36,7 +36,7 @@ class my_install(autodist.auto_install):
 
 setup(
 	name='LOKI',
-	version='2.2.3a2',
+	version='2.2.3',
 	author='Ritchie Lab',
 	author_email='software@ritchielab.psu.edu',
 	url='http://ritchielab.psu.edu',
