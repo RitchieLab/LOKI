@@ -8,13 +8,13 @@ class Source_kegg(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.1 (2016-02-29)'
+		return '2.1 (2016-03-31)'
 	#getVersionString()
 	
 	
 	@classmethod
 	def getSpecies(cls):
-		return [9606,10090]
+		return [3702,559292,6239,7227,7955,9606,10090,10116,208964] # ,4932,
 	#getSpecies()
 	
 	
@@ -46,8 +46,22 @@ class Source_kegg(loki_source.Source):
 	
 	
 	def download(self, options):
-		if self._tax_id == 10090:
+		if self._tax_id == 3702:
+			species = 'ath'
+		elif self._tax_id == 559292 or self._tax_id == 4932:
+			species = 'sce'
+		elif self._tax_id == 6239:
+			species = 'cel'
+		elif self._tax_id == 7227:
+			species = 'dme'
+		elif self._tax_id == 7955:
+			species = 'dre'
+		elif self._tax_id == 10090:
 			species = 'mmu'
+		elif self._tax_id == 10116:
+			species = 'rno'
+		elif self._tax_id == 208964:
+			species = 'pae'
 		else: # 9606
 			species = 'hsa'
 		#if _tax_id
@@ -108,6 +122,9 @@ class Source_kegg(loki_source.Source):
 			('kegg_id',    0),
 			('pathway',    0),
 			('entrez_gid', 0),
+			('symbol',     0),
+			('sgd_id',     0),
+			('tair_id',    0),
 		])
 		typeID = self.addTypes([
 			('pathway',),
@@ -116,11 +133,35 @@ class Source_kegg(loki_source.Source):
 		
 		# since download() stores SOAP result data in files that look like REST data,
 		# we don't even have to check here -- it's the same local files either way
-		if self._tax_id == 10090:
+		if self._tax_id == 3702:
+			species = 'ath'
+			label = 'Arabidopsis thaliana (thale cress)'
+		elif self._tax_id == 559292 or self._tax_id == 4932:
+			species = 'sce'
+			label = 'Saccharomyces cerevisiae (budding yeast)'
+		elif self._tax_id == 6239:
+			species = 'cel'
+			label = 'Caenorhabditis elegans (nematode)'
+		elif self._tax_id == 7227:
+			species = 'dme'
+			label = 'Drosophila melanogaster (fruit fly)'
+		elif self._tax_id == 7955:
+			species = 'dre'
+			label = 'Danio rerio (zebrafish)'
+		elif self._tax_id == 10090:
 			species = 'mmu'
+			label = 'Mus musculus (mouse)'
+		elif self._tax_id == 10116:
+			species = 'rno'
+			label = 'Rattus norvegicus (rat)'
+		elif self._tax_id == 208964:
+			species = 'pae'
+			label = 'Pseudomonas aeruginosa PAO1'
 		else: # 9606
 			species = 'hsa'
+			label = 'Homo sapiens (human)'
 		#if _tax_id
+		label = ' - ' + label
 		
 		# process pathways
 		self.log("processing pathways ...")
@@ -130,11 +171,8 @@ class Source_kegg(loki_source.Source):
 				words = line.split("\t")
 				pathID = words[0]
 				name = words[1].rstrip()
-				if self._tax_id == 10090 and name.endswith(' - Mus musculus (mouse)'):
-					name = name[:-23]
-				elif name.endswith(" - Homo sapiens (human)"):
-					name = name[:-23]
-				
+				if name.endswith(label):
+					name = name[:-len(label)]
 				pathName[pathID] = name
 			#foreach line in pathFile
 		#with pathFile
@@ -155,38 +193,50 @@ class Source_kegg(loki_source.Source):
 		
 		# process associations
 		self.log("processing gene associations ...")
-		entrezAssoc = set()
+		nsAssoc = {
+			'entrez_gid': set(),
+			'symbol':     set(),
+			'sgd_id':     set(),
+			'tair_id':    set(),
+		}
 		numAssoc = 0
-		if 0:
-			with open('link-'+species+'-pathway','rU') as assocFile:
-				for line in assocFile:
-					words = line.split("\t")
-					pathID = words[0]
-					gene = words[1].rstrip()
-					
-					if (pathID in pathGID) and (gene.startswith(species+":")):
-						numAssoc += 1
-						entrezAssoc.add( (pathGID[pathID],numAssoc,gene[4:]) )
-					#if pathway and gene are ok
-				#foreach line in assocFile
-		else:
-			with open('link-pathway-'+species,'rU') as assocFile:
-				for line in assocFile:
-					words = line.split("\t")
-					gene = words[0]
-					pathID = words[1].strip()
-					
-					if (pathID in pathGID) and (gene.startswith(species+":")):
-						numAssoc += 1
-						entrezAssoc.add( (pathGID[pathID],numAssoc,gene[4:]) )
-					#if pathway and gene are ok
-				#foreach line in assocFile
+		"""
+		with open('link-'+species+'-pathway','rU') as assocFile:
+			for line in assocFile:
+				words = line.split("\t")
+				pathID = words[0]
+				gene = words[1].rstrip()
+				
+				if (pathID in pathGID) and (gene.startswith(species+":")):
+					numAssoc += 1
+					entrezAssoc.add( (pathGID[pathID],numAssoc,gene[4:]) )
+		"""
+		with open('link-pathway-'+species,'rU') as assocFile:
+			for line in assocFile:
+				words = line.split("\t")
+				gene = words[0]
+				pathID = words[1].strip()
+				
+				if (pathID in pathGID) and (gene.startswith(species+":")):
+					numAssoc += 1
+					gene = gene[4:]
+					if gene.isdigit():
+						nsAssoc['entrez_gid'].add( (pathGID[pathID],numAssoc,gene) )
+					else:
+						nsAssoc['symbol'].add( (pathGID[pathID],numAssoc,gene) )
+						if self._tax_id == 3702:
+							nsAssoc['tair_id'].add( (pathGID[pathID],numAssoc,gene) )
+						elif self._tax_id == 559292:
+							nsAssoc['sgd_id'].add( (pathGID[pathID],numAssoc,gene) )
+				#if pathway and gene are ok
+			#foreach line in assocFile
 		#with assocFile
 		self.log(" OK: %d associations\n" % (numAssoc,))
 		
 		# store gene associations
 		self.log("writing gene associations to the database ...")
-		self.addGroupMemberTypedNamespacedNames(typeID['gene'], namespaceID['entrez_gid'], entrezAssoc)
+		for ns in nsAssoc:
+			self.addGroupMemberTypedNamespacedNames(typeID['gene'], namespaceID[ns], nsAssoc[ns])
 		self.log(" OK\n")
 	#update()
 	

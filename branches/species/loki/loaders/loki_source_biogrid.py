@@ -9,13 +9,13 @@ class Source_biogrid(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.1 (2016-03-01)'
+		return '2.1 (2016-04-04)'
 	#getVersionString()
 	
 	
 	@classmethod
 	def getSpecies(cls):
-		return [9606,10090]
+		return [3702,559292,6239,7227,7955,9606,10090,10116] # ,4932,
 	#getSpecies()
 	
 	
@@ -56,8 +56,20 @@ class Source_biogrid(loki_source.Source):
 				return False
 			self.log(" OK\n")
 			self.log("processing gene interactions ...")
-			if self._tax_id == 10090:
+			if self._tax_id == 3702:
+				species = 'Arabidopsis_thaliana'
+			elif self._tax_id == 559292: # 4932:
+				species = 'Saccharomyces_cerevisiae'
+			elif self._tax_id == 6239:
+				species = 'Caenorhabditis_elegans'
+			elif self._tax_id == 7227:
+				species = 'Drosophila_melanogaster'
+			elif self._tax_id == 7955:
+				species = 'Danio_rerio'
+			elif self._tax_id == 10090:
 				species = 'Mus_musculus'
+			elif self._tax_id == 10116:
+				species = 'Rattus_norvegicus'
 			else: # 9606
 				species = 'Homo_sapiens'
 			#if _tax_id
@@ -76,8 +88,8 @@ class Source_biogrid(loki_source.Source):
 					for line in assocFile:
 						words = line.split("\t")
 						bgID = int(words[0])
-						entrezID1 = int(words[1])
-						entrezID2 = int(words[2])
+						entrezID1 = int(words[1]) if words[1] != "-" else None
+						entrezID2 = int(words[2]) if words[2] != "-" else None
 						syst1 = words[5] if words[5] != "-" else None
 						syst2 = words[6] if words[6] != "-" else None
 						gene1 = words[7]
@@ -87,7 +99,7 @@ class Source_biogrid(loki_source.Source):
 						tax1 = int(words[15])
 						tax2 = int(words[16])
 						
-						if tax1 == self._tax_id and tax2 == self._tax_id:
+						if entrezID1 and entrezID2 and tax1 == self._tax_id and tax2 == self._tax_id:
 							member1 = (entrezID1, gene1, syst1) + tuple(aliases1)
 							member2 = (entrezID2, gene2, syst2) + tuple(aliases2)
 							if member1 != member2:

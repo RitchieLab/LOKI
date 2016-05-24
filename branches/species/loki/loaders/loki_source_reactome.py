@@ -2,6 +2,7 @@
 
 import collections
 import itertools
+import re
 import zipfile
 from loki import loki_source
 
@@ -11,13 +12,13 @@ class Source_reactome(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.2 (2016-03-02)'
+		return '2.2 (2016-03-31)'
 	#getVersionString()
 	
 	
 	@classmethod
 	def getSpecies(cls):
-		return [9606,10090]
+		return [3702,559292,6239,7227,7955,9606,10090,10116] # ,4932,
 	#getSpecies()
 	
 	
@@ -72,8 +73,20 @@ class Source_reactome(loki_source.Source):
 			'ensembl_pid' : { 'path':set(), 'react':set() },
 			'uniprot_pid' : { 'path':set(), 'react':set() },
 		}
-		if self._tax_id == 10090:
+		if self._tax_id == 3702:
+			species = 'Arabidopsis thaliana'
+		elif self._tax_id == 559292 or self._tax_id == 4932:
+			species = 'Saccharomyces cerevisiae'
+		elif self._tax_id == 6239:
+			species = 'Caenorhabditis elegans'
+		elif self._tax_id == 7227:
+			species = 'Drosophila melanogaster'
+		elif self._tax_id == 7955:
+			species = 'Danio rerio'
+		elif self._tax_id == 10090:
 			species = 'Mus musculus'
+		elif self._tax_id == 10116:
+			species = 'Rattus norvegicus'
 		else: # 9606
 			species = 'Homo sapiens'
 		#if _tax_id
@@ -166,6 +179,7 @@ class Source_reactome(loki_source.Source):
 		# http://www.reactome.org/download/mapping.README.txt
 		# <mapID>\t<reactID>\t<url>\t<pathway>\t<evidence>\t<species>
 		self.log("processing ensembl associations ...")
+		reENSP = re.compile('^ENS[A-Z]*P[0-9]+', re.IGNORECASE)
 		numNewPath = 0
 		numMismatch = 0
 		numNewAssoc = 0
@@ -178,21 +192,10 @@ class Source_reactome(loki_source.Source):
 				reactID = words[1]
 				path = words[3]
 				
-				if self._tax_id == 10090:
-					if ensemblID.startswith('ENSMUSG'):
-						ns = 'ensembl_gid'
-					elif ensemblID.startswith('ENSMUSP'):
-						ns = 'ensembl_pid'
-					else:
-						continue
-				else: # 9606
-					if ensemblID.startswith('ENSG'):
-						ns = 'ensembl_gid'
-					elif ensemblID.startswith('ENSP'):
-						ns = 'ensembl_pid'
-					else:
-						continue
-				#if _tax_id
+				if reENSP.match(ensemblID):
+					ns = 'ensembl_pid'
+				else:
+					ns = 'ensembl_gid'
 				
 				if reactID not in reactPath:
 					numPath += 1

@@ -9,26 +9,41 @@ class Source_go(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.1 (2016-03-01)'
+		return '2.1 (2016-04-21)'
 	#getVersionString()
 	
 	
 	@classmethod
 	def getSpecies(cls):
-		return [9606,10090]
+		return [3702,559292,6239,7227,7955,9606,10090,10116,208964] # ,4932,
 	#getSpecies()
 	
 	
 	def download(self, options):
 		# download the latest source files
-		remFiles = {
-			'gene_ontology.1_2.obo': '/go/ontology/obo_format_1_2/gene_ontology.1_2.obo',
-		}
-		if self._tax_id == 10090:
-			remFiles['gene_association.mgi.gz'] = '/go/gene-associations/gene_association.mgi.gz'
+		if self._tax_id == 3702:
+			species = 'tair'
+		elif self._tax_id == 559292 or self._tax_id == 4932:
+			species = 'sgd'
+		elif self._tax_id == 6239:
+			species = 'wb'
+		elif self._tax_id == 7227:
+			species = 'fb'
+		elif self._tax_id == 7955:
+			species = 'zfin'
+		elif self._tax_id == 10090:
+			species = 'mgi'
+		elif self._tax_id == 10116:
+			species = 'rgd'
+		elif self._tax_id == 208964:
+			species = 'pseudocap'
 		else: # 9606
-			remFiles['gene_association.goa_human.gz'] = '/go/gene-associations/gene_association.goa_human.gz'
+			species = 'goa_human'
 		#if _tax_id
+		remFiles = {
+			'gene_ontology.1_2.obo'             : '/go/ontology/obo_format_1_2/gene_ontology.1_2.obo',
+			('gene_association.'+species+'.gz') : ('/go/gene-associations/gene_association.'+species+'.gz'),
+		}
 		self.downloadFilesFromFTP('ftp.geneontology.org', remFiles)
 	#download()
 	
@@ -46,6 +61,10 @@ class Source_go(loki_source.Source):
 			('symbol',      0),
 			('uniprot_pid', 1),
 			('mgi_id',      0),
+			('tair_id',     0),
+			('sgd_id',      0),
+			('flybase_id',  0),
+			('zfin_id',     0),
 		])
 		relationshipID = self.addRelationships([
 			('is_a',),
@@ -168,16 +187,39 @@ class Source_go(loki_source.Source):
 		
 		# process gene associations
 		self.log("processing gene associations ...")
-		if self._tax_id == 10090:
-			assocFile = self.zfile('gene_association.mgi.gz') #TODO:context manager,iterator
+		if self._tax_id == 3702:
+			species = 'tair'
+		elif self._tax_id == 559292 or self._tax_id == 4932:
+			species = 'sgd'
+		elif self._tax_id == 6239:
+			species = 'wb'
+		elif self._tax_id == 7227:
+			species = 'fb'
+		elif self._tax_id == 7955:
+			species = 'zfin'
+		elif self._tax_id == 10090:
+			species = 'mgi'
+		elif self._tax_id == 10116:
+			species = 'rgd'
+		elif self._tax_id == 208964:
+			species = 'pseudocap'
 		else: # 9606
-			assocFile = self.zfile('gene_association.goa_human.gz') #TODO:context manager,iterator
+			species = 'goa_human'
 		#if _tax_id
-		nsAssoc = {
-			'uniprot_pid': set(),
-			'symbol':      set(),
-			'mgi_id':      set()
+		assocFile = self.zfile('gene_association.'+species+'.gz') #TODO:context manager,iterator
+		xrefNS = {
+			'UniProtKB': 'uniprot_pid',
+			'MGI':       'mgi_id',
+			'TAIR':      'tair_id',
+			'SGD':       'sgd_id',
+			'FB':        'flybase_id',
+			'ZFIN':      'zfin_id',
 		}
+		nsAssoc = {
+			'symbol':      set(),
+		}
+		for xref,ns in xrefNS.iteritems():
+			nsAssoc[ns] = set()
 		numAssoc = numID = 0
 		for line in assocFile:
 			words = line.split('\t')
@@ -203,21 +245,20 @@ class Source_go(loki_source.Source):
 			
 			# TODO: find out for sure why the old Biofilter loader ignores IEA
 			if (goID in goGID) and (evidence != 'IEA') and (taxon == self._tax_id):
-				if xrefDB == 'UniProtKB':
-					ns = 'uniprot_pid'
-				elif xrefDB == 'MGI':
-					ns = 'mgi_id'
-				else:
-					continue
 				numAssoc += 1
-				numID += 2
-				nsAssoc[ns].add( (goGID[goID],numAssoc,xrefID) )
-				nsAssoc['symbol'].add( (goGID[goID],numAssoc,gene) )
+				ns = xrefNS.get(xrefDB)
+				if (gene != "-"):
+					numID += 1
+					nsAssoc['symbol'].add( (goGID[goID],numAssoc,gene) )
+				if (ns != None):
+					numID += 1
+					nsAssoc[ns].add( (goGID[goID],numAssoc,xrefID) )
 				for alias in aliases:
 					numID += 1
-					# aliases might be either symbols or uniprot identifiers, so try them both ways
-					nsAssoc[ns].add( (goGID[goID],numAssoc,alias) )
+					# aliases might be either symbols or xref identifiers, so try them both ways
 					nsAssoc['symbol'].add( (goGID[goID],numAssoc,alias) )
+					if (ns != None):
+						nsAssoc[ns].add( (goGID[goID],numAssoc,alias) )
 			#if association is ok
 		#foreach association
 		self.log(" OK: %d associations (%d identifiers)\n" % (numAssoc,numID))

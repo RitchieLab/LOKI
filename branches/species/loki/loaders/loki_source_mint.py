@@ -35,13 +35,13 @@ class Source_mint(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.1 (2016-03-02)'
+		return '2.1 (2016-03-31)'
 	#getVersionString()
 	
 	
 	@classmethod
 	def getSpecies(cls):
-		return [9606,10090]
+		return [3702,559292,6239,7227,7955,9606,10090,10116] # ,4932,
 	#getSpecies()
 	
 	
@@ -94,6 +94,7 @@ class Source_mint(loki_source.Source):
 			'refseq_pid':  set(),
 			'uniprot_pid': set(),
 		}
+		taxmatch = 4932 if (self._tax_id == 559292) else self._tax_id
 		numAssoc = numID = 0
 		with open(self._identifyLatestFilename(os.listdir('.')),'rU') as assocFile:
 			header = assocFile.next().rstrip()
@@ -132,7 +133,7 @@ class Source_mint(loki_source.Source):
 				for n in xrange(0,len(taxes)):
 					taxid = taxes[n].split(':',1)[-1].split('(')[0]
 					taxid = int(taxid) if taxid.isdigit() else None
-					if taxid == self._tax_id:
+					if taxid == taxmatch:
 						numAssoc += 1
 						# the "gene" is a helpful database cross-reference with a label indicating its type
 						xrefDB,xrefID = genes[n].split(':',1)

@@ -9,13 +9,13 @@ class Source_pfam(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.3 (2016-03-02)'
+		return '2.3 (2016-03-31)'
 	#getVersionString()
 	
 	
 	@classmethod
 	def getSpecies(cls):
-		return [9606,10090]
+		return [3702,559292,6239,7227,7955,9606,10090,10116,208964] # ,4932,
 	#getSpecies()
 	
 	
@@ -111,12 +111,26 @@ class Source_pfam(loki_source.Source):
 		self.log(" OK\n")
 		
 		# process protein identifiers
-		if self._tax_id == 10090:
+		self.log("processing protein identifiers ...")
+		if self._tax_id == 3702:
+			dbspecies = 'Arabidopsis thaliana (Mouse-ear cress)'
+		elif self._tax_id == 559292 or self._tax_id == 4932:
+			dbspecies = 'Saccharomyces cerevisiae (strain ATCC 204508 / S288c) (Baker\'s yeast)'
+		elif self._tax_id == 6239:
+			dbspecies = 'Caenorhabditis elegans'
+		elif self._tax_id == 7227:
+			dbspecies = 'Drosophila melanogaster (Fruit fly)'
+		elif self._tax_id == 7955:
+			dbspecies = 'Danio rerio (Zebrafish) (Brachydanio rerio)'
+		elif self._tax_id == 10090:
 			dbspecies = 'Mus musculus (Mouse)'
+		elif self._tax_id == 10116:
+			dbspecies = 'Rattus norvegicus (Rat)'
+		elif self._tax_id == 208964:
+			dbspecies = 'Pseudomonas aeruginosa (strain ATCC 15692 / PAO1 / 1C / PRS 101 / LMG 12228)'
 		else: # 9606
 			dbspecies = 'Homo sapiens (Human)'
 		#if _tax_id
-		self.log("processing protein identifiers ...")
 		seqFile = self.zfile('pfamseq.txt.gz') #TODO:context manager,iterator
 		proNames = dict()
 		for line in seqFile:
