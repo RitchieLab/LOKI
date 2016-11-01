@@ -10,7 +10,7 @@ class Source_entrez(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.2 (2016-02-08)'
+		return '2.3 (2016-09-19)'
 	#getVersionString()
 	
 	
@@ -186,6 +186,7 @@ class Source_entrez(loki_source.Source):
 		# Since LOKI uses 1-based closed intervals, we add 1 to all coordinates.
 		self.log("processing gene regions ...")
 		reBuild = re.compile('GRCh([0-9]+)')
+		grcBuild = None
 		buildGenes = collections.defaultdict(set)
 		buildRegions = collections.defaultdict(set)
 		setOrphan = set()
@@ -195,7 +196,10 @@ class Source_entrez(loki_source.Source):
 		refseqBIDs = collections.defaultdict(set)
 		regionFile = self.zfile('gene2refseq.gz') #TODO:context manager,iterator
 		header = regionFile.next().rstrip()
-		if not header.startswith("#Format: tax_id GeneID status RNA_nucleotide_accession.version RNA_nucleotide_gi protein_accession.version protein_gi genomic_nucleotide_accession.version genomic_nucleotide_gi start_position_on_the_genomic_accession end_position_on_the_genomic_accession orientation assembly"): # "(tab is used as a separator, pound sign - start of a comment)"
+		if not (
+				header.startswith("#Format: tax_id GeneID status RNA_nucleotide_accession.version RNA_nucleotide_gi protein_accession.version protein_gi genomic_nucleotide_accession.version genomic_nucleotide_gi start_position_on_the_genomic_accession end_position_on_the_genomic_accession orientation assembly") # "(tab is used as a separator, pound sign - start of a comment)"
+				or header.startswith("#tax_id	GeneID	status	RNA_nucleotide_accession.version	RNA_nucleotide_gi	protein_accession.version	protein_gi	genomic_nucleotide_accession.version	genomic_nucleotide_gi	start_position_on_the_genomic_accession	end_position_on_the_genomic_accession	orientation	assembly") # "	mature_peptide_accession.version	mature_peptide_gi	Symbol"
+		):
 			self.log(" ERROR: unrecognized file header\n")
 			self.log("%s\n" % header)
 		else:
@@ -305,7 +309,10 @@ class Source_entrez(loki_source.Source):
 		historyEntrez = {}
 		histFile = self.zfile('gene_history.gz') #TODO:context manager,iterator
 		header = histFile.next().rstrip()
-		if not header.startswith("#Format: tax_id GeneID Discontinued_GeneID Discontinued_Symbol"): # "Discontinue_Date (tab is used as a separator, pound sign - start of a comment)"
+		if not (
+				header.startswith("#Format: tax_id GeneID Discontinued_GeneID Discontinued_Symbol") # "Discontinue_Date (tab is used as a separator, pound sign - start of a comment)"
+				or header.startswith("#tax_id	GeneID	Discontinued_GeneID	Discontinued_Symbol") #	"Discontinue_Date"
+		):
 			self.log(" ERROR: unrecognized file header\n")
 			self.log("%s\n" % header)
 		else:
@@ -352,7 +359,10 @@ class Source_entrez(loki_source.Source):
 		self.log("processing ensembl gene names ...")
 		ensFile = self.zfile('gene2ensembl.gz') #TODO:context manager,iterator
 		header = ensFile.next().rstrip()
-		if not header.startswith("#Format: tax_id GeneID Ensembl_gene_identifier RNA_nucleotide_accession.version Ensembl_rna_identifier protein_accession.version Ensembl_protein_identifier"): # "(tab is used as a separator, pound sign - start of a comment)"
+		if not (
+				header.startswith("#Format: tax_id GeneID Ensembl_gene_identifier RNA_nucleotide_accession.version Ensembl_rna_identifier protein_accession.version Ensembl_protein_identifier") # "(tab is used as a separator, pound sign - start of a comment)"
+				or header.startswith("#tax_id	GeneID	Ensembl_gene_identifier	RNA_nucleotide_accession.version	Ensembl_rna_identifier	protein_accession.version	Ensembl_protein_identifier")
+		):
 			self.log(" ERROR: unrecognized file header\n")
 			self.log("%s\n" % header)
 		else:
@@ -389,7 +399,10 @@ class Source_entrez(loki_source.Source):
 		self.log("processing unigene gene names ...")
 		with open('gene2unigene','rU') as ugFile:
 			header = ugFile.next().rstrip()
-			if not header.startswith("#Format: GeneID UniGene_cluster"): # "(tab is used as a separator, pound sign - start of a comment)"
+			if not (
+					header.startswith("#Format: GeneID UniGene_cluster") # "(tab is used as a separator, pound sign - start of a comment)"
+					or header.startswith("#GeneID	UniGene_cluster")
+			):
 				self.log(" ERROR: unrecognized file header\n")
 				self.log("%s\n" % header)
 			else:
@@ -418,7 +431,10 @@ class Source_entrez(loki_source.Source):
 			self.log("processing uniprot gene names ...")
 			upFile = self.zfile('gene_refseq_uniprotkb_collab.gz') #TODO:context manager,iterator
 			header = upFile.next().rstrip()
-			if not header.startswith("#Format: NCBI_protein_accession UniProtKB_protein_accession"): # "(tab is used as a separator, pound sign - start of a comment)"
+			if not (
+					header.startswith("#Format: NCBI_protein_accession UniProtKB_protein_accession") # "(tab is used as a separator, pound sign - start of a comment)"
+					or header.startswith("#NCBI_protein_accession	UniProtKB_protein_accession")
+			):
 				self.log(" ERROR: unrecognized file header\n")
 				self.log("%s\n" % header)
 			else:
@@ -542,16 +558,15 @@ class Source_entrez(loki_source.Source):
 		nsNames = None
 		
 		# store gene names
-		if nsNameNames:
+		numNameNames = sum(len(nsNameNames[ns]) for ns in nsNameNames)
+		if numNameNames:
 			self.log("writing gene identifier references to the database ...")
-			numNameNames = 0
 			for ns in nsNameNames:
 				if nsNameNames[ns]:
-					numNameNames += len(nsNameNames[ns])
 					self.addBiopolymerTypedNameNamespacedNames(typeID['gene'], namespaceID[ns], nsNameNames[ns])
 			self.log(" OK: %d references\n" % (numNameNames,))
 			nsNameNames = None
-		#if nsNameNames
+		#if numNameNames
 		
 		# store source metadata
 		self.setSourceBuilds(grcBuild, None)

@@ -14,7 +14,7 @@ class Source_gwas(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.4 (2016-04-29)'
+		return '2.5 (2016-09-19)'
 	#getVersionString()
 	
 	
@@ -39,9 +39,10 @@ class Source_gwas(loki_source.Source):
 		# the catalog uses dbSNP positions from b132, which should already be 1-based
 		self.log("processing GWAS catalog annotations ...")
 		reRS = re.compile('rs([0-9]+)', re.I)
-		reChrPos = re.compile('[^_]chr([0-9XYMT]+):([0-9]+)', re.I)
+		reChrPos = re.compile('(?:^|[^_])chr([0-9XYMT]+)[:_]([0-9]+)', re.I)
+		reSNP = re.compile('(?:^|[^_])(?:chr([0-9XYMT]+)[:_]([0-9]+)|rs([0-9]+))', re.I)
 		listNone = [None]
-		numInc = 0
+		numInc = numInvalid = 0
 		setGwas = set()
 		if os.path.exists('gwas_catalog_v1.0-associations.tsv'):
 			with open('gwas_catalog_v1.0-associations.tsv','rU') as gwasFile:
@@ -52,15 +53,17 @@ class Source_gwas(loki_source.Source):
 					colTrait = cols.index("DISEASE/TRAIT")
 					colChm = cols.index("CHR_ID")
 					colPos = cols.index("CHR_POS")
-					colRS1 = cols.index("STRONGEST SNP-RISK ALLELE")
-					colRS2 = cols.index("SNPS")
+					colAlleles = cols.index("STRONGEST SNP-RISK ALLELE")
+					colSNPs = cols.index("SNPS")
 					colRAF = cols.index("RISK ALLELE FREQUENCY")
 					colORBeta = cols.index("OR or BETA")
 					col95CI = cols.index("95% CI (TEXT)")
 				except ValueError as e:
 					self.log(" ERROR\n")
 					raise Exception("unrecognized file header: %s" % str(e))
+				l = 1
 				for line in gwasFile:
+					l += 1
 					line = line.rstrip("\r\n")
 					words = list(w.strip() for w in line.decode('latin-1').split("\t"))
 					if len(words) <= col95CI:
@@ -68,19 +71,42 @@ class Source_gwas(loki_source.Source):
 						if (len(words) > 1) or words[0]:
 							numInc += 1
 						continue
+					elif (' x ' in words[colPos]) or (' x ' in words[colSNPs]):
+						# GWAS interaction pairs are not yet supported in LOKI
+						numInvalid += 1
+						continue
 					pubmedID = int(words[colPubmedID]) if words[colPubmedID] else None
 					trait = words[colTrait]
-					chm = self._loki.chr_num[words[colChm]] if (words[colChm] in self._loki.chr_num) else None
-					pos = long(words[colPos]) if words[colPos] else None
-					snps = words[colRS1] + ' ' + words[colRS2]
-					rses = set(int(rs[2:]) for rs in reRS.findall(snps)) or listNone
+					listChm = words[colChm].split(';') if words[colChm] else list()
+					listPos = words[colPos].split(';') if words[colPos] else list()
+					snps = words[colSNPs] if words[colAlleles].endswith('aplotype') else words[colAlleles]
+					listSNPs = reSNP.findall(snps)
 					riskAfreq = words[colRAF]
 					orBeta = words[colORBeta]
 					allele95ci = words[col95CI]
-					for rs in set(reRS.findall(snps)):
-						setGwas.add( (int(rs),chm,pos,trait,snps,orBeta,allele95ci,riskAfreq,pubmedID) )
-					for rschm,rspos in set(reChrPos.findall(snps)):
-						setGwas.add( (None,chm or rschm,pos or rspos,trait,snps,orBeta,allele95ci,riskAfreq,pubmedID) )
+					if (len(listChm) == len(listPos) == 0) and (len(listSNPs) > 0):
+						listChm = listPos = list(None for i in xrange(len(listSNPs)))
+					if (len(listChm) == len(listPos)) and (len(listChm) > 0) and (len(listSNPs) == 0):
+						listSNPs = list((None,None,None) for i in xrange(len(listChm)))
+					if len(listChm) == len(listPos) == len(listSNPs):
+						for i in xrange(len(listSNPs)):
+							rs = int(listSNPs[i][2]) if listSNPs[i][2] else None
+							chm = self._loki.chr_num.get(listChm[i]) or self._loki.chr_num.get(listSNPs[i][0])
+							pos = long(listPos[i]) if listPos[i] else (long(listSNPs[i][1]) if listSNPs[i][1] else None)
+							setGwas.add( (rs,chm,pos,trait,snps,orBeta,allele95ci,riskAfreq,pubmedID) )
+					elif len(listChm) == len(listPos):
+						for i in xrange(len(listChm)):
+							rs = None
+							chm = self._loki.chr_num.get(listChm[i])
+							pos = long(listPos[i]) if listPos[i] else None
+							setGwas.add( (rs,chm,pos,trait,snps,orBeta,allele95ci,riskAfreq,pubmedID) )
+						for i in xrange(len(listSNPs)):
+							rs = int(listSNPs[i][2]) if listSNPs[i][2] else None
+							chm = self._loki.chr_num.get(listSNPs[i][0])
+							pos = long(listSNPs[i][1]) if listSNPs[i][1] else None
+							setGwas.add( (rs,chm,pos,trait,snps,orBeta,allele95ci,riskAfreq,pubmedID) )
+					else:
+						numInvalid += 1
 				#foreach line
 			#with gwasFile
 		else:
@@ -115,7 +141,7 @@ class Source_gwas(loki_source.Source):
 				#foreach line
 			#with gwasFile
 		#if path
-		self.log(" OK: %d catalog entries (%d incomplete)\n" % (len(setGwas),numInc))
+		self.log(" OK: %d entries (%d incomplete, %d invalid)\n" % (len(setGwas),numInc,numInvalid))
 		if setGwas:
 			self.log("writing GWAS catalog annotations to the database ...")
 			self.addGWASAnnotations(setGwas)
