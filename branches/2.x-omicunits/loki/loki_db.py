@@ -17,7 +17,7 @@ class Database(object):
 	def getVersionTuple(cls):
 		# tuple = (major,minor,revision,dev,build,date)
 		# dev must be in ('a','b','rc','release') for lexicographic comparison
-		return (3,0,0,'a',3,'2015-03-26')
+		return (3,0,0,'a',4,'2016-11-02')
 	#getVersionTuple()
 	
 	
@@ -1033,7 +1033,8 @@ class Database(object):
 		cursor = self._db.cursor()
 		current = dict()
 		dbMaster = "`sqlite_temp_master`" if (dbName == "temp") else ("`%s`.`sqlite_master`" % dbName)
-		for row in cursor.execute("SELECT tbl_name,type,name,COALESCE(sql,'') FROM %s WHERE type IN ('table','index')" % dbMaster):
+		sql = "SELECT tbl_name,type,name,COALESCE(sql,'') FROM %s WHERE type IN ('table','index')" % (dbMaster,)
+		for row in cursor.execute(sql):
 			tblName,objType,idxName,objDef = row
 			if tblName not in current:
 				current[tblName] = {'table':None, 'index':{}}
@@ -1044,7 +1045,8 @@ class Database(object):
 		tblEmpty = dict()
 		for tblName in current:
 			tblEmpty[tblName] = True
-			for row in cursor.execute("SELECT 1 FROM `%s`.`%s` LIMIT 1" % (dbName,tblName)):
+			sql = "SELECT 1 FROM `%s`.`%s` LIMIT 1" % (dbName,tblName)
+			for row in cursor.execute(sql):
 				tblEmpty[tblName] = False
 		# audit requested objects
 		schema = schema or self._schema[dbName]

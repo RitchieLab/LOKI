@@ -9,7 +9,7 @@ class Source_pharmgkb(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '3.0 (2014-10-28)'
+		return '3.0 (2016-11-02)'
 	#getVersionString()
 	
 	
@@ -105,7 +105,11 @@ class Source_pharmgkb(loki_source.Source):
 					if info.filename == 'genes.tsv':
 						geneFile = geneZip.open(info,'r')
 						header = geneFile.next().rstrip()
-						if not header.startswith("PharmGKB Accession Id	Entrez Id	Ensembl Id	Name	Symbol	Alternate Names	Alternate Symbols	Is VIP	Has Variant Annotation	Cross-references"):
+						if header.startswith("PharmGKB Accession Id	Entrez Id	Ensembl Id	Name	Symbol	Alternate Names	Alternate Symbols	Is VIP	Has Variant Annotation	Cross-references"):
+							new2 = 0
+						elif header.startswith("PharmGKB Accession Id	NCBI Gene ID	HGNC ID	Ensembl Id	Name	Symbol	Alternate Names	Alternate Symbols	Is VIP	Has Variant Annotation	Cross-references"):
+							new2 = 1
+						else:
 							self.log(" ERROR\n")
 							self.log("unrecognized file header in '%s': %s\n" % (info.filename,header))
 							return False
@@ -113,10 +117,10 @@ class Source_pharmgkb(loki_source.Source):
 							words = line.decode('latin-1').split("\t")
 							pgkbID = words[0].strip()
 							entrezID = words[1].strip()
-							ensemblID = words[2].strip().upper()
-							symbol = words[4].strip()
-							aliases = words[6].split(',') if words[6] else empty
-							xrefs = words[9].strip(', \r\n').split(',') if words[9] else empty
+							ensemblID = words[2+new2].strip().upper()
+							symbol = words[4+new2].strip()
+							aliases = words[6+new2].split(',') if words[6] else empty
+							xrefs = words[9+new2].strip(', \r\n').split(',') if words[9] else empty
 							
 							if entrezID:
 								setNames.add( (namespaceID['pharmgkb_gid'],pgkbID,namespaceID['entrez_gid'],entrezID) )

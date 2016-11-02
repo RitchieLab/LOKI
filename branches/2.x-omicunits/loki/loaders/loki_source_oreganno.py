@@ -16,7 +16,7 @@ class Source_oreganno(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '3.0 (2014-03-31)'
+		return '3.0 (2016-11-02)'
 	#getVersionString()
 	
 	
@@ -87,34 +87,34 @@ class Source_oreganno(loki_source.Source):
 		entrez_ns = external_ns['entrez_gid']
 		ensembl_ns = external_ns['ensembl_gid']
 		symbol_ns = external_ns['symbol']
-		self.log("parsing external links ...")
+		self.log("parsing external links ... ")
 		for l in link_f:
 			fields = l.split()
 			if fields[1] == "Gene":
 				oreg_id = fields[0]
-				if fields[2] == "EnsemblGene":
-					gene_id = fields[3].split(',')[1]
+				if fields[2] in ("EnsemblGene","EnsemblId"):
+					gene_id = fields[3].split(',')[-1] # used to be "Homo_sapiens,ENSG123" but now just "ENSG123"
 					oreg_gene[oreg_id][ensembl_ns] = gene_id
-				elif fields[2] == "EntrezGene":
+				elif fields[2] in ("EntrezGene","NCBIGene"):
 					gene_id = fields[3]
 					oreg_gene[oreg_id][entrez_ns] = gene_id
 			elif fields[1] == "TFbs":
 				oreg_id = fields[0]
-				if fields[2] == "EnsemblGene":
-					gene_id = fields[3].split(',')[1]
+				if fields[2] in ("EnsemblGene","EnsemblId"):
+					gene_id = fields[3].split(',')[-1] # used to be "Homo_sapiens,ENSG123" but now just "ENSG123"
 					oreg_tfbs[oreg_id][ensembl_ns] = gene_id
-				elif fields[2] == "EntrezGene":
+				elif fields[2] in ("EntrezGene","NCBIGene"):
 					gene_id = fields[3]
 					oreg_tfbs[oreg_id][entrez_ns] = gene_id
 			elif fields[1] == "ExtLink" and fields[2] == "dbSNP":
 				# Just store the RS# (no leading "rs")
 				oreg_snp[fields[0]] = fields[3][2:]
-		
-		self.log("OK\n")
+		#for l
+		self.log("OK: %d genes, %d TFBs, %d SNPs\n" % (len(oreg_gene),len(oreg_tfbs),len(oreg_snp)))
 		
 		# Now, create a dict of oreganno id->type
 		oreganno_type = {}
-		self.log("parsing region attributes ...")
+		self.log("parsing region attributes ... ")
 		attr_f = self.zfile("oregannoAttr.txt.gz")
 		for l in attr_f:
 			fields = l.split('\t')
@@ -124,9 +124,8 @@ class Source_oreganno(loki_source.Source):
 				oreg_gene[fields[0]][symbol_ns] = fields[2]
 			elif fields[1] == "TFbs":
 				oreg_tfbs[fields[0]][symbol_ns] = fields[2]
-				
-		
-		self.log("OK\n")
+		#for l
+		self.log("OK: %d genes, %d TFBs\n" % (len(oreg_gene),len(oreg_tfbs)))
 		
 		# OK, now parse the actual regions themselves
 		region_f = self.zfile("oreganno.txt.gz")
@@ -135,7 +134,7 @@ class Source_oreganno(loki_source.Source):
 		oreganno_bounds = []
 		oreganno_groups = collections.defaultdict(list)
 		oreganno_types = {}
-		self.log("parsing regulatory regions ...")
+		self.log("parsing regulatory regions ... ")
 		snps_unmapped = 0
 		for l in region_f:
 			fields = l.split()
@@ -143,7 +142,7 @@ class Source_oreganno(loki_source.Source):
 			start = int(fields[2]) + 1
 			stop = int(fields[3])
 			oreg_id = fields[4]
-			oreg_type = oreganno_type[oreg_id]
+			oreg_type = oreganno_type[oreg_id].upper() # used to be CAPS, now Title Case
 			if chrom and oreg_type == "REGULATORY POLYMORPHISM":
 				entrez_id = oreg_gene[oreg_id].get(entrez_ns)
 				rsid = oreg_snp.get(oreg_id)
@@ -167,10 +166,11 @@ class Source_oreganno(loki_source.Source):
 				oreganno_types[oreg_id] = oreg_typeid
 				oreganno_regions.append((oreg_typeid, oreg_id, ''))
 				oreganno_bounds.append((chrom, start, stop))
-				
+			#if chrom and oreg_type
+		#for l
 		self.log("OK (%d regions found, %d SNPs found, %d SNPs unmapped)\n" % (len(oreganno_regions), len(oreganno_roles), snps_unmapped))
 		
-		self.log("Writing to database ... ")
+		self.log("writing to database ... ")
 		self.addSNPEntrezRoles(oreganno_roles)
 	#TODO: 3.0
 	#	reg_ids = self.addBiopolymers(oreganno_regions)

@@ -1,5 +1,13 @@
 CHANGELOG
 
+2.2.3 (2016-05-09)
+- updated gwas loader to use the new EBI host and file format
+- added support for downloading from sources which do not support HTTP HEAD
+
+2.2.2 (2015-12-14)
+- added support for headers in HTTP download requests
+- added special namespace '*', equivalent to '', to lookup by any namespace
+
 2.2.1 (2014-06-27)
 - fixed a bug in liftOver when the input start position was inside a gap
 - fixed a bug in the coordinate normalization of the chainfiles loader

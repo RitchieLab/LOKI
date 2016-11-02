@@ -176,11 +176,15 @@ class Source_entrez(loki_source.Source):
 		self.log("processing genomic regions ...")
 		datafile = self.zfile('gene2refseq.gz') #TODO:context manager,iterator
 		header = datafile.next().rstrip()
-		if not header.startswith("#Format: tax_id GeneID status RNA_nucleotide_accession.version RNA_nucleotide_gi protein_accession.version protein_gi genomic_nucleotide_accession.version genomic_nucleotide_gi start_position_on_the_genomic_accession end_position_on_the_genomic_accession orientation assembly"):
+		if not (
+				header.startswith("#Format: tax_id GeneID status RNA_nucleotide_accession.version RNA_nucleotide_gi protein_accession.version protein_gi genomic_nucleotide_accession.version genomic_nucleotide_gi start_position_on_the_genomic_accession end_position_on_the_genomic_accession orientation assembly") # "(tab is used as a separator, pound sign - start of a comment)"
+				or header.startswith("#tax_id	GeneID	status	RNA_nucleotide_accession.version	RNA_nucleotide_gi	protein_accession.version	protein_gi	genomic_nucleotide_accession.version	genomic_nucleotide_gi	start_position_on_the_genomic_accession	end_position_on_the_genomic_accession	orientation	assembly") # "	mature_peptide_accession.version	mature_peptide_gi	Symbol"
+		):
 			self.log(" ERROR: unrecognized file header\n")
 			self.log("%s\n" % header)
 			return False
 		reBuild = re.compile('GRCh([0-9]+)')
+		grcBuild = None
 		buildEntrez = collections.defaultdict(set)
 		buildRegions = collections.defaultdict(set)
 		errNC = list()
@@ -188,56 +192,55 @@ class Source_entrez(loki_source.Source):
 		errChr = list()
 		errBound = list()
 		for line in datafile:
-			# skip non-9606 (human) taxonomies before taking the time to split()
-			if not line.startswith("9606\t"):
-				continue
-			
-			# grab relevant columns
-			words = [ (w.strip() if w != "-" else None) for w in line.split("\t") ]
-			entrezGID = words[1]
-			if not entrezGID:
-				continue
-			status = words[2]
-			rnaAcc = words[3].rsplit('.',1)[0] if words[3] else None
-			proAcc = words[5].rsplit('.',1)[0] if words[5] else None
-			genAcc = words[7].rsplit('.',1)[0] if words[7] else None
-			posMin = words[9]
-			posMax = words[10]
-			build = reBuild.search(words[12]) if words[12] else None
-			if genAcc in ('NC_001807','NC_012920'):
-				chm = self._loki.chr_num['MT']
-			elif genAcc and genAcc.startswith('NC_'):
-				chm = int(genAcc[3:].lstrip('0'))
-			else:
-				chm = None
-			
-			# store name references
-			humanEntrez.add(entrezGID)
-			if rnaAcc:
-				nsNames[(nsID['entrez_gid'],nsID['refseq_gid'])].add( (entrezGID,rnaAcc) )
-			if proAcc:
-				humanRefseqP.add(proAcc)
-				nsNames[(nsID['entrez_gid'],nsID['refseq_pid'])].add( (entrezGID,proAcc) )
-			
-			# only store region boundaries on GRCh builds of whole chromosomes
-			# (refseq accession types: http://www.ncbi.nlm.nih.gov/projects/RefSeq/key.html)
-			if not (genAcc and genAcc.startswith("NC_")):
-				errNC.append(entrezGID)
-			elif not build:
-				errBuild.append(entrezGID)
-			elif not chm:
-				errChr.append(entrezGID)
-			elif not (posMin and posMax):
-				errBound.append(entrezGID)
-			else:
-				# store the region by build version number, so we can pick the majority build later
-				buildEntrez[build.group(1)].add(entrezGID)
-				# Entrez sequences use 0-based closed intervals, according to:
-				#   ftp://ftp.ncbi.nlm.nih.gov/gene/DATA/README
-				#   http://www.ncbi.nlm.nih.gov/books/NBK3840/#genefaq.Representation_of_nucleotide_pos
-				# and comparison of web-reported boundary coordinates to gene length (len = end - start + 1).
-				# Since LOKI uses 1-based closed intervals, we add 1 to all coordinates.
-				buildRegions[build.group(1)].add( (entrezGID,chm,long(posMin)+1,long(posMax)+1) )
+			# quickly filter out all non-9606 (human) taxonomies before taking the time to split()
+			if line.startswith("9606\t"):
+				words = [ (w.strip() if w != "-" else None) for w in line.split("\t") ]
+				entrezGID = words[1]
+				if not entrezGID:
+					continue
+				status = words[2]
+				rnaAcc = words[3].rsplit('.',1)[0] if words[3] else None
+				proAcc = words[5].rsplit('.',1)[0] if words[5] else None
+				genAcc = words[7].rsplit('.',1)[0] if words[7] else None
+				posMin = words[9]
+				posMax = words[10]
+				build = reBuild.search(words[12]) if words[12] else None
+				if genAcc in ('NC_001807','NC_012920'):
+					chm = self._loki.chr_num['MT']
+				elif genAcc and genAcc.startswith('NC_'):
+					chm = int(genAcc[3:].lstrip('0'))
+				else:
+					chm = None
+				
+				# store name references
+				humanEntrez.add(entrezGID)
+				if rnaAcc:
+					nsNames[(nsID['entrez_gid'],nsID['refseq_gid'])].add( (entrezGID,rnaAcc) )
+				if proAcc:
+					humanRefseqP.add(proAcc)
+					nsNames[(nsID['entrez_gid'],nsID['refseq_pid'])].add( (entrezGID,proAcc) )
+				
+				# only store region boundaries on GRCh builds of whole chromosomes
+				# (refseq accession types: http://www.ncbi.nlm.nih.gov/projects/RefSeq/key.html)
+				if not (genAcc and genAcc.startswith("NC_")):
+					errNC.append(entrezGID)
+				elif not build:
+					errBuild.append(entrezGID)
+				elif not chm:
+					errChr.append(entrezGID)
+				elif not (posMin and posMax):
+					errBound.append(entrezGID)
+				else:
+					# store the region by build version number, so we can pick the majority build later
+					buildEntrez[build.group(1)].add(entrezGID)
+					# Entrez sequences use 0-based closed intervals, according to:
+					#   ftp://ftp.ncbi.nlm.nih.gov/gene/DATA/README
+					#   http://www.ncbi.nlm.nih.gov/books/NBK3840/#genefaq.Representation_of_nucleotide_pos
+					# and comparison of web-reported boundary coordinates to gene length (len = end - start + 1).
+					# Since LOKI uses 1-based closed intervals, we add 1 to all coordinates.
+					buildRegions[build.group(1)].add( (entrezGID,chm,long(posMin)+1,long(posMax)+1) )
+				#if errors
+			#if taxonomy is 9606 (human)
 		#foreach line
 		
 		# identify majority build version
@@ -297,7 +300,10 @@ class Source_entrez(loki_source.Source):
 		self.log("processing historical Entrez identifiers ...")
 		datafile = self.zfile('gene_history.gz') #TODO:context manager,iterator
 		header = datafile.next().rstrip()
-		if not header.startswith("#Format: tax_id GeneID Discontinued_GeneID Discontinued_Symbol"):
+		if not (
+				header.startswith("#Format: tax_id GeneID Discontinued_GeneID Discontinued_Symbol") # "Discontinue_Date (tab is used as a separator, pound sign - start of a comment)"
+				or header.startswith("#tax_id	GeneID	Discontinued_GeneID	Discontinued_Symbol") #	"Discontinue_Date"
+		):
 			self.log(" ERROR: unrecognized file header\n")
 			self.log("%s\n" % header)
 			return False
@@ -343,7 +349,10 @@ class Source_entrez(loki_source.Source):
 		self.log("processing Ensembl identifiers ...")
 		datafile = self.zfile('gene2ensembl.gz') #TODO:context manager,iterator
 		header = datafile.next().rstrip()
-		if not header.startswith("#Format: tax_id GeneID Ensembl_gene_identifier RNA_nucleotide_accession.version Ensembl_rna_identifier protein_accession.version Ensembl_protein_identifier"):
+		if not (
+				header.startswith("#Format: tax_id GeneID Ensembl_gene_identifier RNA_nucleotide_accession.version Ensembl_rna_identifier protein_accession.version Ensembl_protein_identifier") # "(tab is used as a separator, pound sign - start of a comment)"
+				or header.startswith("#tax_id	GeneID	Ensembl_gene_identifier	RNA_nucleotide_accession.version	Ensembl_rna_identifier	protein_accession.version	Ensembl_protein_identifier")
+		):
 			self.log(" ERROR: unrecognized file header\n")
 			self.log("%s\n" % header)
 			return False
@@ -376,7 +385,10 @@ class Source_entrez(loki_source.Source):
 		self.log("processing Unigene identifiers ...")
 		with open('gene2unigene','rU') as datafile:
 			header = datafile.next().rstrip()
-			if not header.startswith("#Format: GeneID UniGene_cluster"): # "(tab is used as a separator, pound sign - start of a comment)"
+			if not (
+					header.startswith("#Format: GeneID UniGene_cluster") # "(tab is used as a separator, pound sign - start of a comment)"
+					or header.startswith("#GeneID	UniGene_cluster")
+			):
 				self.log(" ERROR: unrecognized file header\n")
 				self.log("%s\n" % header)
 				return False
@@ -398,7 +410,10 @@ class Source_entrez(loki_source.Source):
 		self.log("processing Uniprot identifiers ...")
 		datafile = self.zfile('gene_refseq_uniprotkb_collab.gz') #TODO:context manager,iterator
 		header = datafile.next().rstrip()
-		if not header.startswith("#Format: NCBI_protein_accession UniProtKB_protein_accession"):
+		if not (
+				header.startswith("#Format: NCBI_protein_accession UniProtKB_protein_accession") # "(tab is used as a separator, pound sign - start of a comment)"
+				or header.startswith("#NCBI_protein_accession	UniProtKB_protein_accession")
+		):
 			self.log(" ERROR: unrecognized file header\n")
 			self.log("%s\n" % header)
 			return False

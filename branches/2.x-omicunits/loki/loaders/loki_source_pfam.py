@@ -9,13 +9,13 @@ class Source_pfam(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '3.0 (2013-09-16)'
+		return '3.0 (2016-11-02)'
 	#getVersionString()
 	
 	
 	def download(self, options):
 		# download the latest source files
-		self.downloadFilesFromFTP('ftp.sanger.ac.uk', {
+		self.downloadFilesFromFTP('ftp.ebi.ac.uk', {
 			'pfamA.txt.gz':                      '/pub/databases/Pfam/current_release/database_files/pfamA.txt.gz',
 			'pfamA_reg_full_significant.txt.gz': '/pub/databases/Pfam/current_release/database_files/pfamA_reg_full_significant.txt.gz',
 			'pfamseq.txt.gz':                    '/pub/databases/Pfam/current_release/database_files/pfamseq.txt.gz',
@@ -52,12 +52,22 @@ class Source_pfam(loki_source.Source):
 		famDesc = {}
 		for line in pfamFile:
 			words = line.decode('latin-1').split("\t",10)
-			pfamNum = int(words[0].strip())
-			pfamAcc = words[1].strip()
-			pfamID = words[2].strip()
-			name = words[4].strip()
-			group = words[8].strip()
-			desc = words[9].strip()
+			pfamNum = words[0].strip()
+			if pfamNum.isdigit():
+				pfamNum = int(pfamNum) # auto_pfamA = 1 , 2 , ...
+				pfamAcc = words[1].strip() # pfamA_acc = PF00389 , PF00198 , ...
+				pfamID = words[2].strip() # pfamA_id = 2-Hacid_dh , 2-oxoacid_dh , ...
+				name = words[4].strip() # description = D-isomer specific 2-hydroxyacid dehydrogenase, catalytic domain , ...
+				group = words[8].strip() # type = Domain , Family , Motif , Repeat
+				desc = words[9].strip() # comment = (long description)
+			else:
+				# starting in release 28, all the "auto" columns were dropped
+				pfamAcc = pfamNum
+				pfamID = words[1].strip() # 2-Hacid_dh , 2-oxoacid_dh , ...
+				name = words[3].strip() # D-isomer specific 2-hydroxyacid dehydrogenase, catalytic domain , ...
+				group = words[7].strip() # Domain , Family , Motif , Repeat
+				desc = words[8].strip() # (long description)
+			#if pfamNum
 			
 			groupFam[group].add(pfamNum)
 			famAcc[pfamNum] = pfamAcc
@@ -100,10 +110,18 @@ class Source_pfam(loki_source.Source):
 		proNames = dict()
 		for line in seqFile:
 			words = line.split("\t",10)
-			proteinNum = int(words[0])
-			uniprotID = words[1]
-			uniprotAcc = words[2]
-			species = words[9]
+			proteinNum = words[0].strip()
+			if proteinNum.isdigit():
+				proteinNum = int(proteinNum) # auto_pfamseq = 1 , 2 , ...
+				uniprotID = words[1] # pfamseq_id = 1433B_HUMAN , GATC_HUMAN , ...
+				uniprotAcc = words[2] # pfamseq_acc = P31946 , O43716 , ...
+				species = words[9] # species = Homo sapiens (Human)
+			else:
+				# starting in release 28, all the "auto" columns were dropped
+				uniprotID = proteinNum # pfamseq_id = 1433B_HUMAN , GATC_HUMAN , ...
+				uniprotAcc = words[1] # pfamseq_acc = P31946 , O43716 , ...
+				species = words[8] # species = Homo sapiens (Human)
+			#if proteinNum
 			
 			if species == 'Homo sapiens (Human)':
 				proNames[proteinNum] = (uniprotID,uniprotAcc)
@@ -117,9 +135,17 @@ class Source_pfam(loki_source.Source):
 		numAssoc = numID = 0
 		for line in assocFile:
 			words = line.split("\t",15)
-			pfamNum = int(words[1])
-			proteinNum = int(words[2])
-			inFull = int(words[14])
+			pfamNum = words[1].strip()
+			if pfamNum.isdigit():
+				pfamNum = int(pfamNum) # auto_pfamA
+				proteinNum = int(words[2]) # auto_pfamseq
+				inFull = int(words[14]) # in_full
+			else:
+				# starting in release 28, all the "auto" columns were dropped
+				pfamNum = pfamNum # pfamA_acc
+				proteinNum = words[2].strip() # pfamseq_acc
+				inFull = int(words[14]) # in_full
+			#if pfamNum
 			
 			if (pfamNum in famGID) and (proteinNum in proNames) and inFull:
 				numAssoc += 1

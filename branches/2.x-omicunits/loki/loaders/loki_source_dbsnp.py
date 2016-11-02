@@ -42,7 +42,7 @@ class Source_dbsnp(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '3.0 (2014-11-05)'
+		return '3.0 (2016-11-02)'
 	#getVersionString()
 	
 	
@@ -53,7 +53,7 @@ class Source_dbsnp(loki_source.Source):
 			'suspect'     : '[yes|no]  --  store SNP loci which are suspect (default: no)', # http://www.ncbi.nlm.nih.gov/projects/SNP/docs/rs_attributes.html#suspect
 			'withdrawn'   : '[yes|no]  --  store SNP loci which have been withdrawn (default: no)',
 			'merges'      : '[yes|no]  --  process and store RS# merge history (default: yes)',
-			'roles'       : '[yes|no]  --  process and store SNP roles (default: yes)',
+			'roles'       : '[yes|no]  --  process and store SNP roles (default: no)',
 		}
 	#getOptions()
 	
@@ -63,7 +63,7 @@ class Source_dbsnp(loki_source.Source):
 		options.setdefault('suspect', 'no')
 		options.setdefault('withdrawn', 'no')
 		options.setdefault('merges', 'yes')
-		options.setdefault('roles', 'yes')
+		options.setdefault('roles', 'no')
 		for o,v in options.iteritems():
 			v = v.strip().lower()
 			if o in ('unvalidated','suspect','withdrawn','merges','roles'):
