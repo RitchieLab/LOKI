@@ -14,6 +14,7 @@ class Source_hgnc(loki_source.Source):
 	
 	
 	def download(self, options):
+		#TODO ftp://ftp.ebi.ac.uk/pub/databases/genenames/new/tsv/hgnc_complete_set.txt ?
 		# download the latest source files
 		self.downloadFilesFromHTTP('www.genenames.org', {
 			'hgnc_downloads__all_approved.txt': '/cgi-bin/download?preset=all&status=Approved&status_opt=2&where=&order_by=&format=text&limit=&submit=submit',
