@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import re
 import zipfile
 from loki import loki_source
 
@@ -9,7 +10,7 @@ class Source_pharmgkb(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '3.0 (2016-11-02)'
+		return '3.0 (2016-11-08)'
 	#getVersionString()
 	
 	
@@ -77,6 +78,8 @@ class Source_pharmgkb(loki_source.Source):
 		gtypeID = self.addGTypes([
 			('pathway',),
 		])
+		reQuotedList = re.compile('(?:[ \t]*"[ \t]*([^"]*?)[ \t]*"[ \t]*(?:,|[\r\n]*$))')
+		reSimpleValue = re.compile('^[ \t]*([^ \t"].*?)[ \t\r\n]*$')
 		
 		# process gene names
 		if options['names'] == 'yes':
@@ -116,25 +119,22 @@ class Source_pharmgkb(loki_source.Source):
 						for line in geneFile:
 							words = line.decode('latin-1').split("\t")
 							pgkbID = words[0].strip()
-							entrezID = words[1].strip()
-							ensemblID = words[2+new2].strip().upper()
-							symbol = words[4+new2].strip()
-							aliases = words[6+new2].split(',') if words[6] else empty
-							xrefs = words[9+new2].strip(', \r\n').split(',') if words[9] else empty
+							entrezIDs = reQuotedList.findall(words[1]) or reSimpleValue.findall(words[1])
+							ensemblIDs = reQuotedList.findall(words[2+new2]) or reSimpleValue.findall(words[2+new2])
+							symbols = reQuotedList.findall(words[4+new2]) or reSimpleValue.findall(words[4+new2])
+							aliases = reQuotedList.findall(words[6+new2]) or reSimpleValue.findall(words[6+new2])
+							xrefs = reQuotedList.findall(words[9+new2]) or reSimpleValue.findall(words[9+new2])
 							
-							if entrezID:
-								setNames.add( (namespaceID['pharmgkb_gid'],pgkbID,namespaceID['entrez_gid'],entrezID) )
-							if ensemblID:
-								ns = 'ensembl_pid' if ensemblID.startswith('ENSP') else 'ensembl_gid'
-								setNames.add( (namespaceID['pharmgkb_gid'],pgkbID,namespaceID[ns],ensemblID) )
-							if symbol:
-								setNames.add( (namespaceID['pharmgkb_gid'],pgkbID,namespaceID['symbol'],symbol) )
-							for alias in aliases:
-								alias = alias.strip('" ')
-								if alias:
-									#line.decode('latin-1') should handle this above
-									#setNames.add( (namespaceID['pharmgkb_gid'],pgkbID,namespaceID['symbol'],unicode(alias.strip('" '),errors='ignore')) )
-									setNames.add( (namespaceID['pharmgkb_gid'],pgkbID,namespaceID['symbol'],alias) )
+							for name in entrezIDs:
+								setNames.add( (namespaceID['pharmgkb_gid'],pgkbID,namespaceID['entrez_gid'],name) )
+							for name in ensemblIDs:
+								name = name.upper()
+								ns = 'ensembl_pid' if name.startswith('ENSP') else 'ensembl_gid'
+								setNames.add( (namespaceID['pharmgkb_gid'],pgkbID,namespaceID[ns],name) )
+							for name in symbols:
+								setNames.add( (namespaceID['pharmgkb_gid'],pgkbID,namespaceID['symbol'],name) )
+							for name in aliases:
+								setNames.add( (namespaceID['pharmgkb_gid'],pgkbID,namespaceID['symbol'],name) )
 							for xref in xrefs:
 								try:
 									xrefDB,xrefID = xref.split(':',1)
@@ -143,12 +143,6 @@ class Source_pharmgkb(loki_source.Source):
 										if xrefDB == 'ensembl':
 											xrefDB += ('P' if xrefID.startswith('ENSP') else 'G')
 										for ns in xrefNS.get(xrefDB,empty):
-											#line.decode('latin-1') should handle this above
-											#try:
-											#	xrefID.encode('ascii')
-											#	setNames.add( (namespaceID['pharmgkb_gid'],pgkbID,namespaceID[ns],xrefID.decode('utf8').encode('ascii')) )
-											#except:
-											#	self.log("Cannot encode gene alias")
 											setNames.add( (namespaceID['pharmgkb_gid'],pgkbID,namespaceID[ns],xrefID) )
 								except ValueError:
 									pass

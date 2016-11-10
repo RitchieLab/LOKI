@@ -11,7 +11,7 @@ class Source_entrez(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '3.0 (2016-11-02)'
+		return '3.0 (2016-11-08)'
 	#getVersionString()
 	
 	
@@ -100,7 +100,10 @@ class Source_entrez(loki_source.Source):
 		self.log("processing genes ...")
 		datafile = self.zfile('Homo_sapiens.gene_info.gz') #TODO:context manager,iterator
 		header = datafile.next().rstrip()
-		if not header.startswith("#Format: tax_id GeneID Symbol LocusTag Synonyms dbXrefs chromosome map_location description type_of_gene Symbol_from_nomenclature_authority Full_name_from_nomenclature_authority Nomenclature_status Other_designations"):
+		if not (
+				header.startswith("#Format: tax_id GeneID Symbol LocusTag Synonyms dbXrefs chromosome map_location description type_of_gene Symbol_from_nomenclature_authority Full_name_from_nomenclature_authority Nomenclature_status Other_designations")
+				or header.startswith("#tax_id	GeneID	Symbol	LocusTag	Synonyms	dbXrefs	chromosome	map_location	description	type_of_gene	Symbol_from_nomenclature_authority	Full_name_from_nomenclature_authority	Nomenclature_status	Other_designations") # Modification_date
+		):
 			self.log(" ERROR: unrecognized file header\n")
 			self.log("%s\n" % header)
 			return False
@@ -122,7 +125,7 @@ class Source_entrez(loki_source.Source):
 				entrezGID = words[1]
 				label = words[10] or words[2]
 				locustag = words[3]
-				aliases = [words[2],words[10]]
+				aliases = [ words[2],words[10] ]
 				aliases.extend(words[4].split("|") if words[4] else list())
 				xrefs = words[5].split("|") if words[5] else list()
 				desc = words[11] or words[8] or (words[13].split("|",1)[0] if words[13] else None)

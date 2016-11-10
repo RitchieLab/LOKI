@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import collections
+import re
 from loki import loki_source
 
 
@@ -9,16 +10,18 @@ class Source_hgnc(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '3.0 (2014-02-26)'
+		return '3.0 (2016-11-08)'
 	#getVersionString()
 	
 	
 	def download(self, options):
-		#TODO ftp://ftp.ebi.ac.uk/pub/databases/genenames/new/tsv/hgnc_complete_set.txt ?
 		# download the latest source files
-		self.downloadFilesFromHTTP('www.genenames.org', {
-			'hgnc_downloads__all_approved.txt': '/cgi-bin/download?preset=all&status=Approved&status_opt=2&where=&order_by=&format=text&limit=&submit=submit',
-		}, alwaysDownload=True)
+	#	self.downloadFilesFromHTTP('www.genenames.org', {
+	#		'hgnc_downloads__all_approved.txt': '/cgi-bin/download?preset=all&status=Approved&status_opt=2&where=&order_by=&format=text&limit=&submit=submit',
+	#	}, alwaysDownload=True)
+		self.downloadFilesFromFTP('ftp.ebi.ac.uk', {
+			'hgnc_complete_set.txt': '/pub/databases/genenames/new/tsv/hgnc_complete_set.txt'
+		})
 	#download()
 	
 	
@@ -44,6 +47,7 @@ class Source_hgnc(loki_source.Source):
 		utypeID = self.addUTypes([
 			('gene',),
 		])
+		reList = re.compile('[ \t]*([^ \t"|][^"|]*?)[ \t]*(?:"|\\||[\r\n]*$)')
 		
 		nsNames = collections.defaultdict(set)
 		numNames = 0
@@ -52,58 +56,71 @@ class Source_hgnc(loki_source.Source):
 		# process genes
 		self.log("processing genes ...")
 		humanHGNC = set()
-		with open('hgnc_downloads__all_approved.txt','rU') as datafile:
+	#	with open('hgnc_downloads__all_approved.txt','rU') as datafile:
+		with open('hgnc_complete_set.txt','rU') as datafile:
 			header = datafile.next().rstrip()
-			if header.startswith("HGNC ID\tApproved Symbol\tApproved Name\tStatus\tLocus Type\tLocus Group\tPrevious Symbols\tPrevious Names\tSynonyms\tName Synonyms\tChromosome\tDate Approved\tDate Modified\tDate Symbol Changed\tDate Name Changed\tAccession Numbers\tEnzyme IDs\tEntrez Gene ID\tEnsembl Gene ID\tMouse Genome Database ID\tSpecialist Database Links\tSpecialist Database IDs\tPubmed IDs\tRefSeq IDs\tGene Family Tag\tGene family description\tRecord Type\tPrimary IDs\tSecondary IDs\tCCDS IDs\tVEGA IDs\tLocus Specific Databases\tEntrez Gene ID\tOMIM ID\tRefSeq\tUniProt ID\tEnsembl ID"):
-				pass
-			elif header.startswith("HGNC ID\tApproved Symbol\tApproved Name\tStatus\tLocus Type\tLocus Group\tPrevious Symbols\tPrevious Names\tSynonyms\tName Synonyms\tChromosome\tDate Approved\tDate Modified\tDate Symbol Changed\tDate Name Changed\tAccession Numbers\tEnzyme IDs\tEntrez Gene ID\tEnsembl Gene ID\tMouse Genome Database ID\tSpecialist Database Links\tSpecialist Database IDs\tPubmed IDs\tRefSeq IDs\tGene Family Tag\tGene family description\tRecord Type\tPrimary IDs\tSecondary IDs\tCCDS IDs\tVEGA IDs\tLocus Specific Databases\tEntrez Gene ID(supplied by NCBI)\tOMIM ID(supplied by NCBI)\tRefSeq(supplied by NCBI)\tUniProt ID(supplied by UniProt)\tEnsembl ID(supplied by Ensembl)"):
-				pass
-			else:
+			if not (
+				header.startswith("HGNC ID	Approved Symbol	Approved Name	Status	Locus Type	Locus Group	Previous Symbols	Previous Names	Synonyms	Name Synonyms	Chromosome	Date Approved	Date Modified	Date Symbol Changed	Date Name Changed	Accession Numbers	Enzyme IDs	Entrez Gene ID	Ensembl Gene ID	Mouse Genome Database ID	Specialist Database Links	Specialist Database IDs	Pubmed IDs	RefSeq IDs	Gene Family Tag	Gene family description	Record Type	Primary IDs	Secondary IDs	CCDS IDs	VEGA IDs	Locus Specific Databases	Entrez Gene ID	OMIM ID	RefSeq	UniProt ID	Ensembl ID")
+				or header.startswith("HGNC ID	Approved Symbol	Approved Name	Status	Locus Type	Locus Group	Previous Symbols	Previous Names	Synonyms	Name Synonyms	Chromosome	Date Approved	Date Modified	Date Symbol Changed	Date Name Changed	Accession Numbers	Enzyme IDs	Entrez Gene ID	Ensembl Gene ID	Mouse Genome Database ID	Specialist Database Links	Specialist Database IDs	Pubmed IDs	RefSeq IDs	Gene Family Tag	Gene family description	Record Type	Primary IDs	Secondary IDs	CCDS IDs	VEGA IDs	Locus Specific Databases	Entrez Gene ID(supplied by NCBI)	OMIM ID(supplied by NCBI)	RefSeq(supplied by NCBI)	UniProt ID(supplied by UniProt)	Ensembl ID(supplied by Ensembl)")
+				or header.startswith("hgnc_id	symbol	name	locus_group	locus_type	status	location	location_sortable	alias_symbol	alias_name	prev_symbol	prev_name	gene_family	gene_family_id	date_approved_reserved	date_symbol_changed	date_name_changed	date_modified	entrez_id	ensembl_gene_id	vega_id	ucsc_id	ena	refseq_accession	ccds_id	uniprot_ids	pubmed_id	mgd_id	rgd_id	lsdb	cosmic	omim_id	mirbase	homeodb	snornabase	bioparadigms_slc	orphanet	pseudogene.org	horde_id	merops	imgt	iuphar	kznf_gene_catalog	mamit-trnadb	cd	lncrnadb	enzyme_id	intermediate_filament_db")
+			):
 				self.log(" ERROR: unrecognized file header\n")
 				self.log("%s\n" % header)
 				return False
+			newformat = header.startswith("hgnc_id	symbol	")
 			for line in datafile:
 				words = [ (w.strip() if w != "-" else None) for w in line.split("\t") ]
 				hgncGID = words[0]
-				status = words[3]
-				if hgncGID and (status == 'Approved'):
+				status = words[5 if newformat else 3]
+				if hgncGID.startswith('HGNC:') and (status == 'Approved'):
 					symbol = words[1]
 					desc = words[2]
-					locustype = words[4]
-					locusgroup = words[5]
-					aliases = [w.strip() for w in words[6].split(',') if w]
-					entrezGID1 = words[17]
-					ensemblGID1 = words[18]
-					specGIDs = [w.strip() for w in words[21].split(',')]
-					mirbaseGID = specGIDs[0]
-					refseqGID1 = words[23]
-					ccdsGID = words[29].split('.',1)[0]
-					vegaGID = words[30]
-					entrezGID2 = words[32]
-					omimGID = words[33]
-					refseqGID2 = words[34]
-					uniprotGID = words[35]
-					ensemblGID2 = words[36]
+					aliases = list()
+					if newformat:
+						aliases.extend(reList.findall(words[8]))
+						aliases.extend(reList.findall(words[10]))
+					else:
+						aliases.extend( w.strip() for w in words[6].split(',') if w )
+					entrezGIDs = reList.findall(words[18 if newformat else 17])
+					ensemblGIDs = reList.findall(words[19 if newformat else 18])
+					if newformat:
+						mirbaseGIDs = reList.findall(words[32])
+					else:
+						specGIDs = [w.strip() for w in words[21].split(',')]
+						mirbaseGIDs = [ specGIDs[0] ]
+					refseqGIDs = reList.findall(words[23])
+					ccdsGIDs = [ name.split('.',1)[0] for name in reList.findall(words[24 if newformat else 29]) ]
+					vegaGIDs = reList.findall(words[20 if newformat else 30])
+					omimGIDs = reList.findall(words[31 if newformat else 33])
+					uniprotGIDs = reList.findall(words[25 if newformat else 35])
+					if not newformat:
+						entrezGIDs.extend(reList.findall(words[32]))
+						refseqGIDs.extend(reList.findall(words[34]))
+						ensemblGIDs.extend(reList.findall(words[36]))
 					
 					# store properties and name references
 					humanHGNC.add(hgncGID)
 					nsPropVals[(nsID['hgnc_gid'],'utype_id')].add( (hgncGID,utypeID['gene']) )
 					nsPropVals[(nsID['hgnc_gid'],'label')].add( (hgncGID,symbol) )
 					nsPropVals[(nsID['hgnc_gid'],'description')].add( (hgncGID,desc) )
-					nsNames[(nsID['hgnc_gid'],nsID['symbol'])].add( (hgncGID,symbol) )
-					for alias in aliases:
-						nsNames[(nsID['hgnc_gid'],nsID['symbol'])].add( (hgncGID,alias) )
-					nsNames[(nsID['hgnc_gid'],nsID['entrez_gid'])].add( (hgncGID,entrezGID1) )
-					nsNames[(nsID['hgnc_gid'],nsID['ensembl_gid'])].add( (hgncGID,ensemblGID1) )
-					nsNames[(nsID['hgnc_gid'],nsID['mirbase_gid'])].add( (hgncGID,mirbaseGID) )
-					nsNames[(nsID['hgnc_gid'],nsID['refseq_gid'])].add( (hgncGID,refseqGID1) )
-					nsNames[(nsID['hgnc_gid'],nsID['ccds_gid'])].add( (hgncGID,ccdsGID) )
-					nsNames[(nsID['hgnc_gid'],nsID['vega_gid'])].add( (hgncGID,vegaGID) )
-					nsNames[(nsID['hgnc_gid'],nsID['entrez_gid'])].add( (hgncGID,entrezGID2) )
-					nsNames[(nsID['hgnc_gid'],nsID['omim_gid'])].add( (hgncGID,omimGID) )
-					nsNames[(nsID['hgnc_gid'],nsID['refseq_gid'])].add( (hgncGID,refseqGID2) )
-					nsNames[(nsID['hgnc_gid'],nsID['uniprot_gid'])].add( (hgncGID,uniprotGID) )
-					nsNames[(nsID['hgnc_gid'],nsID['ensembl_gid'])].add( (hgncGID,ensemblGID2) )
+					for name in aliases:
+						nsNames[(nsID['hgnc_gid'],nsID['symbol'])].add( (hgncGID,name) )
+					for name in entrezGIDs:
+						nsNames[(nsID['hgnc_gid'],nsID['entrez_gid'])].add( (hgncGID,name) )
+					for name in ensemblGIDs:
+						nsNames[(nsID['hgnc_gid'],nsID['ensembl_gid'])].add( (hgncGID,name) )
+					for name in mirbaseGIDs:
+						nsNames[(nsID['hgnc_gid'],nsID['mirbase_gid'])].add( (hgncGID,name) )
+					for name in refseqGIDs:
+						nsNames[(nsID['hgnc_gid'],nsID['refseq_gid'])].add( (hgncGID,name) )
+					for name in ccdsGIDs:
+						nsNames[(nsID['hgnc_gid'],nsID['ccds_gid'])].add( (hgncGID,name) )
+					for name in vegaGIDs:
+						nsNames[(nsID['hgnc_gid'],nsID['vega_gid'])].add( (hgncGID,name) )
+					for name in omimGIDs:
+						nsNames[(nsID['hgnc_gid'],nsID['omim_gid'])].add( (hgncGID,name) )
+					for name in uniprotGIDs:
+						nsNames[(nsID['hgnc_gid'],nsID['uniprot_gid'])].add( (hgncGID,name) )
 				#if id/status ok
 			#foreach line
 		#with datafile
@@ -117,8 +134,8 @@ class Source_hgnc(loki_source.Source):
 		self.log("storing identifier references ...")
 		numNames = 0
 		for ns,names in nsNames.iteritems():
-			numNames += len(names)
-			self.addUnitNamespacedNameNames(ns[0], ns[1], names)
+			numNames += sum(1 for n in names if n[1])
+			self.addUnitNamespacedNameNames(ns[0], ns[1], (n for n in names if n[1]))
 		self.log(" OK: %d references\n" % (numNames,))
 		
 		# store properties

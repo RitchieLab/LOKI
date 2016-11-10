@@ -16,7 +16,7 @@ class Source_gencode(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '3.0 (2014-08-15)'
+		return '3.0 (2016-11-04)'
 	#getVersionString()
 	
 	
@@ -34,9 +34,9 @@ class Source_gencode(loki_source.Source):
 				) if match
 			)
 			
-			remFiles['gencode.v%d.annotation.gtf.gz' % (vers,)] = '%s/%s/gencode.v%d.annotation.gtf.gz' % (basepath,subpath,vers)
-			remFiles['gencode.v%d.metadata.EntrezGene.gz' % (vers,)] = '%s/%s/gencode.v%d.metadata.EntrezGene.gz' % (basepath,subpath,vers)
-			remFiles['gencode.v%d.metadata.HGNC.gz' % (vers,)] = '%s/%s/gencode.v%d.metadata.HGNC.gz' % (basepath,subpath,vers)
+			remFiles['gencode.annotation.gtf.gz'] = '%s/%s/gencode.v%d.annotation.gtf.gz' % (basepath,subpath,vers)
+			remFiles['gencode.metadata.EntrezGene.gz'] = '%s/%s/gencode.v%d.metadata.EntrezGene.gz' % (basepath,subpath,vers)
+			remFiles['gencode.metadata.HGNC.gz'] = '%s/%s/gencode.v%d.metadata.HGNC.gz' % (basepath,subpath,vers)
 			
 			return remFiles
 		#remFilesCallback
@@ -72,9 +72,8 @@ class Source_gencode(loki_source.Source):
 		
 		# process regions
 		self.log("processing genomic regions ...")
-		regionPath = max(filename for filename in os.listdir('.') if (filename.startswith('gencode.v') and filename.endswith('.annotation.gtf.gz')))
-		regionFile = self.zfile(regionPath) #TODO:context manager,iterator
-		header = regionFile.next()
+		datafile = self.zfile('gencode.annotation.gtf.gz') #TODO:context manager,iterator
+		header = datafile.next()
 		reHeader = re.compile('^##description: .* \(GRCh([0-9]+)\)')
 		match = reHeader.match(header)
 		if not match:
@@ -84,7 +83,7 @@ class Source_gencode(loki_source.Source):
 		self.setSourceBuilds(int(match.group(1)), None)
 		reField = re.compile(' *([^ ]+) +"?([^"]*)"? *;?')
 		numInc = 0
-		for line in regionFile:
+		for line in datafile:
 			if line.startswith('##'):
 				continue
 			words = [ w.strip() for w in line.split("\t") ]
@@ -143,8 +142,7 @@ class Source_gencode(loki_source.Source):
 		
 		# process gene identifiers
 		self.log("processing Entrez gene identifiers ...")
-		datapath = max(filename for filename in os.listdir('.') if (filename.startswith('gencode.v') and filename.endswith('.metadata.EntrezGene.gz')))
-		datafile = self.zfile(datapath) #TODO:context manager,iterator
+		datafile = self.zfile('gencode.metadata.EntrezGene.gz') #TODO:context manager,iterator
 		numInc = 0
 		for line in datafile:
 			words = [ w.strip() for w in line.split("\t") ]
@@ -168,8 +166,7 @@ class Source_gencode(loki_source.Source):
 		
 		# process gene identifiers
 		self.log("processing HGNC gene identifiers ...")
-		datapath = max(filename for filename in os.listdir('.') if (filename.startswith('gencode.v') and filename.endswith('.metadata.HGNC.gz')))
-		datafile = self.zfile(datapath) #TODO:context manager,iterator
+		datafile = self.zfile('gencode.metadata.HGNC.gz') #TODO:context manager,iterator
 		numInc = 0
 		for line in datafile:
 			words = [ w.strip() for w in line.split("\t") ]

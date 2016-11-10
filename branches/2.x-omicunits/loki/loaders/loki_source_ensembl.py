@@ -37,12 +37,12 @@ class Source_ensembl(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '3.0 (2015-06-12)'
+		return '3.0 (2016-11-08)'
 	#getVersionString()
 	
 	
 	def download(self, options):
-		# define a callback to identify the latest *-mint-human.txt file
+		# define a callback to identify the latest Homo_sapiens.*.gtf.gz file
 		def remFilesCallback(ftp):
 			remFiles = {}
 			
@@ -139,7 +139,10 @@ class Source_ensembl(loki_source.Source):
 		numInc = 0
 		with open('biomart_martservice_ensg_desc.txt','rU') as datafile:
 			header = datafile.next().rstrip()
-			if not header.startswith("Ensembl Gene ID	Associated Gene Name	Description	HGNC symbol	WikiGene Name	UniProt Gene Name"):
+			if not (
+					header.startswith("Ensembl Gene ID	Associated Gene Name	Description	HGNC symbol	WikiGene Name	UniProt Gene Name")
+					or header.startswith("Ensembl Gene ID	Associated Gene Name	Description	HGNC symbol	WikiGene Name	UniProt Accession ID")
+			):
 				self.log(" ERROR: unrecognized file header\n")
 				self.log("%s\n" % header)
 				return False
@@ -193,7 +196,7 @@ class Source_ensembl(loki_source.Source):
 		regionGenes = set()
 		regionPath = self._identifyLatestFilename(os.listdir('.'))
 		for line in self.zfile(regionPath): #TODO:context manager,iterator
-			words = [ w.strip() for w in line.strip().split("\t") ]
+			words = [ w.strip() for w in line.split("\t") ]
 			chm = words[0]
 			if chm in self._loki.chr_num:
 				chm = self._loki.chr_num[chm]
@@ -264,7 +267,7 @@ class Source_ensembl(loki_source.Source):
 				self.log("%s\n" % header)
 				return False
 			for line in datafile:
-				words = [ w.strip() for w in line.strip().split("\t") ]
+				words = [ w.strip() for w in line.split("\t") ]
 				if len(words) < 4:
 					numInc += 1
 					continue
@@ -303,7 +306,7 @@ class Source_ensembl(loki_source.Source):
 				self.log("%s\n" % header)
 				return False
 			for line in datafile:
-				words = [ w.strip() for w in line.strip().split("\t") ]
+				words = [ w.strip() for w in line.split("\t") ]
 				if len(words) < 3:
 					numInc += 1
 					continue
