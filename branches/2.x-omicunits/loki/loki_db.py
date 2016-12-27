@@ -17,7 +17,7 @@ class Database(object):
 	def getVersionTuple(cls):
 		# tuple = (major,minor,revision,dev,build,date)
 		# dev must be in ('a','b','rc','release') for lexicographic comparison
-		return (3,0,0,'a',4,'2016-11-02')
+		return (3,0,0,'a',4,'2016-12-27')
 	#getVersionTuple()
 	
 	
@@ -801,7 +801,7 @@ class Database(object):
 		
 		# cache_size is pages if positive, kibibytes if negative;
 		# seems to only affect write performance
-		cursor.execute("PRAGMA %scache_size = -32768" % (db,))
+		cursor.execute("PRAGMA %scache_size = -65536" % (db,))
 		
 		# for typical read-only usage, synchronization behavior is moot anyway,
 		# and while updating we're not that worried about a power failure
@@ -1411,7 +1411,7 @@ class Database(object):
 	#getURTypeIDs()
 	
 	
-	def getUTypeID(self, rtype):
+	def getUTypeID(self, utype):
 		return self.getUTypeIDs([utype])[utype]
 	#getUTypeID()
 	

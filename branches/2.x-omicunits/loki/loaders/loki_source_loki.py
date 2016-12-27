@@ -18,7 +18,7 @@ class Source_loki(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '3.0 (2015-03-16)'
+		return '3.0 (2016-11-28)'
 	#getVersionString()
 	
 	
@@ -143,9 +143,10 @@ class Source_loki(loki_source.Source):
 			'cleanupSNPMerges',
 			'updateMergedSNPLoci',
 			'cleanupSNPLoci',
-		#	'updateMergedSNPEntrezRoles',
+			'updateMergedSNPEntrezRoles',
 			'cleanupSNPEntrezRoles',
 			'updateMergedGWASAnnotations',
+		#	'cleanupGWASAnnotations',
 			'updateRegionZones',
 			'defineOmicUnits',
 			'resolveSNPUnitRoles',
@@ -186,8 +187,8 @@ class Source_loki(loki_source.Source):
 				curPP.add('updateMergedSNPLoci') # snp_locus
 			if ('snp_locus' in tablesUpdated):
 				curPP.add('cleanupSNPLoci') # snp_locus
-		#	if ('snp_merge' in tablesUpdated) or ('snp_entrez_role' in tablesUpdated):
-		#		curPP.add('updateMergedSNPEntrezRoles') # snp_entrez_role
+			if ('snp_merge' in tablesUpdated) or ('snp_entrez_role' in tablesUpdated):
+				curPP.add('updateMergedSNPEntrezRoles') # snp_entrez_role
 			if ('snp_entrez_role' in tablesUpdated):
 				curPP.add('cleanupSNPEntrezRoles') # snp_entrez_role
 			if ('snp_merge' in tablesUpdated) or ('gwas' in tablesUpdated):
@@ -446,16 +447,18 @@ JOIN `db`.`snp_merge` AS sm
 		else:
 			lastID = None
 			lastPos = None
+			lastValid = False
 			sql = "SELECT _ROWID_, rs, chr, pos, validated FROM `db`.`snp_locus` ORDER BY rs, chr, pos"
 			for row in dbc.execute(sql):
 				pos = (row[1],row[2],row[3])
 				if lastPos == pos:
-					if row[4]:
+					if row[4] and not lastValid:
 						valid.append( (lastID,) )
 					cull.append( (row[0],) )
 				else:
 					lastID = row[0]
 					lastPos = pos
+					lastValid = row[4]
 		#if sql/python method
 		if cull:
 			self.flagTableUpdate('snp_locus')
@@ -468,7 +471,7 @@ JOIN `db`.`snp_merge` AS sm
 	#cleanupSNPLoci()
 	
 	
-	def updateMergedSNPEntrezRoles_DEPRECATED(self):
+	def updateMergedSNPEntrezRoles(self):
 		self.log("checking for merged SNP roles ...")
 		self.prepareTableForQuery('snp_entrez_role')
 		self.prepareTableForQuery('snp_merge')
@@ -497,7 +500,7 @@ JOIN `db`.`snp_merge` AS sm
 			insert = list(dbc.execute(sql))
 			if insert:
 				self.flagTableUpdate('snp_entrez_role')
-				dbc.executemany("INSERT OR IGNORE INTO `db`.`snp_entrez_role` (rs, entrez_id, role_id, source_id)", insert)
+				dbc.executemany("INSERT INTO `db`.`snp_entrez_role` (rs, entrez_id, role_id, source_id)", insert)
 			self.log(" OK: %d roles copied\n" % (len(insert),))
 		#if sql/python method
 	#updateMergedSNPEntrezRoles()
@@ -956,7 +959,7 @@ LEFT JOIN `db`.`snp_merge` AS sm
 				for rsID,entrezID,roleID,sourceID in self._db.cursor().execute(sql):
 					for unitID in nameUnits[(namespaceID,entrezID)]:
 						yield (rsID,unitID,roleID,sourceID)
-			cursor.executemany("INSERT OR IGNORE INTO `db`.`snp_unit_role` (rs, unit_id, role_id, source_id) VALUES (?,?,?,?)", generate_rows())
+			cursor.executemany("INSERT INTO `db`.`snp_unit_role` (rs, unit_id, role_id, source_id) VALUES (?,?,?,?)", generate_rows())
 		
 		# cull duplicate roles
 		self.prepareTableForQuery('snp_unit_role')

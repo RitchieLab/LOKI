@@ -142,6 +142,7 @@ class Source_ensembl(loki_source.Source):
 			if not (
 					header.startswith("Ensembl Gene ID	Associated Gene Name	Description	HGNC symbol	WikiGene Name	UniProt Gene Name")
 					or header.startswith("Ensembl Gene ID	Associated Gene Name	Description	HGNC symbol	WikiGene Name	UniProt Accession ID")
+					or header.startswith("Gene ID	Associated Gene Name	Description	HGNC symbol	WikiGene Name	UniProt Accession ID")
 			):
 				self.log(" ERROR: unrecognized file header\n")
 				self.log("%s\n" % header)
@@ -262,7 +263,10 @@ class Source_ensembl(loki_source.Source):
 		numInc = 0
 		with open('biomart_martservice_ensg_refs.txt','rU') as datafile:
 			header = datafile.next().rstrip()
-			if not header.startswith("Ensembl Gene ID	CCDS ID	EntrezGene ID	HGNC ID(s)"):
+			if not (
+					header.startswith("Ensembl Gene ID	CCDS ID	EntrezGene ID	HGNC ID(s)")
+					or header.startswith("Gene ID	CCDS ID	EntrezGene ID	HGNC ID(s)")
+			):
 				self.log(" ERROR: unrecognized file header\n")
 				self.log("%s\n" % header)
 				return False
@@ -301,7 +305,10 @@ class Source_ensembl(loki_source.Source):
 		numInc = 0
 		with open('biomart_martservice_ensp_refs.txt','rU') as datafile:
 			header = datafile.next().rstrip()
-			if not header.startswith("Ensembl Protein ID	RefSeq Protein ID [e.g. NP_001005353]	UniProt/SwissProt Accession"):
+			if not (
+					header.startswith("Ensembl Protein ID	RefSeq Protein ID [e.g. NP_001005353]	UniProt/SwissProt Accession")
+					or header.startswith("Protein ID	RefSeq Protein ID [e.g. NP_001005353]	UniProt/SwissProt Accession")
+			):
 				self.log(" ERROR: unrecognized file header\n")
 				self.log("%s\n" % header)
 				return False
