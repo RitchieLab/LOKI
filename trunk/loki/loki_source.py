@@ -842,7 +842,17 @@ class Source(object):
 	
 	def downloadFilesFromHTTP(self, remHost, remFiles, reqHeaders=None, alwaysDownload=False):
 		# remFiles={'filename.ext':'/path/on/remote/host/to/filename.ext',...}
-		
+		return self._downloadHTTP('http', remHost, remFiles, reqHeaders, alwaysDownload)
+	#downloadFilesFromHTTP()
+	
+	
+	def downloadFilesFromHTTPS(self, remHost, remFiles, reqHeaders=None, alwaysDownload=False):
+		# remFiles={'filename.ext':'/path/on/remote/host/to/filename.ext',...}
+		return self._downloadHTTP('https', remHost, remFiles, reqHeaders, alwaysDownload)
+	#downloadFilesFromHTTPS()
+	
+	
+	def _downloadHTTP(self, remProtocol, remHost, remFiles, reqHeaders, alwaysDownload):
 		# check local file sizes and times
 		remSize = {}
 		remTime = {}
@@ -862,8 +872,11 @@ class Source(object):
 		if not alwaysDownload:
 			self.log("identifying changed files ...")
 			for locPath in remFiles:
-				request = urllib2.Request(url='http://'+remHost+remFiles[locPath], data=None, headers=(reqHeaders or {}))
+				request = urllib2.Request(remProtocol+'://'+remHost+remFiles[locPath])
 				request.get_method = lambda: 'HEAD'
+				request.add_header('user-agent', 'RitchieLab/LOKI')
+				for k,v in (reqHeaders or {}).iteritems():
+					request.add_header(k, v)
 				response = urllib2.urlopen(request)
 				info = response.info()
 				
@@ -891,7 +904,10 @@ class Source(object):
 				self.log("%s: downloading ..." % locPath)
 				#TODO: download to temp file, then rename?
 				with open(locPath, 'wb') as locFile:
-					request = urllib2.Request(url='http://'+remHost+remFiles[locPath], data=None, headers=(reqHeaders or {}))
+					request = urllib2.Request(remProtocol+'://'+remHost+remFiles[locPath])
+					request.add_header('user-agent', 'RitchieLab/LOKI')
+					for k,v in (reqHeaders or {}).iteritems():
+						request.add_header(k, v)
 					response = urllib2.urlopen(request)
 					while True:
 						data = response.read()
@@ -904,7 +920,7 @@ class Source(object):
 				modTime = time.mktime(remTime[locPath].utctimetuple())
 				os.utime(locPath, (modTime,modTime))
 		self.logPop("... OK\n")
-	#downloadFilesFromHTTP()
+	#_downloadHTTP()
 	
 	
 #Source

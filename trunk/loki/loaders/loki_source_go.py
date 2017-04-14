@@ -9,15 +9,15 @@ class Source_go(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.0 (2013-02-14)'
+		return '2.0 (2017-04-12)'
 	#getVersionString()
 	
 	
 	def download(self, options):
 		# download the latest source files
 		self.downloadFilesFromFTP('ftp.geneontology.org', {
-			'gene_association.goa_human.gz': '/go/gene-associations/gene_association.goa_human.gz',
-			'gene_ontology.1_2.obo':         '/go/ontology/obo_format_1_2/gene_ontology.1_2.obo',
+			'goa_human.gaf.gz':      '/go/gene-associations/goa_human.gaf.gz',
+			'gene_ontology.1_2.obo': '/go/ontology/obo_format_1_2/gene_ontology.1_2.obo',
 		})
 	#download()
 	
@@ -156,7 +156,10 @@ class Source_go(loki_source.Source):
 		
 		# process gene associations
 		self.log("processing gene associations ...")
-		assocFile = self.zfile('gene_association.goa_human.gz') #TODO:context manager,iterator
+		if os.path.isfile('gene_association.goa_human.gz') and not os.path.isfile('goa_human.gaf.gz'):
+			assocFile = self.zfile('gene_association.goa_human.gz') #TODO:context manager,iterator
+		else:
+			assocFile = self.zfile('goa_human.gaf.gz') #TODO:context manager,iterator
 		nsAssoc = {
 			'uniprot_pid': set(),
 			'symbol':      set()

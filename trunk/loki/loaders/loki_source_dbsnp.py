@@ -42,7 +42,7 @@ class Source_dbsnp(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.2 (2016-05-04)'
+		return '2.2 (2017-04-13)'
 	#getVersionString()
 	
 	
@@ -88,7 +88,7 @@ class Source_dbsnp(loki_source.Source):
 				remFiles['chr_%s.txt.gz' % chm] = '/snp/organisms/human_9606/chr_rpts/chr_%s.txt.gz' % chm
 			
 			if options.get('merges',True):
-				remFiles['RsMergeArch.bcp.gz'] = '/snp/organisms/human_9606/database/organism_data/RsMergeArch.bcp.gz'
+				remFiles['RsMergeArch.bcp.gz'] = '/snp/organisms/human_9606/database/data/organism_data/RsMergeArch.bcp.gz'
 			
 			if options.get('roles',False):
 				remFiles['SnpFunctionCode.bcp.gz'] = '/snp/database/shared_data/SnpFunctionCode.bcp.gz'
