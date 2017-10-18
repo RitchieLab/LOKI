@@ -35,27 +35,11 @@ class Source_mint(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.1 (2017-10-05)'
+		return '2.1 (2017-10-18)'
 	#getVersionString()
 	
 	
 	def download(self, options):
-	#	# define a callback to identify the latest *-mint-human.txt file
-	#	def remFilesCallback(ftp):
-	#		remFiles = {}
-	#		
-	#		path = '/pub/release/txt/current'
-	#		ftp.cwd(path)
-	#		bestfile = self._identifyLatestFilename(ftp.nlst())
-	#		if bestfile:
-	#			remFiles[bestfile] = '%s/%s' % (path,bestfile)
-	#		
-	#		return remFiles
-	#	#remFilesCallback
-	#	
-	#	# download the latest source files
-	#	self.downloadFilesFromFTP('mint.bio.uniroma2.it', remFilesCallback)
-		
 		self.downloadFilesFromHTTP('mint.bio.uniroma2.it', {
 			'MINT_MiTab.txt': '/mitab/MINT_MiTab.txt',
 		})
