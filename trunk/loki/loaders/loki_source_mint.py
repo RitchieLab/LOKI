@@ -35,13 +35,16 @@ class Source_mint(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.1 (2017-10-18)'
+		return '2.2 (2018-02-20)'
 	#getVersionString()
 	
 	
 	def download(self, options):
-		self.downloadFilesFromHTTP('mint.bio.uniroma2.it', {
-			'MINT_MiTab.txt': '/mitab/MINT_MiTab.txt',
+		#self.downloadFilesFromHTTP('mint.bio.uniroma2.it', {
+		#	'MINT_MiTab.txt': '/mitab/MINT_MiTab.txt',
+		#})
+		self.downloadFilesFromHTTP('www.ebi.ac.uk', {
+			'MINT_MiTab.txt': '/Tools/webservices/psicquic/mint/webservices/current/search/query/species:human',
 		})
 	#download()
 	
@@ -100,8 +103,9 @@ class Source_mint(loki_source.Source):
 					geneA.extend(w.strip() for w in words[4].split('|') if w != '-') # alias A
 					geneB.extend(w.strip() for w in words[5].split('|') if w != '-') # alias B
 					labels = dict( (w.strip().split(':',1) for w in words[13].split('|') if w != '-') )
-					geneA.extend(w.strip() for w in words[22].split('|') if w != '-') # xref A
-					geneB.extend(w.strip() for w in words[23].split('|') if w != '-') # xref B
+					if len(words) > 23:
+						geneA.extend(w.strip() for w in words[22].split('|') if w != '-') # xref A
+						geneB.extend(w.strip() for w in words[23].split('|') if w != '-') # xref B
 					
 					# choose the group identifier
 					mintID = labels.get('mint') or labels.get('intact') or ('MINT-unlabeled-%d' % (l,))
