@@ -42,14 +42,14 @@ class Source_dbsnp(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.2 (2017-04-13)'
+		return '2.3 (2018-11-01)'
 	#getVersionString()
 	
 	
 	@classmethod
 	def getOptions(cls):
 		return {
-			'loci'   : '[all|validated]  --  store all or only validated SNP loci (default: all)',
+			'loci'   : '[all|validated]  --  store all or only validated SNP loci (default: validated)',
 			'merges' : '[yes|no]  --  process and store RS# merge history (default: yes)',
 			'roles'  : '[yes|no]  --  process and store SNP roles (default: no)',
 		}
@@ -88,7 +88,7 @@ class Source_dbsnp(loki_source.Source):
 				remFiles['chr_%s.txt.gz' % chm] = '/snp/organisms/human_9606/chr_rpts/chr_%s.txt.gz' % chm
 			
 			if options.get('merges',True):
-				remFiles['RsMergeArch.bcp.gz'] = '/snp/organisms/human_9606/database/data/organism_data/RsMergeArch.bcp.gz'
+				remFiles['RsMergeArch.bcp.gz'] = '/snp/organisms/human_9606/database/organism_data/RsMergeArch.bcp.gz'
 			
 			if options.get('roles',False):
 				remFiles['SnpFunctionCode.bcp.gz'] = '/snp/database/shared_data/SnpFunctionCode.bcp.gz'
@@ -281,7 +281,7 @@ CREATE TABLE [b137_SNPContigLocusId]
 		#   http://www.ncbi.nlm.nih.gov/books/NBK44414/#Reports.the_xml_dump_for_build_126_has_a
 		# This matches LOKI's convention.
 		grcBuild = None
-		snpLociValid = (options.get('loci') == 'validated')
+		snpLociValid = (options.get('loci','validated') == 'validated')
 		for fileChm in self._chmList:
 			self.log("processing chromosome %s SNPs ..." % fileChm)
 			chmFile = self.zfile('chr_%s.txt.gz' % fileChm)

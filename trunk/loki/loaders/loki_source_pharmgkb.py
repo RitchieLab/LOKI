@@ -9,7 +9,7 @@ class Source_pharmgkb(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.2 (2017-04-13)'
+		return '2.3 (2018-10-30)'
 	#getVersionString()
 	
 	
@@ -182,7 +182,11 @@ class Source_pharmgkb(loki_source.Source):
 					# the new format has separate "PA###-***.tsv" files for each pathway
 					pathFile = pathZip.open(info,'r')
 					header = next(pathFile)
-					if not header.startswith("From	To	Reaction Type	Controller	Control Type	Cell Type	PubMed Id	Genes"): #	Drugs	Diseases
+					if header.startswith("From	To	Reaction Type	Controller	Control Type	Cell Type	PubMed Id	Genes"): #	Drugs	Diseases
+						pass
+					elif header.startswith("From	To	Reaction Type	Controller	Control Type	Cell Type	PMIDs	Genes"): #	Drugs	Diseases
+						pass
+					else:
 						raise Exception("ERROR: unrecognized file header in '%s': %s" % (info.filename,header))
 					parts = info.filename.split('-')
 					curPath = parts[0]
