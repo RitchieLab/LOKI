@@ -11,7 +11,7 @@ class Source_entrez(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '3.0 (2016-11-08)'
+		return '3.0 (2017-01-13)'
 	#getVersionString()
 	
 	
@@ -190,6 +190,7 @@ class Source_entrez(loki_source.Source):
 		grcBuild = None
 		buildEntrez = collections.defaultdict(set)
 		buildRegions = collections.defaultdict(set)
+		errInvalid = list()
 		errNC = list()
 		errBuild = list()
 		errChr = list()
@@ -223,9 +224,12 @@ class Source_entrez(loki_source.Source):
 					humanRefseqP.add(proAcc)
 					nsNames[(nsID['entrez_gid'],nsID['refseq_pid'])].add( (entrezGID,proAcc) )
 				
-				# only store region boundaries on GRCh builds of whole chromosomes
+				# only store validated region boundaries on GRCh builds of whole chromosomes
 				# (refseq accession types: http://www.ncbi.nlm.nih.gov/projects/RefSeq/key.html)
-				if not (genAcc and genAcc.startswith("NC_")):
+				# skip unvalidated IDs
+				if status not in ('PREDICTED','REVIEWED','VALIDATED'): #TODO optional
+					errInvalid.append(entrezGID)
+				elif not (genAcc and genAcc.startswith("NC_")):
 					errNC.append(entrezGID)
 				elif not build:
 					errBuild.append(entrezGID)
@@ -265,7 +269,9 @@ class Source_entrez(loki_source.Source):
 		errBuild = [x for x in errBuild if (x not in setCull)]
 		setCull.update(errBuild)
 		errNC = [x for x in errNC if (x not in setCull)]
-		#setCull.update(errNC)
+		setCull.update(errNC)
+		errInvalid = [x for x in errInvalid if (x not in setCull)]
+		#setCull.update(errInvalid)
 		setCull = None
 		
 		# print region stats
@@ -273,6 +279,8 @@ class Source_entrez(loki_source.Source):
 		numNames = sum(len(names) for names in nsNames.itervalues())
 		self.log(" OK: %d regions (%d genes), %d identifiers\n" % (len(buildRegions[grcBuild]),len(buildEntrez[grcBuild]),numNames-numNames0))
 		self.logPush()
+		if errInvalid:
+			self.log("WARNING: %d regions (%d genes) unvalidated\n" % (len(errInvalid),len(set(errInvalid))))
 		if errNC:
 			self.log("WARNING: %d regions (%d genes) not mapped to whole chromosome\n" % (len(errNC),len(set(errNC))))
 		if errBuild:
@@ -284,7 +292,7 @@ class Source_entrez(loki_source.Source):
 		if errBound:
 			self.log("WARNING: %d regions (%d genes) with unknown boundaries\n" % (len(errBound),len(set(errBound))))
 		self.logPop()
-		errNC = errBuild = errVers = errChr = errBound = buildEntrez = None
+		errInvalid = errNC = errBuild = errVers = errChr = errBound = buildEntrez = None
 		
 		# store regions
 		self.log("storing regions ...")
