@@ -18,7 +18,7 @@ class Source_loki(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '3.0 (2016-11-28)'
+		return '3.0 (2017-01-13)'
 	#getVersionString()
 	
 	
@@ -26,6 +26,8 @@ class Source_loki(loki_source.Source):
 	def getOptions(cls):
 		return {
 			'unit-core-ns'          : 'ns1[,ns2[...]]  --  comma-separated list of namespaces to define unit cores (default: entrez_gid,ensembl_gid)',
+			'require-dual-xrefs'    : '[yes|no]  --  require unit core identifier references to be bi-directional (default: no)',
+			'require-core-region'   : '[yes|no]  --  require unit core identifiers to have at least one region (default: no)',
 			'require-unit-region'   : '[yes|no]  --  require all units to have at least one region (default: no)',
 			'max-unit-gap'          : 'number  --  maximum basepair gap between regions to allow in one unit, or -1 for no limit (default: 25000)',
 			'max-unit-alias-dist'   : 'number  --  maximum identifier graph distance from an alias to a unit core, or -1 for no limit (default: -1)',
@@ -36,6 +38,8 @@ class Source_loki(loki_source.Source):
 	
 	def validateOptions(self, options):
 		options.setdefault('unit-core-ns', 'ensembl_gid,entrez_gid')
+		options.setdefault('require-dual-xrefs', 'no')
+		options.setdefault('require-core-region', 'no')
 		options.setdefault('require-unit-region', 'no')
 		options.setdefault('max-unit-gap', '25000')
 		options.setdefault('max-unit-alias-dist', '-1')
@@ -47,7 +51,7 @@ class Source_loki(loki_source.Source):
 				if not v:
 					return "%s must include at least one namespace" % (o,)
 				v = ','.join(sorted(v))
-			elif o == 'require-unit-region':
+			elif o in ('require-dual-xrefs','require-core-region','require-unit-region'):
 				if (v == '1') or 'true'.startswith(v) or 'yes'.startswith(v):
 					v = 'yes'
 				elif (v == '0') or 'false'.startswith(v) or 'no'.startswith(v):
@@ -618,7 +622,8 @@ VALUES (?,?,?,?,?,?,?,?,?,?)
 	def defineOmicUnits(self):
 		self.logPush("defining omic units ...\n")
 		cursor = self._db.cursor()
-		empty = list()
+		emptylist = list()
+		emptydict = dict()
 		
 		# load namespace definitions
 		nsLabel = dict()
@@ -666,21 +671,19 @@ VALUES (?,?,?,?,?,?,?,?,?,?)
 				n1 = nameNum[name1] = len(nameNamespaceID)
 				nameNamespaceID.append(row[0])
 				nameName.append(row[1])
-				graph.append(list())
+				graph.append(dict())
 			name2 = (row[2],row[3])
 			n2 = nameNum.get(name2)
 			if n2 == None:
 				n2 = nameNum[name2] = len(nameNamespaceID)
 				nameNamespaceID.append(row[2])
 				nameName.append(row[3])
-				graph.append(list())
+				graph.append(dict())
 			if n1 != n2:
 				numEdges += 1
-				graph[n1].append(n2)
-				graph[n2].append(n1)
+				graph[n1][n2] = True
+				graph[n2][n1] = graph[n2].get(n1,False)
 		#for row in cursor
-		for n1 in xrange(len(nameName)):
-			graph[n1] = tuple(set(graph[n1]))
 		self.log(" OK: %d identifiers, %d links\n" % (len(nameName),numEdges))
 		
 		# load regions associated with any of the core namespaces
@@ -699,7 +702,7 @@ WHERE rn.namespace_id IN (%s)"""
 				n = nameNum[name] = len(nameNamespaceID)
 				nameNamespaceID.append(row[0])
 				nameName.append(row[1])
-				graph.append(empty)
+				graph.append(emptydict)
 			nameRegions[n].add( (row[2],row[3],row[4]) )
 		#for row in cursor
 		self.log(" OK: %d identifiers\n" % (len(nameRegions),))
@@ -714,28 +717,30 @@ WHERE rn.namespace_id IN (%s)"""
 				n = nameNum[name] = len(nameNamespaceID)
 				nameNamespaceID.append(row[0])
 				nameName.append(row[1])
-				graph.append(empty)
+				graph.append(emptydict)
 			namePropValues[n][row[2]].append(row[3])
 		self.log(" OK: %d identifiers\n" % (len(namePropValues),))
 		nameNum = None
 		
 		# find core sets of names that could become a unit
 		self.log("searching for candidate units ...")
+		requireCoreRegion = (self._options['require-core-region'] == 'yes')
 		coreNames = list()
 		nameFlag = set()
 		stack = list()
-		for n1 in xrange(len(nameName)):
-			if (nameNamespaceID[n1] in nsCore) and (n1 not in nameFlag):
-				names = {n1}
-				stack.append(n1)
+		for n0 in xrange(len(nameName)):
+			if (nameNamespaceID[n0] in nsCore) and (n0 not in nameFlag) and ((not requireCoreRegion) or (n0 in nameRegions)):
+				names = {n0}
+				stack.append(n0)
 				while stack:
-					for n2 in graph[stack.pop()]:
-						if (nameNamespaceID[n2] in nsCore) and (n2 not in names):
+					n1 = stack.pop()
+					for n2,fwd in graph[n1].iteritems():
+						if (nameNamespaceID[n2] in nsCore) and (n2 not in names) and ((self._options['require-dual-xrefs'] != 'yes') or (fwd and graph[n2].get(n1)) or (nameNamespaceID[n1] == nameNamespaceID[n2])) and ((not requireCoreRegion) or (n2 in nameRegions)):
 							names.add(n2)
 							stack.append(n2)
 				nameFlag |= names
 				coreNames.append(tuple(names))
-		#for n1 in graph
+		#for n0 in graph
 		self.log(" OK: %d candidates, %d core identifiers\n" % (len(coreNames),len(nameFlag)))
 		nameFlag = None
 		
@@ -797,9 +802,9 @@ WHERE rn.namespace_id IN (%s)"""
 			queue = collections.deque( n for n in xrange(len(nameName)) if nameUnits[n] )
 			while queue:
 				n1 = queue.pop()
-				u1 = nameUnits[n1] or empty
+				u1 = nameUnits[n1] or emptylist
 				d2 = nameDist[n1] + 1
-				for n2 in graph[n1]:
+				for n2 in graph[n1].iterkeys():
 					if (0 <= nameDist[n2] < d2) or (nameNamespaceID[n2] in nsPoly):
 						pass
 					elif nameDist[n2] > d2:
@@ -825,7 +830,7 @@ WHERE rn.namespace_id IN (%s)"""
 				delNames = delAssignments = 0
 				for n in xrange(len(nameDist)):
 					d = nameDist[n]
-					if (d >= 0) and (d > maxSharedDist) and (len(nameUnits[n] or empty) > 1):
+					if (d >= 0) and (d > maxSharedDist) and (len(nameUnits[n] or emptylist) > 1):
 						delNames += 1
 						delAssignments += len(nameUnits[n])
 						nameUnits[n] = None
@@ -843,13 +848,13 @@ WHERE rn.namespace_id IN (%s)"""
 					dist = 0
 					i = 0
 					while i < len(queue):
-						for n2 in graph[queue[i]]:
+						for n2 in graph[queue[i]].iterkeys():
 							if (nameNamespaceID[n2] in nsPoly):
 								if (nameDist[n2] < 0):
 									nameDist[n2] = 0
 									queue.append(n2)
 							else:
-								units.update(nameUnits[n2] or empty)
+								units.update(nameUnits[n2] or emptylist)
 								dist = max(dist,nameDist[n2])
 						i += 1
 					#while queue
@@ -869,7 +874,7 @@ WHERE rn.namespace_id IN (%s)"""
 		# convert nameUnits to unitNames
 		unitNames = list(list() for u in xrange(nextUnit))
 		for n,units in enumerate(nameUnits):
-			for u in (units or empty):
+			for u in (units or emptylist):
 				unitNames[u].append(n)
 		for u in xrange(nextUnit):
 			unitNames[u] = tuple(unitNames[u])
@@ -917,7 +922,7 @@ WHERE rn.namespace_id IN (%s)"""
 		# convert unitNames back to nameUnits for re-use in later steps
 		nameUnits = collections.defaultdict(set)
 		for u,names in enumerate(unitNames):
-			for n in (names or empty):
+			for n in (names or emptylist):
 				nameUnits[ (nameNamespaceID[n],nameName[n]) ].add(unitIDs[u])
 		self._nameUnits = nameUnits
 		nameNamespaceID = nameName = unitNames = unitIDs = None
