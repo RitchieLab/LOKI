@@ -48,7 +48,7 @@ class Source_entrez(loki_source.Source):
 			'gene2refseq.gz':                  '/gene/DATA/gene2refseq.gz',
 			'gene_history.gz':                 '/gene/DATA/gene_history.gz',
 			'gene2ensembl.gz':                 '/gene/DATA/gene2ensembl.gz',
-			'gene2unigene':                    '/gene/DATA/gene2unigene',
+			'gene2unigene':                    '/gene/DATA/ARCHIVE/gene2unigene',
 			'gene_refseq_uniprotkb_collab.gz': '/gene/DATA/gene_refseq_uniprotkb_collab.gz',
 		})
 		self.downloadFilesFromFTP('ftp.uniprot.org', {
