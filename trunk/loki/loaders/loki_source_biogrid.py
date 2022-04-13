@@ -15,8 +15,8 @@ class Source_biogrid(loki_source.Source):
 	
 	def download(self, options):
 		# download the latest source files
-		self.downloadFilesFromHTTP('thebiogrid.org', {
-			'BIOGRID-ORGANISM-LATEST.tab2.zip': '/downloads/archives/Latest%20Release/BIOGRID-ORGANISM-LATEST.tab2.zip',
+		self.downloadFilesFromHTTP('downloads.thebiogrid.org', {
+			'BIOGRID-ORGANISM-LATEST.tab2.zip': '/Download/BioGRID/Latest-Release/BIOGRID-ORGANISM-LATEST.tab2.zip',
 		})
 	#download()
 	
@@ -64,6 +64,8 @@ class Source_biogrid(loki_source.Source):
 						return False
 					for line in assocFile:
 						words = line.split("\t")
+						if(words[1] == "-" or words[2] == "-"):
+							continue
 						bgID = int(words[0])
 						entrezID1 = int(words[1])
 						entrezID2 = int(words[2])
