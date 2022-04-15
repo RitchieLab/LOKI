@@ -10,15 +10,15 @@ class Source_go(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.0 (2017-04-12)'
+		return '2.1 (2022-04-14)'
 	#getVersionString()
 	
 	
 	def download(self, options):
 		# download the latest source files
-		self.downloadFilesFromFTP('ftp.geneontology.org', {
-			'goa_human.gaf.gz':      '/go/gene-associations/goa_human.gaf.gz',
-			'gene_ontology.1_2.obo': '/go/ontology/obo_format_1_2/gene_ontology.1_2.obo',
+		self.downloadFilesFromHTTP('current.geneontology.org', {
+			'goa_human.gaf.gz':      '/annotations/goa_human.gaf.gz',
+			'go.obo': '/ontology/go.obo',
 		})
 	#download()
 	
@@ -59,7 +59,7 @@ class Source_go(loki_source.Source):
 		#goNS = {}
 		#oboProps = {}
 		curStanza = curID = curAnon = curObs = curName = curNS = curDef = curLinks = None
-		with open('gene_ontology.1_2.obo','rU') as oboFile:
+		with open('go.obo','rU') as oboFile:
 			while True:
 				try:
 					line = oboFile.next().rstrip()

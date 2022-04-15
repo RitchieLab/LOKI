@@ -9,7 +9,7 @@ class Source_biogrid(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.0 (2013-02-14)'
+		return '2.1 (2022-04-13)'
 	#getVersionString()
 	
 	
