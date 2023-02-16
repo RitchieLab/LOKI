@@ -1,5 +1,9 @@
 CHANGELOG
 
+(2022-10-01)
+- fixed an issue in downloading datasets from multiple sites
+- updated from Python2 to Python3 
+
 2.2.5 (2019-03-15)
 - updated contact information
 - updated dbSNP, MINT and PharmGKB loaders

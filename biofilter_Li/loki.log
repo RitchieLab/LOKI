@@ -1,0 +1,1070 @@
+loading knowledge database file 'loki-20220930.db' ...
+... OK
+preparing for update ...
+... OK
+downloading biogrid data ...
+  identifying changed files ... OK
+  downloading changed files ...
+    BIOGRID-ORGANISM-LATEST.tab2.zip: downloading ... OK
+  ... OK
+... OK
+analyzing biogrid data files ... OK
+processing biogrid data ...
+  deleting old records from the database ... OK
+  verifying archive file ... OK
+  processing gene interactions ... OK: 807985 interactions (19858 genes), 1013143 pair identifiers
+  writing interaction pairs to the database ... OK
+  writing interaction names to the database ... OK
+  writing gene interactions to the database ... OK
+... OK
+downloading chainfiles data ...
+  identifying changed files ... OK
+  downloading changed files ...
+    hg10ToHg16.over.chain.gz: downloading ... OK
+    hg10ToHg38.over.chain.gz: downloading ... OK
+    hg11ToHg19.over.chain.gz: downloading ... OK
+    hg11ToHg38.over.chain.gz: downloading ... OK
+    hg12ToHg13.over.chain.gz: downloading ... OK
+    hg12ToHg15.over.chain.gz: downloading ... OK
+    hg12ToHg16.over.chain.gz: downloading ... OK
+    hg13ToHg15.over.chain.gz: downloading ... OK
+    hg13ToHg16.over.chain.gz: downloading ... OK
+    hg15ToHg16.over.chain.gz: downloading ... OK
+    hg15ToHg17.over.chain.gz: downloading ... OK
+    hg15ToHg38.over.chain.gz: downloading ... OK
+    hg16ToHg17.over.chain.gz: downloading ... OK
+    hg16ToHg18.over.chain.gz: downloading ... OK
+    hg16ToHg19.over.chain.gz: downloading ... OK
+    hg16ToHg38.over.chain.gz: downloading ... OK
+    hg17ToHg15.over.chain.gz: downloading ... OK
+    hg17ToHg16.over.chain.gz: downloading ... OK
+    hg17ToHg18.over.chain.gz: downloading ... OK
+    hg17ToHg19.over.chain.gz: downloading ... OK
+    hg17ToHg38.over.chain.gz: downloading ... OK
+    hg18ToHg17.over.chain.gz: downloading ... OK
+    hg18ToHg19.over.chain.gz: downloading ... OK
+    hg18ToHg38.over.chain.gz: downloading ... OK
+    hg19ToHg17.over.chain.gz: downloading ... OK
+    hg19ToHg18.over.chain.gz: downloading ... OK
+    hg19ToHg38.over.chain.gz: downloading ... OK
+    hg38ToHg19.over.chain.gz: downloading ... OK
+    hg4ToHg38.over.chain.gz: downloading ... OK
+  ... OK
+... OK
+analyzing chainfiles data files ... OK
+processing chainfiles data ...
+  deleting old records from the database ... OK
+  parsing chains for hg10 -> hg16 ...OK
+  parsing chains for hg10 -> hg38 ...OK
+  parsing chains for hg11 -> hg19 ...OK
+  parsing chains for hg11 -> hg38 ...OK
+  parsing chains for hg12 -> hg13 ...OK
+  parsing chains for hg12 -> hg15 ...OK
+  parsing chains for hg12 -> hg16 ...OK
+  parsing chains for hg13 -> hg15 ...OK
+  parsing chains for hg13 -> hg16 ...OK
+  parsing chains for hg15 -> hg16 ...OK
+  parsing chains for hg15 -> hg17 ...OK
+  parsing chains for hg15 -> hg38 ...OK
+  parsing chains for hg16 -> hg17 ...OK
+  parsing chains for hg16 -> hg18 ...OK
+  parsing chains for hg16 -> hg19 ...OK
+  parsing chains for hg16 -> hg38 ...OK
+  parsing chains for hg17 -> hg15 ...OK
+  parsing chains for hg17 -> hg16 ...OK
+  parsing chains for hg17 -> hg18 ...OK
+  parsing chains for hg17 -> hg19 ...OK
+  parsing chains for hg17 -> hg38 ...OK
+  parsing chains for hg18 -> hg17 ...OK
+  parsing chains for hg18 -> hg19 ...OK
+  parsing chains for hg18 -> hg38 ...OK
+  parsing chains for hg19 -> hg17 ...OK
+  parsing chains for hg19 -> hg18 ...OK
+  parsing chains for hg19 -> hg38 ...OK
+  parsing chains for hg38 -> hg19 ...OK
+  parsing chains for hg4 -> hg38 ...OK
+... OK
+downloading dbsnp data ...
+  identifying changed files ... OK
+  downloading changed files ...
+    RsMergeArch.bcp.gz: downloading ... OK
+    chr_1.txt.gz: downloading ... OK
+    chr_10.txt.gz: downloading ... OK
+    chr_11.txt.gz: downloading ... OK
+    chr_12.txt.gz: downloading ... OK
+    chr_13.txt.gz: downloading ... OK
+    chr_14.txt.gz: downloading ... OK
+    chr_15.txt.gz: downloading ... OK
+    chr_16.txt.gz: downloading ... OK
+    chr_17.txt.gz: downloading ... OK
+    chr_18.txt.gz: downloading ... OK
+    chr_19.txt.gz: downloading ... OK
+    chr_2.txt.gz: downloading ... OK
+    chr_20.txt.gz: downloading ... OK
+    chr_21.txt.gz: downloading ... OK
+    chr_22.txt.gz: downloading ... OK
+    chr_3.txt.gz: downloading ... OK
+    chr_4.txt.gz: downloading ... OK
+    chr_5.txt.gz: downloading ... OK
+    chr_6.txt.gz: downloading ... OK
+    chr_7.txt.gz: downloading ... OK
+    chr_8.txt.gz: downloading ... OK
+    chr_9.txt.gz: downloading ... OK
+    chr_MT.txt.gz: downloading ... OK
+    chr_PAR.txt.gz: downloading ... OK
+    chr_X.txt.gz: downloading ... OK
+    chr_Y.txt.gz: downloading ... OK
+  ... OK
+... OK
+analyzing dbsnp data files ... OK
+processing dbsnp data ...
+  deleting old records from the database ... OK
+  processing SNP merge records ... ~2.5 million so far
+  writing SNP merge records to the database ... OK
+  processing SNP merge records ... ~5.0 million so far
+  writing SNP merge records to the database ... OK
+  processing SNP merge records ... ~7.5 million so far
+  writing SNP merge records to the database ... OK
+  processing SNP merge records ... ~10.0 million so far
+  writing SNP merge records to the database ... OK
+  processing SNP merge records ... OK: ~11963857 merged RS#s
+  writing SNP merge records to the database ... OK
+  processing chromosome 1 SNPs ... 2.5 million so far
+  writing chromosome 1 SNPs to the database ... OK
+  processing chromosome 1 SNPs ... 5.0 million so far
+  writing chromosome 1 SNPs to the database ... OK
+  processing chromosome 1 SNPs ... 7.5 million so far
+  writing chromosome 1 SNPs to the database ... OK
+  processing chromosome 1 SNPs ... 10.0 million so far
+  writing chromosome 1 SNPs to the database ... OK
+  processing chromosome 1 SNPs ... 12.5 million so far
+  writing chromosome 1 SNPs to the database ... OK
+  processing chromosome 1 SNPs ... 15.0 million so far
+  writing chromosome 1 SNPs to the database ... OK
+  processing chromosome 1 SNPs ... 17.5 million so far
+  writing chromosome 1 SNPs to the database ... OK
+  processing chromosome 1 SNPs ... 20.0 million so far
+  writing chromosome 1 SNPs to the database ... OK
+  processing chromosome 1 SNPs ... 22.5 million so far
+  writing chromosome 1 SNPs to the database ... OK
+  processing chromosome 1 SNPs ... 25.0 million so far
+  writing chromosome 1 SNPs to the database ... OK
+  processing chromosome 1 SNPs ... 27.5 million so far
+  writing chromosome 1 SNPs to the database ... OK
+  processing chromosome 1 SNPs ... 30.0 million so far
+  writing chromosome 1 SNPs to the database ... OK
+  processing chromosome 1 SNPs ... 32.5 million so far
+  writing chromosome 1 SNPs to the database ... OK
+  processing chromosome 1 SNPs ... 35.0 million so far
+  writing chromosome 1 SNPs to the database ... OK
+  processing chromosome 1 SNPs ... 37.5 million so far
+  writing chromosome 1 SNPs to the database ... OK
+  processing chromosome 1 SNPs ... 40.0 million so far
+  writing chromosome 1 SNPs to the database ... OK
+  processing chromosome 1 SNPs ... 42.5 million so far
+  writing chromosome 1 SNPs to the database ... OK
+  processing chromosome 1 SNPs ... 45.0 million so far
+  writing chromosome 1 SNPs to the database ... OK
+  processing chromosome 1 SNPs ... 47.5 million so far
+  writing chromosome 1 SNPs to the database ... OK
+  processing chromosome 1 SNPs ... 50.0 million so far
+  writing chromosome 1 SNPs to the database ... OK
+  processing chromosome 1 SNPs ... OK: 50000000 SNP loci
+  writing chromosome 1 SNPs to the database ... OK
+    WARNING: 18194 SNPs skipped (unvalidated, suspect and/or withdrawn)
+    WARNING: 1 SNPs on mismatching chromosome
+  processing chromosome 2 SNPs ... 2.5 million so far
+  writing chromosome 2 SNPs to the database ... OK
+  processing chromosome 2 SNPs ... 5.0 million so far
+  writing chromosome 2 SNPs to the database ... OK
+  processing chromosome 2 SNPs ... 7.5 million so far
+  writing chromosome 2 SNPs to the database ... OK
+  processing chromosome 2 SNPs ... 10.0 million so far
+  writing chromosome 2 SNPs to the database ... OK
+  processing chromosome 2 SNPs ... 12.5 million so far
+  writing chromosome 2 SNPs to the database ... OK
+  processing chromosome 2 SNPs ... 15.0 million so far
+  writing chromosome 2 SNPs to the database ... OK
+  processing chromosome 2 SNPs ... 17.5 million so far
+  writing chromosome 2 SNPs to the database ... OK
+  processing chromosome 2 SNPs ... 20.0 million so far
+  writing chromosome 2 SNPs to the database ... OK
+  processing chromosome 2 SNPs ... 22.5 million so far
+  writing chromosome 2 SNPs to the database ... OK
+  processing chromosome 2 SNPs ... 25.0 million so far
+  writing chromosome 2 SNPs to the database ... OK
+  processing chromosome 2 SNPs ... 27.5 million so far
+  writing chromosome 2 SNPs to the database ... OK
+  processing chromosome 2 SNPs ... 30.0 million so far
+  writing chromosome 2 SNPs to the database ... OK
+  processing chromosome 2 SNPs ... 32.5 million so far
+  writing chromosome 2 SNPs to the database ... OK
+  processing chromosome 2 SNPs ... 35.0 million so far
+  writing chromosome 2 SNPs to the database ... OK
+  processing chromosome 2 SNPs ... 37.5 million so far
+  writing chromosome 2 SNPs to the database ... OK
+  processing chromosome 2 SNPs ... 40.0 million so far
+  writing chromosome 2 SNPs to the database ... OK
+  processing chromosome 2 SNPs ... 42.5 million so far
+  writing chromosome 2 SNPs to the database ... OK
+  processing chromosome 2 SNPs ... 45.0 million so far
+  writing chromosome 2 SNPs to the database ... OK
+  processing chromosome 2 SNPs ... 47.5 million so far
+  writing chromosome 2 SNPs to the database ... OK
+  processing chromosome 2 SNPs ... 50.0 million so far
+  writing chromosome 2 SNPs to the database ... OK
+  processing chromosome 2 SNPs ... 52.5 million so far
+  writing chromosome 2 SNPs to the database ... OK
+  processing chromosome 2 SNPs ... 55.0 million so far
+  writing chromosome 2 SNPs to the database ... OK
+  processing chromosome 2 SNPs ... OK: 55000000 SNP loci
+  writing chromosome 2 SNPs to the database ... OK
+    WARNING: 18546 SNPs skipped (unvalidated, suspect and/or withdrawn)
+  processing chromosome 3 SNPs ... 2.5 million so far
+  writing chromosome 3 SNPs to the database ... OK
+  processing chromosome 3 SNPs ... 5.0 million so far
+  writing chromosome 3 SNPs to the database ... OK
+  processing chromosome 3 SNPs ... 7.5 million so far
+  writing chromosome 3 SNPs to the database ... OK
+  processing chromosome 3 SNPs ... 10.0 million so far
+  writing chromosome 3 SNPs to the database ... OK
+  processing chromosome 3 SNPs ... 12.5 million so far
+  writing chromosome 3 SNPs to the database ... OK
+  processing chromosome 3 SNPs ... 15.0 million so far
+  writing chromosome 3 SNPs to the database ... OK
+  processing chromosome 3 SNPs ... 17.5 million so far
+  writing chromosome 3 SNPs to the database ... OK
+  processing chromosome 3 SNPs ... 20.0 million so far
+  writing chromosome 3 SNPs to the database ... OK
+  processing chromosome 3 SNPs ... 22.5 million so far
+  writing chromosome 3 SNPs to the database ... OK
+  processing chromosome 3 SNPs ... 25.0 million so far
+  writing chromosome 3 SNPs to the database ... OK
+  processing chromosome 3 SNPs ... 27.5 million so far
+  writing chromosome 3 SNPs to the database ... OK
+  processing chromosome 3 SNPs ... 30.0 million so far
+  writing chromosome 3 SNPs to the database ... OK
+  processing chromosome 3 SNPs ... 32.5 million so far
+  writing chromosome 3 SNPs to the database ... OK
+  processing chromosome 3 SNPs ... 35.0 million so far
+  writing chromosome 3 SNPs to the database ... OK
+  processing chromosome 3 SNPs ... 37.5 million so far
+  writing chromosome 3 SNPs to the database ... OK
+  processing chromosome 3 SNPs ... 40.0 million so far
+  writing chromosome 3 SNPs to the database ... OK
+  processing chromosome 3 SNPs ... 42.5 million so far
+  writing chromosome 3 SNPs to the database ... OK
+  processing chromosome 3 SNPs ... 45.0 million so far
+  writing chromosome 3 SNPs to the database ... OK
+  processing chromosome 3 SNPs ... OK: 45000000 SNP loci
+  writing chromosome 3 SNPs to the database ... OK
+    WARNING: 10040 SNPs skipped (unvalidated, suspect and/or withdrawn)
+  processing chromosome 4 SNPs ... 2.5 million so far
+  writing chromosome 4 SNPs to the database ... OK
+  processing chromosome 4 SNPs ... 5.0 million so far
+  writing chromosome 4 SNPs to the database ... OK
+  processing chromosome 4 SNPs ... 7.5 million so far
+  writing chromosome 4 SNPs to the database ... OK
+  processing chromosome 4 SNPs ... 10.0 million so far
+  writing chromosome 4 SNPs to the database ... OK
+  processing chromosome 4 SNPs ... 12.5 million so far
+  writing chromosome 4 SNPs to the database ... OK
+  processing chromosome 4 SNPs ... 15.0 million so far
+  writing chromosome 4 SNPs to the database ... OK
+  processing chromosome 4 SNPs ... 17.5 million so far
+  writing chromosome 4 SNPs to the database ... OK
+  processing chromosome 4 SNPs ... 20.0 million so far
+  writing chromosome 4 SNPs to the database ... OK
+  processing chromosome 4 SNPs ... 22.5 million so far
+  writing chromosome 4 SNPs to the database ... OK
+  processing chromosome 4 SNPs ... 25.0 million so far
+  writing chromosome 4 SNPs to the database ... OK
+  processing chromosome 4 SNPs ... 27.5 million so far
+  writing chromosome 4 SNPs to the database ... OK
+  processing chromosome 4 SNPs ... 30.0 million so far
+  writing chromosome 4 SNPs to the database ... OK
+  processing chromosome 4 SNPs ... 32.5 million so far
+  writing chromosome 4 SNPs to the database ... OK
+  processing chromosome 4 SNPs ... 35.0 million so far
+  writing chromosome 4 SNPs to the database ... OK
+  processing chromosome 4 SNPs ... 37.5 million so far
+  writing chromosome 4 SNPs to the database ... OK
+  processing chromosome 4 SNPs ... 40.0 million so far
+  writing chromosome 4 SNPs to the database ... OK
+  processing chromosome 4 SNPs ... 42.5 million so far
+  writing chromosome 4 SNPs to the database ... OK
+  processing chromosome 4 SNPs ... OK: 42500000 SNP loci
+  writing chromosome 4 SNPs to the database ... OK
+    WARNING: 12016 SNPs skipped (unvalidated, suspect and/or withdrawn)
+  processing chromosome 5 SNPs ... 2.5 million so far
+  writing chromosome 5 SNPs to the database ... OK
+  processing chromosome 5 SNPs ... 5.0 million so far
+  writing chromosome 5 SNPs to the database ... OK
+  processing chromosome 5 SNPs ... 7.5 million so far
+  writing chromosome 5 SNPs to the database ... OK
+  processing chromosome 5 SNPs ... 10.0 million so far
+  writing chromosome 5 SNPs to the database ... OK
+  processing chromosome 5 SNPs ... 12.5 million so far
+  writing chromosome 5 SNPs to the database ... OK
+  processing chromosome 5 SNPs ... 15.0 million so far
+  writing chromosome 5 SNPs to the database ... OK
+  processing chromosome 5 SNPs ... 17.5 million so far
+  writing chromosome 5 SNPs to the database ... OK
+  processing chromosome 5 SNPs ... 20.0 million so far
+  writing chromosome 5 SNPs to the database ... OK
+  processing chromosome 5 SNPs ... 22.5 million so far
+  writing chromosome 5 SNPs to the database ... OK
+  processing chromosome 5 SNPs ... 25.0 million so far
+  writing chromosome 5 SNPs to the database ... OK
+  processing chromosome 5 SNPs ... 27.5 million so far
+  writing chromosome 5 SNPs to the database ... OK
+  processing chromosome 5 SNPs ... 30.0 million so far
+  writing chromosome 5 SNPs to the database ... OK
+  processing chromosome 5 SNPs ... 32.5 million so far
+  writing chromosome 5 SNPs to the database ... OK
+  processing chromosome 5 SNPs ... 35.0 million so far
+  writing chromosome 5 SNPs to the database ... OK
+  processing chromosome 5 SNPs ... 37.5 million so far
+  writing chromosome 5 SNPs to the database ... OK
+  processing chromosome 5 SNPs ... 40.0 million so far
+  writing chromosome 5 SNPs to the database ... OK
+  processing chromosome 5 SNPs ... OK: 40000000 SNP loci
+  writing chromosome 5 SNPs to the database ... OK
+    WARNING: 9614 SNPs skipped (unvalidated, suspect and/or withdrawn)
+  processing chromosome 6 SNPs ... 2.5 million so far
+  writing chromosome 6 SNPs to the database ... OK
+  processing chromosome 6 SNPs ... 5.0 million so far
+  writing chromosome 6 SNPs to the database ... OK
+  processing chromosome 6 SNPs ... 7.5 million so far
+  writing chromosome 6 SNPs to the database ... OK
+  processing chromosome 6 SNPs ... 10.0 million so far
+  writing chromosome 6 SNPs to the database ... OK
+  processing chromosome 6 SNPs ... 12.5 million so far
+  writing chromosome 6 SNPs to the database ... OK
+  processing chromosome 6 SNPs ... 15.0 million so far
+  writing chromosome 6 SNPs to the database ... OK
+  processing chromosome 6 SNPs ... 17.5 million so far
+  writing chromosome 6 SNPs to the database ... OK
+  processing chromosome 6 SNPs ... 20.0 million so far
+  writing chromosome 6 SNPs to the database ... OK
+  processing chromosome 6 SNPs ... 22.5 million so far
+  writing chromosome 6 SNPs to the database ... OK
+  processing chromosome 6 SNPs ... 25.0 million so far
+  writing chromosome 6 SNPs to the database ... OK
+  processing chromosome 6 SNPs ... 27.5 million so far
+  writing chromosome 6 SNPs to the database ... OK
+  processing chromosome 6 SNPs ... 30.0 million so far
+  writing chromosome 6 SNPs to the database ... OK
+  processing chromosome 6 SNPs ... 32.5 million so far
+  writing chromosome 6 SNPs to the database ... OK
+  processing chromosome 6 SNPs ... 35.0 million so far
+  writing chromosome 6 SNPs to the database ... OK
+  processing chromosome 6 SNPs ... 37.5 million so far
+  writing chromosome 6 SNPs to the database ... OK
+  processing chromosome 6 SNPs ... OK: 37500000 SNP loci
+  writing chromosome 6 SNPs to the database ... OK
+    WARNING: 12433 SNPs skipped (unvalidated, suspect and/or withdrawn)
+  processing chromosome 7 SNPs ... 2.5 million so far
+  writing chromosome 7 SNPs to the database ... OK
+  processing chromosome 7 SNPs ... 5.0 million so far
+  writing chromosome 7 SNPs to the database ... OK
+  processing chromosome 7 SNPs ... 7.5 million so far
+  writing chromosome 7 SNPs to the database ... OK
+  processing chromosome 7 SNPs ... 10.0 million so far
+  writing chromosome 7 SNPs to the database ... OK
+  processing chromosome 7 SNPs ... 12.5 million so far
+  writing chromosome 7 SNPs to the database ... OK
+  processing chromosome 7 SNPs ... 15.0 million so far
+  writing chromosome 7 SNPs to the database ... OK
+  processing chromosome 7 SNPs ... 17.5 million so far
+  writing chromosome 7 SNPs to the database ... OK
+  processing chromosome 7 SNPs ... 20.0 million so far
+  writing chromosome 7 SNPs to the database ... OK
+  processing chromosome 7 SNPs ... 22.5 million so far
+  writing chromosome 7 SNPs to the database ... OK
+  processing chromosome 7 SNPs ... 25.0 million so far
+  writing chromosome 7 SNPs to the database ... OK
+  processing chromosome 7 SNPs ... 27.5 million so far
+  writing chromosome 7 SNPs to the database ... OK
+  processing chromosome 7 SNPs ... 30.0 million so far
+  writing chromosome 7 SNPs to the database ... OK
+  processing chromosome 7 SNPs ... 32.5 million so far
+  writing chromosome 7 SNPs to the database ... OK
+  processing chromosome 7 SNPs ... 35.0 million so far
+  writing chromosome 7 SNPs to the database ... OK
+  processing chromosome 7 SNPs ... OK: 35000000 SNP loci
+  writing chromosome 7 SNPs to the database ... OK
+    WARNING: 17896 SNPs skipped (unvalidated, suspect and/or withdrawn)
+  processing chromosome 8 SNPs ... 2.5 million so far
+  writing chromosome 8 SNPs to the database ... OK
+  processing chromosome 8 SNPs ... 5.0 million so far
+  writing chromosome 8 SNPs to the database ... OK
+  processing chromosome 8 SNPs ... 7.5 million so far
+  writing chromosome 8 SNPs to the database ... OK
+  processing chromosome 8 SNPs ... 10.0 million so far
+  writing chromosome 8 SNPs to the database ... OK
+  processing chromosome 8 SNPs ... 12.5 million so far
+  writing chromosome 8 SNPs to the database ... OK
+  processing chromosome 8 SNPs ... 15.0 million so far
+  writing chromosome 8 SNPs to the database ... OK
+  processing chromosome 8 SNPs ... 17.5 million so far
+  writing chromosome 8 SNPs to the database ... OK
+  processing chromosome 8 SNPs ... 20.0 million so far
+  writing chromosome 8 SNPs to the database ... OK
+  processing chromosome 8 SNPs ... 22.5 million so far
+  writing chromosome 8 SNPs to the database ... OK
+  processing chromosome 8 SNPs ... 25.0 million so far
+  writing chromosome 8 SNPs to the database ... OK
+  processing chromosome 8 SNPs ... 27.5 million so far
+  writing chromosome 8 SNPs to the database ... OK
+  processing chromosome 8 SNPs ... 30.0 million so far
+  writing chromosome 8 SNPs to the database ... OK
+  processing chromosome 8 SNPs ... 32.5 million so far
+  writing chromosome 8 SNPs to the database ... OK
+  processing chromosome 8 SNPs ... OK: 32500000 SNP loci
+  writing chromosome 8 SNPs to the database ... OK
+    WARNING: 7509 SNPs skipped (unvalidated, suspect and/or withdrawn)
+  processing chromosome 9 SNPs ... 2.5 million so far
+  writing chromosome 9 SNPs to the database ... OK
+  processing chromosome 9 SNPs ... 5.0 million so far
+  writing chromosome 9 SNPs to the database ... OK
+  processing chromosome 9 SNPs ... 7.5 million so far
+  writing chromosome 9 SNPs to the database ... OK
+  processing chromosome 9 SNPs ... 10.0 million so far
+  writing chromosome 9 SNPs to the database ... OK
+  processing chromosome 9 SNPs ... 12.5 million so far
+  writing chromosome 9 SNPs to the database ... OK
+  processing chromosome 9 SNPs ... 15.0 million so far
+  writing chromosome 9 SNPs to the database ... OK
+  processing chromosome 9 SNPs ... 17.5 million so far
+  writing chromosome 9 SNPs to the database ... OK
+  processing chromosome 9 SNPs ... 20.0 million so far
+  writing chromosome 9 SNPs to the database ... OK
+  processing chromosome 9 SNPs ... 22.5 million so far
+  writing chromosome 9 SNPs to the database ... OK
+  processing chromosome 9 SNPs ... 25.0 million so far
+  writing chromosome 9 SNPs to the database ... OK
+  processing chromosome 9 SNPs ... 27.5 million so far
+  writing chromosome 9 SNPs to the database ... OK
+  processing chromosome 9 SNPs ... OK: 27500000 SNP loci
+  writing chromosome 9 SNPs to the database ... OK
+    WARNING: 12453 SNPs skipped (unvalidated, suspect and/or withdrawn)
+  processing chromosome 10 SNPs ... 2.5 million so far
+  writing chromosome 10 SNPs to the database ... OK
+  processing chromosome 10 SNPs ... 5.0 million so far
+  writing chromosome 10 SNPs to the database ... OK
+  processing chromosome 10 SNPs ... 7.5 million so far
+  writing chromosome 10 SNPs to the database ... OK
+  processing chromosome 10 SNPs ... 10.0 million so far
+  writing chromosome 10 SNPs to the database ... OK
+  processing chromosome 10 SNPs ... 12.5 million so far
+  writing chromosome 10 SNPs to the database ... OK
+  processing chromosome 10 SNPs ... 15.0 million so far
+  writing chromosome 10 SNPs to the database ... OK
+  processing chromosome 10 SNPs ... 17.5 million so far
+  writing chromosome 10 SNPs to the database ... OK
+  processing chromosome 10 SNPs ... 20.0 million so far
+  writing chromosome 10 SNPs to the database ... OK
+  processing chromosome 10 SNPs ... 22.5 million so far
+  writing chromosome 10 SNPs to the database ... OK
+  processing chromosome 10 SNPs ... 25.0 million so far
+  writing chromosome 10 SNPs to the database ... OK
+  processing chromosome 10 SNPs ... 27.5 million so far
+  writing chromosome 10 SNPs to the database ... OK
+  processing chromosome 10 SNPs ... 30.0 million so far
+  writing chromosome 10 SNPs to the database ... OK
+  processing chromosome 10 SNPs ... OK: 30000000 SNP loci
+  writing chromosome 10 SNPs to the database ... OK
+    WARNING: 10119 SNPs skipped (unvalidated, suspect and/or withdrawn)
+  processing chromosome 11 SNPs ... 2.5 million so far
+  writing chromosome 11 SNPs to the database ... OK
+  processing chromosome 11 SNPs ... 5.0 million so far
+  writing chromosome 11 SNPs to the database ... OK
+  processing chromosome 11 SNPs ... 7.5 million so far
+  writing chromosome 11 SNPs to the database ... OK
+  processing chromosome 11 SNPs ... 10.0 million so far
+  writing chromosome 11 SNPs to the database ... OK
+  processing chromosome 11 SNPs ... 12.5 million so far
+  writing chromosome 11 SNPs to the database ... OK
+  processing chromosome 11 SNPs ... 15.0 million so far
+  writing chromosome 11 SNPs to the database ... OK
+  processing chromosome 11 SNPs ... 17.5 million so far
+  writing chromosome 11 SNPs to the database ... OK
+  processing chromosome 11 SNPs ... 20.0 million so far
+  writing chromosome 11 SNPs to the database ... OK
+  processing chromosome 11 SNPs ... 22.5 million so far
+  writing chromosome 11 SNPs to the database ... OK
+  processing chromosome 11 SNPs ... 25.0 million so far
+  writing chromosome 11 SNPs to the database ... OK
+  processing chromosome 11 SNPs ... 27.5 million so far
+  writing chromosome 11 SNPs to the database ... OK
+  processing chromosome 11 SNPs ... 30.0 million so far
+  writing chromosome 11 SNPs to the database ... OK
+  processing chromosome 11 SNPs ... OK: 30000000 SNP loci
+  writing chromosome 11 SNPs to the database ... OK
+    WARNING: 8914 SNPs skipped (unvalidated, suspect and/or withdrawn)
+  processing chromosome 12 SNPs ... 2.5 million so far
+  writing chromosome 12 SNPs to the database ... OK
+  processing chromosome 12 SNPs ... 5.0 million so far
+  writing chromosome 12 SNPs to the database ... OK
+  processing chromosome 12 SNPs ... 7.5 million so far
+  writing chromosome 12 SNPs to the database ... OK
+  processing chromosome 12 SNPs ... 10.0 million so far
+  writing chromosome 12 SNPs to the database ... OK
+  processing chromosome 12 SNPs ... 12.5 million so far
+  writing chromosome 12 SNPs to the database ... OK
+  processing chromosome 12 SNPs ... 15.0 million so far
+  writing chromosome 12 SNPs to the database ... OK
+  processing chromosome 12 SNPs ... 17.5 million so far
+  writing chromosome 12 SNPs to the database ... OK
+  processing chromosome 12 SNPs ... 20.0 million so far
+  writing chromosome 12 SNPs to the database ... OK
+  processing chromosome 12 SNPs ... 22.5 million so far
+  writing chromosome 12 SNPs to the database ... OK
+  processing chromosome 12 SNPs ... 25.0 million so far
+  writing chromosome 12 SNPs to the database ... OK
+  processing chromosome 12 SNPs ... 27.5 million so far
+  writing chromosome 12 SNPs to the database ... OK
+  processing chromosome 12 SNPs ... 30.0 million so far
+  writing chromosome 12 SNPs to the database ... OK
+  processing chromosome 12 SNPs ... OK: 30000000 SNP loci
+  writing chromosome 12 SNPs to the database ... OK
+    WARNING: 8212 SNPs skipped (unvalidated, suspect and/or withdrawn)
+  processing chromosome 13 SNPs ... 2.5 million so far
+  writing chromosome 13 SNPs to the database ... OK
+  processing chromosome 13 SNPs ... 5.0 million so far
+  writing chromosome 13 SNPs to the database ... OK
+  processing chromosome 13 SNPs ... 7.5 million so far
+  writing chromosome 13 SNPs to the database ... OK
+  processing chromosome 13 SNPs ... 10.0 million so far
+  writing chromosome 13 SNPs to the database ... OK
+  processing chromosome 13 SNPs ... 12.5 million so far
+  writing chromosome 13 SNPs to the database ... OK
+  processing chromosome 13 SNPs ... 15.0 million so far
+  writing chromosome 13 SNPs to the database ... OK
+  processing chromosome 13 SNPs ... 17.5 million so far
+  writing chromosome 13 SNPs to the database ... OK
+  processing chromosome 13 SNPs ... 20.0 million so far
+  writing chromosome 13 SNPs to the database ... OK
+  processing chromosome 13 SNPs ... OK: 20000000 SNP loci
+  writing chromosome 13 SNPs to the database ... OK
+    WARNING: 6350 SNPs skipped (unvalidated, suspect and/or withdrawn)
+  processing chromosome 14 SNPs ... 2.5 million so far
+  writing chromosome 14 SNPs to the database ... OK
+  processing chromosome 14 SNPs ... 5.0 million so far
+  writing chromosome 14 SNPs to the database ... OK
+  processing chromosome 14 SNPs ... 7.5 million so far
+  writing chromosome 14 SNPs to the database ... OK
+  processing chromosome 14 SNPs ... 10.0 million so far
+  writing chromosome 14 SNPs to the database ... OK
+  processing chromosome 14 SNPs ... 12.5 million so far
+  writing chromosome 14 SNPs to the database ... OK
+  processing chromosome 14 SNPs ... 15.0 million so far
+  writing chromosome 14 SNPs to the database ... OK
+  processing chromosome 14 SNPs ... 17.5 million so far
+  writing chromosome 14 SNPs to the database ... OK
+  processing chromosome 14 SNPs ... 20.0 million so far
+  writing chromosome 14 SNPs to the database ... OK
+  processing chromosome 14 SNPs ... OK: 20000000 SNP loci
+  writing chromosome 14 SNPs to the database ... OK
+    WARNING: 5630 SNPs skipped (unvalidated, suspect and/or withdrawn)
+  processing chromosome 15 SNPs ... 2.5 million so far
+  writing chromosome 15 SNPs to the database ... OK
+  processing chromosome 15 SNPs ... 5.0 million so far
+  writing chromosome 15 SNPs to the database ... OK
+  processing chromosome 15 SNPs ... 7.5 million so far
+  writing chromosome 15 SNPs to the database ... OK
+  processing chromosome 15 SNPs ... 10.0 million so far
+  writing chromosome 15 SNPs to the database ... OK
+  processing chromosome 15 SNPs ... 12.5 million so far
+  writing chromosome 15 SNPs to the database ... OK
+  processing chromosome 15 SNPs ... 15.0 million so far
+  writing chromosome 15 SNPs to the database ... OK
+  processing chromosome 15 SNPs ... 17.5 million so far
+  writing chromosome 15 SNPs to the database ... OK
+  processing chromosome 15 SNPs ... OK: 17500000 SNP loci
+  writing chromosome 15 SNPs to the database ... OK
+    WARNING: 8697 SNPs skipped (unvalidated, suspect and/or withdrawn)
+  processing chromosome 16 SNPs ... 2.5 million so far
+  writing chromosome 16 SNPs to the database ... OK
+  processing chromosome 16 SNPs ... 5.0 million so far
+  writing chromosome 16 SNPs to the database ... OK
+  processing chromosome 16 SNPs ... 7.5 million so far
+  writing chromosome 16 SNPs to the database ... OK
+  processing chromosome 16 SNPs ... 10.0 million so far
+  writing chromosome 16 SNPs to the database ... OK
+  processing chromosome 16 SNPs ... 12.5 million so far
+  writing chromosome 16 SNPs to the database ... OK
+  processing chromosome 16 SNPs ... 15.0 million so far
+  writing chromosome 16 SNPs to the database ... OK
+  processing chromosome 16 SNPs ... 17.5 million so far
+  writing chromosome 16 SNPs to the database ... OK
+  processing chromosome 16 SNPs ... 20.0 million so far
+  writing chromosome 16 SNPs to the database ... OK
+  processing chromosome 16 SNPs ... OK: 20000000 SNP loci
+  writing chromosome 16 SNPs to the database ... OK
+    WARNING: 8930 SNPs skipped (unvalidated, suspect and/or withdrawn)
+  processing chromosome 17 SNPs ... 2.5 million so far
+  writing chromosome 17 SNPs to the database ... OK
+  processing chromosome 17 SNPs ... 5.0 million so far
+  writing chromosome 17 SNPs to the database ... OK
+  processing chromosome 17 SNPs ... 7.5 million so far
+  writing chromosome 17 SNPs to the database ... OK
+  processing chromosome 17 SNPs ... 10.0 million so far
+  writing chromosome 17 SNPs to the database ... OK
+  processing chromosome 17 SNPs ... 12.5 million so far
+  writing chromosome 17 SNPs to the database ... OK
+  processing chromosome 17 SNPs ... 15.0 million so far
+  writing chromosome 17 SNPs to the database ... OK
+  processing chromosome 17 SNPs ... 17.5 million so far
+  writing chromosome 17 SNPs to the database ... OK
+  processing chromosome 17 SNPs ... OK: 17500000 SNP loci
+  writing chromosome 17 SNPs to the database ... OK
+    WARNING: 8532 SNPs skipped (unvalidated, suspect and/or withdrawn)
+  processing chromosome 18 SNPs ... 2.5 million so far
+  writing chromosome 18 SNPs to the database ... OK
+  processing chromosome 18 SNPs ... 5.0 million so far
+  writing chromosome 18 SNPs to the database ... OK
+  processing chromosome 18 SNPs ... 7.5 million so far
+  writing chromosome 18 SNPs to the database ... OK
+  processing chromosome 18 SNPs ... 10.0 million so far
+  writing chromosome 18 SNPs to the database ... OK
+  processing chromosome 18 SNPs ... 12.5 million so far
+  writing chromosome 18 SNPs to the database ... OK
+  processing chromosome 18 SNPs ... 15.0 million so far
+  writing chromosome 18 SNPs to the database ... OK
+  processing chromosome 18 SNPs ... 17.5 million so far
+  writing chromosome 18 SNPs to the database ... OK
+  processing chromosome 18 SNPs ... OK: 17500000 SNP loci
+  writing chromosome 18 SNPs to the database ... OK
+    WARNING: 4579 SNPs skipped (unvalidated, suspect and/or withdrawn)
+  processing chromosome 19 SNPs ... 2.5 million so far
+  writing chromosome 19 SNPs to the database ... OK
+  processing chromosome 19 SNPs ... 5.0 million so far
+  writing chromosome 19 SNPs to the database ... OK
+  processing chromosome 19 SNPs ... 7.5 million so far
+  writing chromosome 19 SNPs to the database ... OK
+  processing chromosome 19 SNPs ... 10.0 million so far
+  writing chromosome 19 SNPs to the database ... OK
+  processing chromosome 19 SNPs ... 12.5 million so far
+  writing chromosome 19 SNPs to the database ... OK
+  processing chromosome 19 SNPs ... OK: 12500000 SNP loci
+  writing chromosome 19 SNPs to the database ... OK
+    WARNING: 5514 SNPs skipped (unvalidated, suspect and/or withdrawn)
+  processing chromosome 20 SNPs ... 2.5 million so far
+  writing chromosome 20 SNPs to the database ... OK
+  processing chromosome 20 SNPs ... 5.0 million so far
+  writing chromosome 20 SNPs to the database ... OK
+  processing chromosome 20 SNPs ... 7.5 million so far
+  writing chromosome 20 SNPs to the database ... OK
+  processing chromosome 20 SNPs ... 10.0 million so far
+  writing chromosome 20 SNPs to the database ... OK
+  processing chromosome 20 SNPs ... 12.5 million so far
+  writing chromosome 20 SNPs to the database ... OK
+  processing chromosome 20 SNPs ... OK: 12500000 SNP loci
+  writing chromosome 20 SNPs to the database ... OK
+    WARNING: 4893 SNPs skipped (unvalidated, suspect and/or withdrawn)
+  processing chromosome 21 SNPs ... 2.5 million so far
+  writing chromosome 21 SNPs to the database ... OK
+  processing chromosome 21 SNPs ... 5.0 million so far
+  writing chromosome 21 SNPs to the database ... OK
+  processing chromosome 21 SNPs ... 7.5 million so far
+  writing chromosome 21 SNPs to the database ... OK
+  processing chromosome 21 SNPs ... OK: 7500000 SNP loci
+  writing chromosome 21 SNPs to the database ... OK
+    WARNING: 3520 SNPs skipped (unvalidated, suspect and/or withdrawn)
+  processing chromosome 22 SNPs ... 2.5 million so far
+  writing chromosome 22 SNPs to the database ... OK
+  processing chromosome 22 SNPs ... 5.0 million so far
+  writing chromosome 22 SNPs to the database ... OK
+  processing chromosome 22 SNPs ... 7.5 million so far
+  writing chromosome 22 SNPs to the database ... OK
+  processing chromosome 22 SNPs ... OK: 7500000 SNP loci
+  writing chromosome 22 SNPs to the database ... OK
+    WARNING: 5260 SNPs skipped (unvalidated, suspect and/or withdrawn)
+  processing chromosome X SNPs ... 2.5 million so far
+  writing chromosome X SNPs to the database ... OK
+  processing chromosome X SNPs ... 5.0 million so far
+  writing chromosome X SNPs to the database ... OK
+  processing chromosome X SNPs ... 7.5 million so far
+  writing chromosome X SNPs to the database ... OK
+  processing chromosome X SNPs ... 10.0 million so far
+  writing chromosome X SNPs to the database ... OK
+  processing chromosome X SNPs ... 12.5 million so far
+  writing chromosome X SNPs to the database ... OK
+  processing chromosome X SNPs ... 15.0 million so far
+  writing chromosome X SNPs to the database ... OK
+  processing chromosome X SNPs ... 17.5 million so far
+  writing chromosome X SNPs to the database ... OK
+  processing chromosome X SNPs ... 20.0 million so far
+  writing chromosome X SNPs to the database ... OK
+  processing chromosome X SNPs ... 22.5 million so far
+  writing chromosome X SNPs to the database ... OK
+  processing chromosome X SNPs ... 25.0 million so far
+  writing chromosome X SNPs to the database ... OK
+  processing chromosome X SNPs ... OK: 25000000 SNP loci
+  writing chromosome X SNPs to the database ... OK
+    WARNING: 4556 SNPs skipped (unvalidated, suspect and/or withdrawn)
+  processing chromosome Y SNPs ... OK: 0 SNP loci
+  writing chromosome Y SNPs to the database ... OK
+    WARNING: 1333 SNPs skipped (unvalidated, suspect and/or withdrawn)
+  processing chromosome PAR SNPs ... OK: 0 SNP loci
+  writing chromosome PAR SNPs to the database ... OK
+    WARNING: 30 SNPs skipped (unvalidated, suspect and/or withdrawn)
+  processing chromosome MT SNPs ... OK: 0 SNP loci
+  writing chromosome MT SNPs to the database ... OK
+    WARNING: 47 SNPs skipped (unvalidated, suspect and/or withdrawn)
+... OK
+downloading entrez data ...
+  identifying changed files ... OK
+  downloading changed files ...
+    Homo_sapiens.gene_info.gz: downloading ... OK
+    gene2ensembl.gz: downloading ... OK
+    gene2refseq.gz: downloading ... OK
+    gene2unigene: downloading ... OK
+    gene_history.gz: downloading ... OK
+    gene_refseq_uniprotkb_collab.gz: downloading ... OK
+  ... OK
+  identifying changed files ... OK
+  downloading changed files ...
+    HUMAN_9606_idmapping_selected.tab.gz: downloading ... OK
+  ... OK
+... OK
+analyzing entrez data files ... OK
+processing entrez data ...
+  deleting old records from the database ... OK
+  processing genes ... OK: 81418 genes, 332863 identifiers
+  writing genes to the database ... OK: 81418 genes
+  processing gene regions ... OK: 67107 regions (67044 genes), 344265 identifiers
+    WARNING: 3452 genes not mapped to any GRCh build
+    WARNING: 1 genes on mismatching chromosome
+  writing gene regions to the database ... OK: 67107 regions
+  processing historical gene names ... OK: 17851 identifiers
+  processing ensembl gene names ... OK: 104806 identifiers
+  processing unigene gene names ... OK: 30686 identifiers
+  processing uniprot gene names ... OK: 53255 identifiers
+  writing gene identifiers to the database ... OK: 883726 identifiers
+... OK
+downloading go data ...
+  identifying changed files ... OK
+  downloading changed files ...
+    go.obo: downloading ... OK
+    goa_human.gaf.gz: downloading ... OK
+  ... OK
+... OK
+analyzing go data files ... OK
+processing go data ...
+  deleting old records from the database ... OK
+  processing ontology terms ... OK: 43335 terms, 88203 links
+  writing ontology terms to the database ... OK
+  writing ontology term names to the database ... OK
+  writing ontology term relationships to the database ... OK
+  processing gene associations ... OK: 561401 associations (2476591 identifiers)
+  writing gene associations to the database ... OK
+... OK
+downloading gwas data ...
+  downloading changed files ...
+    gwas_catalog_v1.0-associations.tsv: downloading ... OK
+  ... OK
+... OK
+analyzing gwas data files ... OK
+processing gwas data ...
+  deleting old records from the database ... OK
+  processing GWAS catalog annotations ... OK: 426910 entries (0 incomplete, 3288 invalid)
+  writing GWAS catalog annotations to the database ... OK
+... OK
+downloading kegg data ...
+  identifying changed files ... OK
+  downloading changed files ...
+    link-pathway-hsa: downloading ... OK
+    list-pathway-hsa: downloading ... OK
+  ... OK
+... OK
+analyzing kegg data files ... OK
+processing kegg data ...
+  deleting old records from the database ... OK
+  processing pathways ... OK: 347 pathways
+  writing pathways to the database ... OK
+  writing pathway names to the database ... OK
+  processing gene associations ... OK: 35582 associations
+  writing gene associations to the database ... OK
+... OK
+downloading mint data ...
+  identifying changed files ... OK
+  downloading changed files ...
+    MINT_MiTab.txt: downloading ... OK
+  ... OK
+... OK
+analyzing mint data files ... OK
+processing mint data ...
+  deleting old records from the database ... OK
+  processing interaction groups ... OK: 25991 groups, 96332 associations (1201256 identifiers)
+  writing interaction groups to the database ... OK
+  writing interaction group names to the database ... OK
+  writing gene interactions to the database ... OK
+... OK
+downloading netpath data ...
+  identifying changed files ...
+ERROR: failed to update netpath
+    File "/appl/python-3.8/lib/python3.8/urllib/request.py", line 649, in http_error_default
+    raise HTTPError(req.full_url, code, msg, hdrs, fp)
+  urllib.error.HTTPError: HTTP Error 503: Service Unavailable
+downloading oreganno data ...
+  identifying changed files ... OK
+  downloading changed files ...
+    oreganno.txt.gz: downloading ... OK
+    oregannoAttr.txt.gz: downloading ... OK
+    oregannoLink.txt.gz: downloading ... OK
+  ... OK
+... OK
+analyzing oreganno data files ... OK
+processing oreganno data ...
+  deleting old records from the database ... OK
+  parsing external links ...OK: 628675 genes, 645494 TFBs, 105 SNPs
+  parsing region attributes ... OK: 629442 genes, 1447051 TFBs
+  parsing regulatory regions ... OK (1446823 regions found, 101 SNPs found, 52 SNPs unmapped)
+  writing to database ... OK
+... OK
+downloading pfam data ...
+  identifying changed files ... OK
+  downloading changed files ...
+    pfamA.txt.gz: downloading ... OK
+    pfamA_reg_full_significant.txt.gz: downloading ... OK
+    pfamseq.txt.gz: downloading ... OK
+  ... OK
+... OK
+analyzing pfam data files ... OK
+processing pfam data ...
+  deleting old records from the database ... OK
+  processing protein families ... OK: 16720 categories, 19632 families
+  writing protein families to the database ... OK
+  writing protein family names to the database ... OK
+  writing protein family links to the database ... OK
+  processing protein identifiers ... OK: 78111 proteins
+  processing protein associations ... OK: 113100 associations (226200 identifiers)
+  writing gene associations to the database ... OK
+... OK
+downloading pharmgkb data ...
+  identifying changed files ... OK
+  downloading changed files ...
+    genes.zip: downloading ... OK
+    pathways-tsv.zip: downloading ... OK
+  ... OK
+... OK
+analyzing pharmgkb data files ... OK
+processing pharmgkb data ...
+  deleting old records from the database ... OK
+  verifying gene name archive file ... OK
+  processing gene names ... OK: 24550 identifiers (135536 references)
+  writing gene names to the database ... OK
+  verifying pathway archive file ... OK
+  processing pathways ... OK: 201 pathways, 4225 associations (4225 identifiers)
+  writing pathways to the database ... OK
+  writing pathway names to the database ... OK
+  writing gene associations to the database ... OK
+... OK
+downloading reactome data ...
+  identifying changed files ... OK
+  downloading changed files ...
+    Ensembl2Reactome.txt: downloading ... OK
+    ReactomePathways.gmt.zip: downloading ... OK
+    ReactomePathways.txt: downloading ... OK
+    ReactomePathwaysRelation.txt: downloading ... OK
+    UniProt2Reactome.txt: downloading ... OK
+  ... OK
+... OK
+analyzing reactome data files ... OK
+processing reactome data ...
+  deleting old records from the database ... OK
+  processing pathways ... OK: 2601 pathways (0 mismatches)
+  processing pathway hierarchy ... OK: 22127 relationships
+  verifying gene set archive ... OK
+  processing gene sets ... OK: 0 associations (0 new pathways)
+  processing ensembl associations ... OK: 241531 associations (0 new pathways, 0 mismatches)
+  processing uniprot associations ... OK: 49859 associations (0 new pathways, 0 mismatches)
+  writing pathways to the database ... OK
+  writing pathway names to the database ... OK
+  writing pathway relationships to the database ... OK
+  writing gene associations to the database ... OK
+... OK
+downloading ucsc_ecr data ...
+  identifying changed files ... OK
+  downloading changed files ...
+    placentalMammals.chr1.phastCons.txt.gz: downloading ... OK
+    placentalMammals.chr10.phastCons.txt.gz: downloading ... OK
+    placentalMammals.chr11.phastCons.txt.gz: downloading ... OK
+    placentalMammals.chr12.phastCons.txt.gz: downloading ... OK
+    placentalMammals.chr13.phastCons.txt.gz: downloading ... OK
+    placentalMammals.chr14.phastCons.txt.gz: downloading ... OK
+    placentalMammals.chr15.phastCons.txt.gz: downloading ... OK
+    placentalMammals.chr16.phastCons.txt.gz: downloading ... OK
+    placentalMammals.chr17.phastCons.txt.gz: downloading ... OK
+    placentalMammals.chr18.phastCons.txt.gz: downloading ... OK
+    placentalMammals.chr19.phastCons.txt.gz: downloading ... OK
+    placentalMammals.chr2.phastCons.txt.gz: downloading ... OK
+    placentalMammals.chr20.phastCons.txt.gz: downloading ... OK
+    placentalMammals.chr21.phastCons.txt.gz: downloading ... OK
+    placentalMammals.chr22.phastCons.txt.gz: downloading ... OK
+    placentalMammals.chr3.phastCons.txt.gz: downloading ... OK
+    placentalMammals.chr4.phastCons.txt.gz: downloading ... OK
+    placentalMammals.chr5.phastCons.txt.gz: downloading ... OK
+    placentalMammals.chr6.phastCons.txt.gz: downloading ... OK
+    placentalMammals.chr7.phastCons.txt.gz: downloading ... OK
+    placentalMammals.chr8.phastCons.txt.gz: downloading ... OK
+    placentalMammals.chr9.phastCons.txt.gz: downloading ... OK
+    placentalMammals.chrM.phastCons.txt.gz: downloading ... OK
+    placentalMammals.chrX.phastCons.txt.gz: downloading ... OK
+    placentalMammals.chrY.phastCons.txt.gz: downloading ... OK
+    primates.chr1.phastCons.txt.gz: downloading ... OK
+    primates.chr10.phastCons.txt.gz: downloading ... OK
+    primates.chr11.phastCons.txt.gz: downloading ... OK
+    primates.chr12.phastCons.txt.gz: downloading ... OK
+    primates.chr13.phastCons.txt.gz: downloading ... OK
+    primates.chr14.phastCons.txt.gz: downloading ... OK
+    primates.chr15.phastCons.txt.gz: downloading ... OK
+    primates.chr16.phastCons.txt.gz: downloading ... OK
+    primates.chr17.phastCons.txt.gz: downloading ... OK
+    primates.chr18.phastCons.txt.gz: downloading ... OK
+    primates.chr19.phastCons.txt.gz: downloading ... OK
+    primates.chr2.phastCons.txt.gz: downloading ... OK
+    primates.chr20.phastCons.txt.gz: downloading ... OK
+    primates.chr21.phastCons.txt.gz: downloading ... OK
+    primates.chr22.phastCons.txt.gz: downloading ... OK
+    primates.chr3.phastCons.txt.gz: downloading ... OK
+    primates.chr4.phastCons.txt.gz: downloading ... OK
+    primates.chr5.phastCons.txt.gz: downloading ... OK
+    primates.chr6.phastCons.txt.gz: downloading ... OK
+    primates.chr7.phastCons.txt.gz: downloading ... OK
+    primates.chr8.phastCons.txt.gz: downloading ... OK
+    primates.chr9.phastCons.txt.gz: downloading ... OK
+    primates.chrM.phastCons.txt.gz: downloading ... OK
+    primates.chrX.phastCons.txt.gz: downloading ... OK
+    primates.chrY.phastCons.txt.gz: downloading ... OK
+    vertebrate.chr1.phastCons.txt.gz: downloading ... OK
+    vertebrate.chr10.phastCons.txt.gz: downloading ... OK
+    vertebrate.chr11.phastCons.txt.gz: downloading ... OK
+    vertebrate.chr12.phastCons.txt.gz: downloading ... OK
+    vertebrate.chr13.phastCons.txt.gz: downloading ... OK
+    vertebrate.chr14.phastCons.txt.gz: downloading ... OK
+    vertebrate.chr15.phastCons.txt.gz: downloading ... OK
+    vertebrate.chr16.phastCons.txt.gz: downloading ... OK
+    vertebrate.chr17.phastCons.txt.gz: downloading ... OK
+    vertebrate.chr18.phastCons.txt.gz: downloading ... OK
+    vertebrate.chr19.phastCons.txt.gz: downloading ... OK
+    vertebrate.chr2.phastCons.txt.gz: downloading ... OK
+    vertebrate.chr20.phastCons.txt.gz: downloading ... OK
+    vertebrate.chr21.phastCons.txt.gz: downloading ... OK
+    vertebrate.chr22.phastCons.txt.gz: downloading ... OK
+    vertebrate.chr3.phastCons.txt.gz: downloading ... OK
+    vertebrate.chr4.phastCons.txt.gz: downloading ... OK
+    vertebrate.chr5.phastCons.txt.gz: downloading ... OK
+    vertebrate.chr6.phastCons.txt.gz: downloading ... OK
+    vertebrate.chr7.phastCons.txt.gz: downloading ... OK
+    vertebrate.chr8.phastCons.txt.gz: downloading ... OK
+    vertebrate.chr9.phastCons.txt.gz: downloading ... OK
+    vertebrate.chrM.phastCons.txt.gz: downloading ... OK
+    vertebrate.chrX.phastCons.txt.gz: downloading ... OK
+    vertebrate.chrY.phastCons.txt.gz: downloading ... OK
+  ... OK
+... OK
+analyzing ucsc_ecr data files ... OK
+processing ucsc_ecr data ...
+  deleting old records from the database ... OK
+  processing ECRs for vertebrate ...
+    processing Chromosome 1 ...OK (34233 regions found in 2190 bands)
+    processing Chromosome 2 ...OK (33175 regions found in 2177 bands)
+    processing Chromosome 3 ...OK (25601 regions found in 1737 bands)
+    processing Chromosome 4 ...OK (19078 regions found in 1762 bands)
+    processing Chromosome 5 ...OK (22564 regions found in 1704 bands)
+    processing Chromosome 6 ...OK (20454 regions found in 1504 bands)
+    processing Chromosome 7 ...OK (19749 regions found in 1692 bands)
+    processing Chromosome 8 ...OK (15355 regions found in 1238 bands)
+    processing Chromosome 9 ...OK (17155 regions found in 1294 bands)
+    processing Chromosome 10 ...OK (17079 regions found in 1204 bands)
+    processing Chromosome 11 ...OK (18677 regions found in 1228 bands)
+    processing Chromosome 12 ...OK (18048 regions found in 1261 bands)
+    processing Chromosome 13 ...OK (10460 regions found in 805 bands)
+    processing Chromosome 14 ...OK (12830 regions found in 819 bands)
+    processing Chromosome 15 ...OK (12713 regions found in 878 bands)
+    processing Chromosome 16 ...OK (13581 regions found in 936 bands)
+    processing Chromosome 17 ...OK (15556 regions found in 954 bands)
+    processing Chromosome 18 ...OK (9081 regions found in 633 bands)
+    processing Chromosome 19 ...OK (9802 regions found in 993 bands)
+    processing Chromosome 20 ...OK (8214 regions found in 551 bands)
+    processing Chromosome 21 ...OK (3276 regions found in 279 bands)
+    processing Chromosome 22 ...OK (5157 regions found in 478 bands)
+    processing Chromosome X ...OK (13919 regions found in 1990 bands)
+    processing Chromosome Y ...OK (2510 regions found in 725 bands)
+    processing Chromosome M ...OK (16 regions found in 1 bands)
+  ... OK
+  processing ECRs for placentalMammals ...
+    processing Chromosome 1 ...OK (29732 regions found in 1958 bands)
+    processing Chromosome 2 ...OK (28849 regions found in 1967 bands)
+    processing Chromosome 3 ...OK (22535 regions found in 1608 bands)
+    processing Chromosome 4 ...OK (15891 regions found in 1578 bands)
+    processing Chromosome 5 ...OK (19465 regions found in 1526 bands)
+    processing Chromosome 6 ...OK (17753 regions found in 1389 bands)
+    processing Chromosome 7 ...OK (15965 regions found in 1384 bands)
+    processing Chromosome 8 ...OK (12826 regions found in 1085 bands)
+    processing Chromosome 9 ...OK (14525 regions found in 1096 bands)
+    processing Chromosome 10 ...OK (14325 regions found in 1066 bands)
+    processing Chromosome 11 ...OK (16455 regions found in 1092 bands)
+    processing Chromosome 12 ...OK (15582 regions found in 1146 bands)
+    processing Chromosome 13 ...OK (8634 regions found in 741 bands)
+    processing Chromosome 14 ...OK (11133 regions found in 723 bands)
+    processing Chromosome 15 ...OK (10463 regions found in 741 bands)
+    processing Chromosome 16 ...OK (11328 regions found in 800 bands)
+    processing Chromosome 17 ...OK (13617 regions found in 836 bands)
+    processing Chromosome 18 ...OK (7746 regions found in 576 bands)
+    processing Chromosome 19 ...OK (7333 regions found in 735 bands)
+    processing Chromosome 20 ...OK (7111 regions found in 497 bands)
+    processing Chromosome 21 ...OK (2438 regions found in 229 bands)
+    processing Chromosome 22 ...OK (4046 regions found in 380 bands)
+    processing Chromosome X ...OK (11488 regions found in 1530 bands)
+    processing Chromosome Y ...OK (727 regions found in 243 bands)
+    processing Chromosome M ...OK (3 regions found in 1 bands)
+  ... OK
+  processing ECRs for primates ...
+    processing Chromosome 1 ...OK (30255 regions found in 1895 bands)
+    processing Chromosome 2 ...OK (29696 regions found in 1941 bands)
+    processing Chromosome 3 ...OK (23152 regions found in 1604 bands)
+    processing Chromosome 4 ...OK (14977 regions found in 1516 bands)
+    processing Chromosome 5 ...OK (20137 regions found in 1474 bands)
+    processing Chromosome 6 ...OK (18706 regions found in 1363 bands)
+    processing Chromosome 7 ...OK (16213 regions found in 1310 bands)
+    processing Chromosome 8 ...OK (12845 regions found in 1069 bands)
+    processing Chromosome 9 ...OK (14469 regions found in 1016 bands)
+    processing Chromosome 10 ...OK (14387 regions found in 1003 bands)
+    processing Chromosome 11 ...OK (16357 regions found in 1043 bands)
+    processing Chromosome 12 ...OK (15482 regions found in 1147 bands)
+    processing Chromosome 13 ...OK (9003 regions found in 726 bands)
+    processing Chromosome 14 ...OK (10936 regions found in 705 bands)
+    processing Chromosome 15 ...OK (10575 regions found in 670 bands)
+    processing Chromosome 16 ...OK (9899 regions found in 710 bands)
+    processing Chromosome 17 ...OK (12545 regions found in 791 bands)
+    processing Chromosome 18 ...OK (8160 regions found in 575 bands)
+    processing Chromosome 19 ...OK (5916 regions found in 710 bands)
+    processing Chromosome 20 ...OK (7152 regions found in 484 bands)
+    processing Chromosome 21 ...OK (2519 regions found in 207 bands)
+    processing Chromosome 22 ...OK (3644 regions found in 336 bands)
+    processing Chromosome X ...OK (12303 regions found in 1464 bands)
+    processing Chromosome Y ...OK (119 regions found in 61 bands)
+    processing Chromosome M ...OK (0 regions found in 0 bands)
+  ... OK
+... OK
+updating GRCh:UCSChg genome build identities ... OK
+database genome build: GRCh38 / UCSChg38
+lifting over regions from hg19 to hg38 ... OK: 2463536 regions lifted over, 987 dropped
+verifying SNP merge records ... OK: 0 duplicate merges
+checking for merged SNP loci ... OK: 0 loci copied
+verifying SNP loci ... OK: 0 duplicate loci
+checking for merged SNP roles ... OK: 5 roles copied
+verifying SNP roles ... OK: 1 duplicate roles
+checking for merged GWAS annotated SNPs ... OK: 1465 annotations copied
+resolving biopolymer names ... OK: 24526 identifiers (15 ambiguous, 9 unrecognized)
+resolving SNP roles ... OK: 105 roles (104 SNPs, 87 genes; 0 unrecognized)
+resolving group members ... OK: 5825942 associations (1017700 explicit, 3169926 definite, 1638316 conditional, 258762 unrecognized)
+calculating zone coverage ... OK: 2555708 records (2530580 regions)
+finishing update ... OK
+WARNING: data from these sources was not updated:
+  netpath
