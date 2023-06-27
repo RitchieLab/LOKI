@@ -97,7 +97,7 @@ class Source_dbsnp(loki_source.Source):
 				remFiles['RsMergeArch.bcp.gz'] = '/snp/organisms/human_9606/database/organism_data/RsMergeArch.bcp.gz'
 			
 			if options.get['roles'] == yes:
-				remFiles['SnpFunctionCode.bcp.gz'] = '/snp/database/shared_data/SnpFunctionCode.bcp.gz'
+				remFiles['SnpFunctionCode.bcp.gz'] = '/snp/organisms/database/shared_data/SnpFunctionCode.bcp.gz'
 				path = '/snp/organisms/human_9606/database/organism_data'
 				ftp.cwd(path)
 				bestfile = self._identifyLatestSNPContig(ftp.nlst())
@@ -114,7 +114,7 @@ class Source_dbsnp(loki_source.Source):
 		if options['merges'] == 'yes':
 			remFiles['RsMergeArch.bcp.gz'] = '/snp/organisms/human_9606/database/organism_data/RsMergeArch.bcp.gz'
 		if options['roles'] == 'yes':
-			remFiles['SnpFunctionCode.bcp.gz'] = '/snp/database/shared_data/SnpFunctionCode.bcp.gz'
+			remFiles['SnpFunctionCode.bcp.gz'] = '/snp/organisms/database/shared_data/SnpFunctionCode.bcp.gz'
 			path = '/snp/organisms/human_9606/database/organism_data'
 			urlpath = urllib2.urlopen('https://ftp.ncbi.nih.gov' + path)
 			string = urlpath.read().decode('utf-8')
