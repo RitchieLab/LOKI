@@ -26,12 +26,6 @@ class Source_dbsnp(loki_source.Source):
 		bestbuild = 0
 		bestfile = list()
 		for filename in filenames:
-#			match = reFile.match(filename)
-#			if match:
-#				filebuild = int(match.group(1))
-#				if filebuild > bestbuild:
-#					bestbuild = filebuild
-#					bestfile = filename
 		#foreach file in path
 			if int(filename[0]) > bestbuild:
 				bestfile.append(filename[0])
@@ -96,8 +90,8 @@ class Source_dbsnp(loki_source.Source):
 			if options['merges'] == 'yes':
 				remFiles['RsMergeArch.bcp.gz'] = '/snp/organisms/human_9606/database/organism_data/RsMergeArch.bcp.gz'
 			
-			if options.get['roles'] == yes:
-				remFiles['SnpFunctionCode.bcp.gz'] = '/snp/database/shared_data/SnpFunctionCode.bcp.gz'
+			if options.get['roles'] == 'yes':
+				remFiles['SnpFunctionCode.bcp.gz'] = '/snp/organisms/database/shared_data/SnpFunctionCode.bcp.gz'
 				path = '/snp/organisms/human_9606/database/organism_data'
 				ftp.cwd(path)
 				bestfile = self._identifyLatestSNPContig(ftp.nlst())
@@ -114,7 +108,7 @@ class Source_dbsnp(loki_source.Source):
 		if options['merges'] == 'yes':
 			remFiles['RsMergeArch.bcp.gz'] = '/snp/organisms/human_9606/database/organism_data/RsMergeArch.bcp.gz'
 		if options['roles'] == 'yes':
-			remFiles['SnpFunctionCode.bcp.gz'] = '/snp/database/shared_data/SnpFunctionCode.bcp.gz'
+			remFiles['SnpFunctionCode.bcp.gz'] = '/snp/organisms/database/shared_data/SnpFunctionCode.bcp.gz'
 			path = '/snp/organisms/human_9606/database/organism_data'
 			urlpath = urllib2.urlopen('https://ftp.ncbi.nih.gov' + path)
 			string = urlpath.read().decode('utf-8')
@@ -255,7 +249,7 @@ CREATE TABLE [b137_SNPContigLocusId]
 			setRole = set()
 			numRole = numOrphan = numInc = 0
 			setOrphan = set()
-			funcFile = self.zfile(self._identifyLatestSNPContig(os.listdir('.')))
+			funcFile = self.zfile(list(filter(re.compile(r'b([0-9]+)_SNPContigLocusId_(.*)\.bcp\.gz').match, os.listdir('.')))[0])
 			for line in funcFile:
 				words = list(w.strip() for w in line.split("\t"))
 				rs = int(words[0]) if words[0] else None
