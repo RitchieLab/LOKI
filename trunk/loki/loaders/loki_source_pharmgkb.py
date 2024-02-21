@@ -46,6 +46,9 @@ class Source_pharmgkb(loki_source.Source):
 			('gene',),
 			('pathway',),
 		])
+		subtypeID = self.addSubtypes([
+			('-',),
+		])
 		
 		# process gene names
 		self.log("verifying gene name archive file ...")
@@ -191,7 +194,7 @@ class Source_pharmgkb(loki_source.Source):
 					parts = info.filename.split('-')
 					curPath = parts[0]
 					parts = parts[1].split('.')
-					pathDesc[curPath] = (parts[0].replace("_"," "),None)
+					pathDesc[curPath] = (subtypeID['-'], parts[0].replace("_"," "),None)
 					for line in pathFile:
 						for symbol in line.decode('latin-1').split("\t")[7].split(","):
 							numAssoc += 1

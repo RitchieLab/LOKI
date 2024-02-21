@@ -37,6 +37,9 @@ class Source_biogrid(loki_source.Source):
 			('interaction',),
 			('gene',),
 		])
+		subtypeID = self.addSubtypes([
+			('-',),
+		])
 		
 		# process associations
 		self.log("verifying archive file ...")
@@ -101,7 +104,7 @@ class Source_biogrid(loki_source.Source):
 		# store interaction groups
 		self.log("writing interaction pairs to the database ...")
 		listPair = pairLabels.keys()
-		listGID = self.addTypedGroups(typeID['interaction'], (("biogrid:%s" % min(pairLabels[pair]),None) for pair in listPair))
+		listGID = self.addTypedGroups(typeID['interaction'], ((subtypeID['-'], "biogrid:%s" % min(pairLabels[pair]),None) for pair in listPair))
 		pairGID = dict(zip(listPair,listGID))
 		self.log(" OK\n")
 		

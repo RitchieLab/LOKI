@@ -103,6 +103,9 @@ class Source_ucsc_ecr(loki_source.Source):
 		
 		# Add a type of "ecr_group"
 		ecr_group_typeid = self.addType("ecr_group")
+		subtypeID = self.addSubtypes([
+			('-',),
+		])
 		
 		# Make sure the '' ldprofile exists
 		ecr_ldprofile_id = self.addLDProfile('', 'no LD adjustment')
@@ -116,7 +119,7 @@ class Source_ucsc_ecr(loki_source.Source):
 			label = "ecr_" + sp
 			
 			# Add the group for this species (or comparison)
-			ecr_gid = self.addTypedGroups(ecr_group_typeid, [(label, desc)])[0]
+			ecr_gid = self.addTypedGroups(ecr_group_typeid, [(subtypeID['-'], label, desc)])[0]
 			self.addGroupNamespacedNames(ecr_ns, [(ecr_gid, label)])
 			
 			chr_grp_ids = []
@@ -127,7 +130,7 @@ class Source_ucsc_ecr(loki_source.Source):
 				curr_band = 1
 				num_regions = 0
 				desc = "ECRs for " + sp + " on Chromosome " + ch
-				chr_grp_ids.append(self.addTypedGroups(ecr_group_typeid, [("ecr_%s_chr%s" % (sp, ch), desc)])[0])
+				chr_grp_ids.append(self.addTypedGroups(ecr_group_typeid, [(subtypeID['-'], "ecr_%s_chr%s" % (sp, ch), desc)])[0])
 				self.addGroupNamespacedNames(ecr_ns, [(chr_grp_ids[-1], "ecr_%s_chr%s" % (sp, ch))])
 				band_grps = []
 				grp_rid = {}
@@ -137,7 +140,7 @@ class Source_ucsc_ecr(loki_source.Source):
 					num_regions += len(regions)
 					
 					if regions:
-						band_grps.append((label, desc))
+						band_grps.append((subtypeID['-'], label, desc))
 					
 					# Add the region itself
 					reg_ids = self.addTypedBiopolymers(ecr_typeid, ((self.getRegionName(sp, ch, r), '') for r in regions))

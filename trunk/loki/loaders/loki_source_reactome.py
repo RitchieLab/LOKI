@@ -52,6 +52,9 @@ class Source_reactome(loki_source.Source):
 			('gene',),
 			('pathway',),
 		])
+		subtypeID = self.addSubtypes([
+			('-',),
+		])
 		
 		# initialize storage
 		numPath = 0
@@ -330,7 +333,7 @@ class Source_reactome(loki_source.Source):
 		# store pathways
 		self.log("writing pathways to the database ...")
 		listReact = list(reactPath.keys())
-		listGID = self.addTypedGroups(typeID['pathway'], ((reactID, reactPath[reactID]) for reactID in listReact))
+		listGID = self.addTypedGroups(typeID['pathway'], ((subtypeID['-'], reactID, reactPath[reactID]) for reactID in listReact))
 		reactGID = dict(zip(listReact, listGID))
 		self.log(" OK\n")
 		
