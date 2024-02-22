@@ -8,7 +8,7 @@ class Source_light(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.0 (2013-02-14)'
+		return '3.0 (2023-02-22)'
 	#getVersionString()
 	
 	
@@ -36,18 +36,21 @@ class Source_light(loki_source.Source):
 			('gene',),
 			('group',),
 		])
+		subtypeID = self.addSubtypes([
+			('-',),
+		])
 		
 		# define groups
 		self.log("adding groups to the database ...")
 		listGroup = [
 			#(label,description)
-			('red',   'normal group'),
-			('green', 'unknown member'),
-			('blue',  'redundant member name'),
-			('gray',  'large parent group'),
+			(subtypeID['-'], 'red',   'normal group'),
+			(subtypeID['-'], 'green', 'unknown member'),
+			(subtypeID['-'], 'blue',  'redundant member name'),
+			(subtypeID['-'], 'gray',  'large parent group'),
 		]
 		listGID = self.addTypedGroups(typeID['group'], listGroup)
-		groupGID = dict(zip((g[0] for g in listGroup), listGID))
+		groupGID = dict(zip((g[1] for g in listGroup), listGID))
 		self.log(" OK: %d groups\n" % len(groupGID))
 		
 		# define group names
