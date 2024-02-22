@@ -8,7 +8,7 @@ class Source_paint(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.0 (2013-02-14)'
+		return '3.0 (2023-02-22)'
 	#getVersionString()
 	
 	
@@ -35,18 +35,21 @@ class Source_paint(loki_source.Source):
 			('gene',),
 			('group',),
 		])
+		subtypeID = self.addSubtypes([
+			('-',),
+		])
 		
 		# define groups
 		self.log("adding groups to the database ...")
 		listGroup = [
 			#(label,description)
-			('cyan',    'gene ambiguity resolved by either heuristic'),
-			('magenta', 'gene ambiguity resolved only by implication heuristic'),
-			('yellow',  'gene ambiguity resolved only by quality heuristic'),
-			('gray',    'unresolvable gene ambiguity'),
+			(subtypeID['-'], 'cyan',    'gene ambiguity resolved by either heuristic'),
+			(subtypeID['-'], 'magenta', 'gene ambiguity resolved only by implication heuristic'),
+			(subtypeID['-'], 'yellow',  'gene ambiguity resolved only by quality heuristic'),
+			(subtypeID['-'], 'gray',    'unresolvable gene ambiguity'),
 		]
 		listGID = self.addTypedGroups(typeID['group'], listGroup)
-		groupGID = dict(zip((g[0] for g in listGroup), listGID))
+		groupGID = dict(zip((g[1] for g in listGroup), listGID))
 		self.log(" OK: %d groups\n" % len(groupGID))
 		
 		# define group names
