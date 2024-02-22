@@ -6,7 +6,7 @@ import distutils.command.sdist
 
 distutils.core.setup(
 	name='LOKI',
-	version='2.2.5',
+	version='2.4.3',
 	author='Ritchie Lab',
 	author_email='Software_RitchieLab@pennmedicine.upenn.edu',
 	url='https://ritchielab.org',
