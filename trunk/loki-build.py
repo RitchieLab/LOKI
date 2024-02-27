@@ -58,7 +58,7 @@ if __name__ == "__main__":
 	)
 	parser.add_argument('-o', '--option', type=str, metavar=('source','optionstring'), nargs=2, action='append', default=None,
 			help="additional option(s) to pass to the specified source loader module, in the format 'option=value[,option2=value2[,...]]'"
-	)
+	) # e.g. --option dbsnp roles=yes
 	parser.add_argument('-r', '--force-update', action='store_true',
 			help="update all sources even if their source data has not changed since the last update"
 	)
@@ -80,11 +80,11 @@ if __name__ == "__main__":
 	
 	# if no arguments, print usage and exit
 	if len(sys.argv) < 2:
-		print version
+		print (version)
 		print
 		parser.print_usage()
 		print
-		print "Use -h for details."
+		print ("Use -h for details.")
 		sys.exit(2)
 	
 	# parse arguments
@@ -117,7 +117,7 @@ if __name__ == "__main__":
 	# set $TMPDIR so sqlite will use it for vacuum etc.
 	if args.temp_directory:
 		if not os.path.isdir(args.temp_directory):
-			print "ERROR: '%s' is not a directory"
+			print ("ERROR: '%s' is not a directory")
 			sys.exit(1)
 		os.environ['TMPDIR'] = os.path.abspath(args.temp_directory)
 	
@@ -132,19 +132,19 @@ if __name__ == "__main__":
 		for srcList in args.list_sources:
 			srcSet |= set(srcList)
 		if (not srcSet) or ('+' in srcSet):
-			print "available source loaders:"
+			print ("available source loaders:")
 			srcSet = set()
 		else:
-			print "source loader options:"
+			print ("source loader options:")
 		moduleVersions = db.getSourceModuleVersions(srcSet)
 		moduleOptions = db.getSourceModuleOptions(srcSet)
 		for srcName in sorted(moduleOptions.keys()):
-			print "  %s : %s" % (srcName,moduleVersions[srcName])
+			print ("  %s : %s" % (srcName,moduleVersions[srcName]))
 			if moduleOptions[srcName]:
 				for srcOption in sorted(moduleOptions[srcName].keys()):
-					print "    %s = %s" % (srcOption,moduleOptions[srcName][srcOption])
+					print ("    %s = %s" % (srcOption,moduleOptions[srcName][srcOption]))
 			elif srcSet:
-				print "    <no options>"
+				print ("    <no options>")
 	
 	# pass options?
 	userOptions = {}
@@ -175,7 +175,7 @@ if __name__ == "__main__":
 	if (srcSet != None) or (notSet != None):
 		db.testDatabaseWriteable()
 		if db.getDatabaseSetting('finalized',int):
-			print "ERROR: cannot update a finalized database"
+			print ("ERROR: cannot update a finalized database")
 			sys.exit(1)
 		if srcSet and '+' in srcSet:
 			srcSet = set()
@@ -187,13 +187,13 @@ if __name__ == "__main__":
 		toArchive = args.to_archive or args.archive
 		cacheDir = os.path.abspath(tempfile.mkdtemp(prefix='loki_update_cache.', dir=args.temp_directory))
 		if args.temp_directory:
-			print "using temporary directory '%s'" % cacheDir
+			print ("using temporary directory '%s'" % cacheDir)
 		
 		# try/finally to make sure we clean up the cache dir at the end
 		try:
 			if fromArchive:
 				if os.path.exists(fromArchive) and tarfile.is_tarfile(fromArchive):
-					print "unpacking archived source data files from '%s' ..." % fromArchive
+					print ("unpacking archived source data files from '%s' ..." % fromArchive)
 					with tarfile.open(name=fromArchive, mode='r:*') as archive:
 						archive.errorlevel = 2
 						# the archive should only contain directories named after sources,
@@ -208,9 +208,9 @@ if __name__ == "__main__":
 								continue
 							archive.extractall(cacheDir, [member])
 					#with archive
-					print "... OK"
+					print ("... OK")
 				else:
-					print "source data archive '%s' not found, starting fresh" % fromArchive
+					print ("source data archive '%s' not found, starting fresh" % fromArchive)
 			#if fromArchive
 			
 			os.chdir(cacheDir)
@@ -219,16 +219,16 @@ if __name__ == "__main__":
 			
 			# create output archive, if requested
 			if toArchive and not args.cache_only:
-				print "archiving source data files in '%s' ..." % toArchive
+				print ("archiving source data files in '%s' ..." % toArchive)
 				with tarfile.open(name=toArchive, mode='w:gz') as archive:
 					archive.errorlevel = 2
 					for filename in sorted(os.listdir(cacheDir)):
 						archive.add(os.path.join(cacheDir, filename), arcname=filename)
-				print "... OK"
+				print ("... OK")
 		finally:
 			# clean up cache directory
 			def rmtree_error(func, path, exc):
-				print "WARNING: unable to remove temporary file '%s': %s\n" % (path,exc)
+				print ("WARNING: unable to remove temporary file '%s': %s\n" % (path,exc))
 			shutil.rmtree(cacheDir, onerror=rmtree_error)
 	#update
 	
@@ -236,7 +236,7 @@ if __name__ == "__main__":
 		# finalize?
 		if args.finalize and (not db.getDatabaseSetting('finalized',int)):
 			if not updateOK:
-				print "WARNING: errors encountered during knowledge database update; skipping finalization step"
+				print ("WARNING: errors encountered during knowledge database update; skipping finalization step")
 			else:
 				db.testDatabaseWriteable()
 				db.finalizeDatabase()
@@ -244,7 +244,7 @@ if __name__ == "__main__":
 		# optimize?
 		if (not args.no_optimize) and (not db.getDatabaseSetting('optimized',int)):
 			if not updateOK:
-				print "WARNING: errors encountered during knowledge database update; skipping optimization step"
+				print ("WARNING: errors encountered during knowledge database update; skipping optimization step")
 			else:
 				db.testDatabaseWriteable()
 				db.optimizeDatabase()
