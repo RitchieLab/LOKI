@@ -96,7 +96,7 @@ class Source_dbsnp(loki_source.Source):
 			if options['merges'] == 'yes':
 				remFiles['RsMergeArch.bcp.gz'] = '/snp/organisms/human_9606/database/organism_data/RsMergeArch.bcp.gz'
 			
-			if options.get['roles'] == yes:
+			if options.get['roles'] == 'yes':
 				remFiles['SnpFunctionCode.bcp.gz'] = '/snp/organisms/database/shared_data/SnpFunctionCode.bcp.gz'
 				path = '/snp/organisms/human_9606/database/organism_data'
 				ftp.cwd(path)
