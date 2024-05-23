@@ -1,6 +1,6 @@
 CHANGELOG
 
-(2022-10-01)
+2.4.3 (2022-10-01)
 - fixed an issue in downloading datasets from multiple sites
 - updated from Python2 to Python3 
 
