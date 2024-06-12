@@ -263,6 +263,22 @@ class Source(object):
 				ret[t[0]] = row[0]
 		return ret
 	#addTypes()
+
+	def addSubtypes(self, subtypes):
+		# types=[ (type,), ... ]
+		dbc = self._db.cursor()
+		ret = {}
+		# use ABORT to avoid wasting autoincrements on existing rows,
+		# and execute() to avoid bailing out of executemany() due to ABORT
+		for t in subtypes:
+			try:
+				dbc.execute("INSERT OR ABORT INTO `db`.`subtype` (subtype) VALUES (LOWER(?)); SELECT LAST_INSERT_ROWID()", t)
+			except apsw.ConstraintError:
+				dbc.execute("SELECT subtype_id FROM `db`.`subtype` WHERE subtype = LOWER(?)", t[0:1])
+			for row in dbc:
+				ret[t[0]] = row[0]
+		return ret
+	#addTypes()
 	
 	
 	def deleteAll(self):
@@ -412,17 +428,17 @@ class Source(object):
 	
 	
 	def addGroups(self, groups):
-		# groups=[ (type_id,label,description), ... ]
+		# groups=[ (type_id,subtype_id,label,description), ... ]
 		self.prepareTableForUpdate('group')
-		sql = "INSERT INTO `db`.`group` (type_id,label,description,source_id) VALUES (?,?,?,%d); SELECT last_insert_rowid()" % (self.getSourceID(),)
+		sql = "INSERT INTO `db`.`group` (type_id,subtype_id,label,description,source_id) VALUES (?,?,?,?,%d); SELECT last_insert_rowid()" % (self.getSourceID(),)
 		return [ row[0] for row in self._db.cursor().executemany(sql, groups) ]
 	#addGroups()
 	
 	
 	def addTypedGroups(self, typeID, groups):
-		# groups=[ (label,description), ... ]
+		# groups=[ (subtype,label,description), ... ]
 		self.prepareTableForUpdate('group')
-		sql = "INSERT INTO `db`.`group` (type_id,label,description,source_id) VALUES (%d,?,?,%d); SELECT last_insert_rowid()" % (typeID,self.getSourceID(),)
+		sql = "INSERT INTO `db`.`group` (type_id,subtype_id,label,description,source_id) VALUES (%d,?,?,?,%d); SELECT last_insert_rowid()" % (typeID,self.getSourceID(),)
 		return [ row[0] for row in self._db.cursor().executemany(sql, groups) ]
 	#addTypedGroups()
 	
@@ -905,7 +921,7 @@ class Source(object):
 			if remSize[locPath] and remSize[locPath] == locSize[locPath] and remTime[locPath] and remTime[locPath] <= locTime[locPath]:
 				self.log("%s: up to date\n" % locPath)
 			else:
-				self.log("%s: downloading ..." % locPath)
+				self.log("%s: downloading ...\n" % locPath)
 				#TODO: download to temp file, then rename?
 				if remProtocol == 'https':
 					with open(locPath, 'wb') as locFile:
@@ -920,14 +936,14 @@ class Source(object):
 								break
 							locFile.write(data)
 						response.close()
-					self.log(" OK\n")
-					continue;
-
+					self.log("... OK\n")
+					continue
+				
 				link = remProtocol + '://'  + remHost + remFiles[locPath]
 				wget.download(link)
 				os.rename(remFiles[locPath].rsplit('/')[-1],locPath)
 
-				self.log(" OK\n")
+				self.log("... OK\n")
 			if remTime[locPath]:
 				modTime = time.mktime(remTime[locPath].utctimetuple())
 				os.utime(locPath, (modTime,modTime))

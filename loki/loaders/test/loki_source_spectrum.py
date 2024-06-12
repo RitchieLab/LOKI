@@ -8,7 +8,7 @@ class Source_spectrum(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '2.0 (2013-02-14)'
+		return '3.0 (2023-02-22)'
 	#getVersionString()
 	
 	
@@ -33,17 +33,20 @@ class Source_spectrum(loki_source.Source):
 			('gene',),
 			('group',),
 		])
+		subtypeID = self.addSubtypes([
+			('-',),
+		])
 		
 		# define groups
 		self.log("adding groups to the database ...")
 		listGroup = [
 			#(label,description)
-			('orange', 'one protein, no ambiguity'),
-			('indigo', 'redundant proteins, extraneous gene'),
-			('violet', 'reducible protein ambiguity'),
+			(subtypeID['-'], 'orange', 'one protein, no ambiguity'),
+			(subtypeID['-'], 'indigo', 'redundant proteins, extraneous gene'),
+			(subtypeID['-'], 'violet', 'reducible protein ambiguity'),
 		]
 		listGID = self.addTypedGroups(typeID['group'], listGroup)
-		groupGID = dict(zip((g[0] for g in listGroup), listGID))
+		groupGID = dict(zip((g[1] for g in listGroup), listGID))
 		self.log(" OK: %d groups\n" % len(groupGID))
 		
 		# define group names
