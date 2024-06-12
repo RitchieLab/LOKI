@@ -19,7 +19,7 @@ class Source_chainfiles(loki_source.Source):
 	
 	
 #	_reDir = re.compile('^hg[0-9]+$', re.IGNORECASE)
-	_reFile = re.compile('^hg([0-9]+)tohg([0-9]+)\.over\.chain\.gz$', re.IGNORECASE)
+	_reFile = re.compile(r'^hg([0-9]+)tohg([0-9]+)\.over\.chain\.gz$', re.IGNORECASE)
 	_reFileName = r'hg([0-9]+)ToHg([0-9]+)\.over\.chain\.gz'
 
 	_reNum = ('4', '10', '11', '12', '13', '15', '16', '17', '18', '19', '38' )	
