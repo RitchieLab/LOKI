@@ -39,6 +39,9 @@ class Source_netpath(loki_source.Source):
 			('pathway',),
 			('gene',),
 		])
+		subtypeID = self.addSubtypes([
+			('-',),
+		])
 		
 		# process pathways and associations
 		self.log("verifying archive ...")
@@ -88,7 +91,7 @@ class Source_netpath(loki_source.Source):
 		# store pathways
 		self.log("writing pathways to the database ...")
 		listPath = pathName.keys()
-		listGID = self.addTypedGroups(typeID['pathway'], ((pathName[pathID],None) for pathID in listPath))
+		listGID = self.addTypedGroups(typeID['pathway'], ((subtypeID['-'], pathName[pathID],None) for pathID in listPath))
 		pathGID = dict(zip(listPath,listGID))
 		self.log(" OK\n")
 		

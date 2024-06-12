@@ -50,6 +50,9 @@ class Source_oreganno(loki_source.Source):
 			('tfbs',),
 			('gene',)
 		])
+		subtypeID = self.addSubtypes([
+			('-',),
+		])
 		
 		# Add the types of groups
 		group_typeid = self.addType('regulatory_group')
@@ -161,7 +164,7 @@ class Source_oreganno(loki_source.Source):
 		
 		# Now, add the regulation groups
 		oreg_genes = list(oreganno_groups.keys())
-		oreg_gids = self.addTypedGroups(group_typeid, (("regulatory_%s" % k, "OregAnno Regulation of %s" % k) for k in oreg_genes))
+		oreg_gids = self.addTypedGroups(group_typeid, ((subtypeID['-'], "regulatory_%s" % k, "OregAnno Regulation of %s" % k) for k in oreg_genes))
 		self.addGroupNamespacedNames(ns, zip(oreg_gids, ("regulatory_%s" % k for k in oreg_genes)))
 		
 		group_membership = []

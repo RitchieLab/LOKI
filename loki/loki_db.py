@@ -232,6 +232,16 @@ class Database(object):
 """,
 				'index': {}
 			}, #.db.type
+
+			'subtype': {
+				'table': """
+(
+  subtype_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+  subtype VARCHAR(32) UNIQUE NOT NULL
+)
+""",
+				'index': {}
+			}, #.db.subtype
 			
 			
 			'warning': {
@@ -413,6 +423,7 @@ class Database(object):
 (
   group_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
   type_id TINYINT NOT NULL,
+  subtype_id TINYINT NOT NULL,
   label VARCHAR(64) NOT NULL,
   description VARCHAR(256),
   source_id TINYINT NOT NULL
@@ -420,6 +431,7 @@ class Database(object):
 """,
 				'index': {
 					'group__type': '(type_id)',
+					'group__subtype': '(subtype_id)',
 					'group__label_type': '(label,type_id)',
 				}
 			}, #.db.group
@@ -1273,6 +1285,19 @@ class Database(object):
 		return ret
 	#getTypeIDs()
 	
+	def getSubtypeID(self, subtype):
+		return self.getSubtypeIDs([subtype])[subtype]
+	#getSubtypeID()
+	
+	
+	def getSubtypeIDs(self, subtypes):
+		if not self._dbFile:
+			return { t:None for t in subtypes }
+		sql = "SELECT i.subtype, t.subtype_id FROM (SELECT ? AS subtype) AS i LEFT JOIN `db`.`subtype` AS t ON t.subtype = LOWER(i.subtype)"
+		with self._db:
+			ret = { row[0]:row[1] for row in self._db.cursor().executemany(sql, zip(subtypes)) }
+		return ret
+	#getSubtypeIDs()
 	
 	##################################################
 	# snp data retrieval
@@ -1525,8 +1550,8 @@ GROUP BY namespace_id
 	
 	def generateGroupsByIDs(self, ids):
 		# ids=[ (id,extra), ... ]
-		# yield:[ (id,extra,type_id,label,description), ... ]
-		sql = "SELECT group_id, ?2 AS extra, type_id, label, description FROM `db`.`group` WHERE group_id = ?1"
+		# yield:[ (id,extra,type_id,subtype_id,label,description), ... ]
+		sql = "SELECT group_id, ?2 AS extra, type_id, subtype_id, label, description FROM `db`.`group` WHERE group_id = ?1"
 		return self._db.cursor().executemany(sql, ids)
 	#generateGroupsByIDs()
 	

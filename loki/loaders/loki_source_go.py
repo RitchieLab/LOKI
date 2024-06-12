@@ -43,6 +43,9 @@ class Source_go(loki_source.Source):
 			('ontology',),
 			('gene',),
 		])
+		subtypeID = self.addSubtypes([
+			('-',),
+		])
 		
 		# process ontology terms
 		self.log("processing ontology terms ...")
@@ -135,7 +138,7 @@ class Source_go(loki_source.Source):
 		# store ontology terms
 		self.log("writing ontology terms to the database ...")
 		listGoID = goName.keys()
-		listGID = self.addTypedGroups(typeID['ontology'], ((goName[goID],goDef[goID]) for goID in listGoID))
+		listGID = self.addTypedGroups(typeID['ontology'], ((subtypeID['-'], goName[goID],goDef[goID]) for goID in listGoID))
 		goGID = dict(zip(listGoID,listGID))
 		self.log(" OK\n")
 		

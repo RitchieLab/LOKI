@@ -70,6 +70,9 @@ class Source_mint(loki_source.Source):
 			('interaction',),
 			('gene',),
 		])
+		subtypeID = self.addSubtypes([
+			('-',),
+		])
 		
 		# process interation groups
 		self.log("processing interaction groups ...")
@@ -214,7 +217,7 @@ class Source_mint(loki_source.Source):
 		# store interaction groups
 		self.log("writing interaction groups to the database ...")
 		listMint = mintDesc.keys()
-		listGID = self.addTypedGroups(typeID['interaction'], ((mint,mintDesc[mint]) for mint in listMint))
+		listGID = self.addTypedGroups(typeID['interaction'], ((subtypeID['-'], mint,mintDesc[mint]) for mint in listMint))
 		mintGID = dict(zip(listMint,listGID))
 		self.log(" OK\n")
 		

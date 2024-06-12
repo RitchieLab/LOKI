@@ -47,6 +47,9 @@ class Source_pfam(loki_source.Source):
 			('proteinfamily',),
 			('gene',),
 		])
+		subtypeID = self.addSubtypes([
+			('-',),
+		])
 		
 		# process protein families
 		self.log("processing protein families ...")
@@ -86,10 +89,10 @@ class Source_pfam(loki_source.Source):
 		# store protein families
 		self.log("writing protein families to the database ...")
 		listGroup = groupFam.keys()
-		listGID = self.addTypedGroups(typeID['proteinfamily'], ((group,"") for group in listGroup))
+		listGID = self.addTypedGroups(typeID['proteinfamily'], ((subtypeID['-'], group,"") for group in listGroup))
 		groupGID = dict(zip(listGroup,listGID))
 		listFam = famAcc.keys()
-		listGID = self.addTypedGroups(typeID['proteinfamily'], ((famName[fam],famDesc[fam]) for fam in listFam))
+		listGID = self.addTypedGroups(typeID['proteinfamily'], ((subtypeID['-'], famName[fam],famDesc[fam]) for fam in listFam))
 		famGID = dict(zip(listFam,listGID))
 		self.log(" OK\n")
 		
