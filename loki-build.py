@@ -6,63 +6,56 @@ This script provides functionality to update a knowledge database for genetic an
 It allows users to update the knowledge database by downloading and processing new data from specified sources. The script supports various options to control the update process, including caching downloaded data, updating only specific sources, finalizing the database, and optimizing the database.
 
 Usage:
-    python script_name.py [options]
+    <code>python loki-build.py [options]</code>
 
-Options:
-    -h, --help
-        Show this help message and exit.
+##Options:
+```
+-h, --help
+	Show this help message and exit.
 
-    --version
-        Show version information.
+--version
+	Show version information.
 
-    -k, --knowledge <file>
-        Specify the knowledge database file to use.
+-k, --knowledge <file>
+	Specify the knowledge database file to use.	
 
-    -a, --archive <file>
-        Create or reuse and update a compressed archive of downloaded source data files.
+-a, --archive <file>
+	Create or reuse and update a compressed archive of downloaded source data files.	
 
-    --from-archive <file>
-        Specify an input source data archive to reuse but not update.
+--from-archive <file>
+	Specify an input source data archive to reuse but not update.	
 
-    --to-archive <file>
-        Specify an output source data archive to create or replace but not reuse.
 
-    -d, --temp-directory <dir>
-        Specify a directory to use for temporary storage of downloaded or archived source data files.
+--to-archive <file>
+	Specify an output source data archive to create or replace but not reuse.	
 
-    -l, --list-sources [<source> ...]
-        List versions and options for specified source loaders, or list all available sources if none specified.
+-d, --temp-directory <dir>
+	Specify a directory to use for temporary storage of downloaded or archived source data files.	
 
-    -c, --cache-only
-        Do not download any new source data files, only use what's available in the provided archive.
+-l, --list-sources [<source> ...]
+	List versions and options for specified source loaders, or list all available sources if none specified.	
 
-    -u, --update [<source> ...]
-        Update the knowledge database file by downloading and processing new data from specified sources, or update from all available sources if none specified.
+-c, --cache-only
+	Do not download any new source data files, only use what's available in the provided archive.	
 
-    -U, --update-except [<source> ...]
-        Update the knowledge database file by downloading and processing new data from all available sources except those specified.
+-u, --update [<source> ...]
+	Update the knowledge database file by downloading and processing new data from specified sources, or update from all available sources if none specified.	
 
-    -o, --option <source> <optionstring>
-        Additional option(s) to pass to the specified source loader module, in the format 'option=value[,option2=value2[,...]]'.
+-U, --update-except [<source> ...]
+	Update the knowledge database file by downloading and processing new data from all available sources except those specified.	
 
-    -r, --force-update
-        Update all sources even if their source data has not changed since the last update.
+-o, --option <source> <optionstring>
+	Additional option(s) to pass to the specified source loader module, in the format 'option=value[,option2=value2[,...]]'.	
 
-    -f, --finalize
-        Finalize the knowledge database file.
+-r, --force-update
+	Update all sources even if their source data has not changed since the last update.	
 
-    --no-optimize
-        Do not optimize the knowledge database file after updating.
-
-    -v, --verbose
-        Print warnings and log messages (default).
-
-    -q, --quiet
-        Suppress warnings and log messages.
-
-    -t, --test-data
-        Load testing data only.
-
+-f, --finalize
+	Finalize the knowledge database file.	
+	
+--no-optimize
+	Do not optimize the knowledge database file after updating.	
+```
 """
 
 import argparse
