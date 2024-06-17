@@ -68,7 +68,7 @@ class Updater(object):
 			if table not in self._tablesDeindexed:
 				#print "deindexing %s" % table #DEBUG
 				self._tablesDeindexed.add(table)
-				self._loki.dropDatabaseIndecies(None, 'db', table)
+				self._loki.dropDatabaseIndices(None, 'db', table)
 	#prepareTableForUpdate()
 	
 	
@@ -77,7 +77,7 @@ class Updater(object):
 			if table in self._tablesDeindexed:
 				#print "reindexing %s" % table DEBUG
 				self._tablesDeindexed.remove(table)
-				self._loki.createDatabaseIndecies(None, 'db', table)
+				self._loki.createDatabaseIndices(None, 'db', table)
 	#prepareTableForQuery()
 	
 	
@@ -414,7 +414,7 @@ class Updater(object):
 			# reindex all remaining tables
 			self.log("finishing update ...")
 			if self._tablesDeindexed:
-				self._loki.createDatabaseIndecies(None, 'db', self._tablesDeindexed)
+				self._loki.createDatabaseIndices(None, 'db', self._tablesDeindexed)
 			if self._tablesUpdated:
 				self._loki.setDatabaseSetting('optimized',0)
 			self.log(" OK\n")
