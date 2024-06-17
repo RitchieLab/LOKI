@@ -5,16 +5,34 @@ import bisect
 import itertools
 import sys
 
+##################################################
+# Note on included docstring
+# Code was created over 10+ years by several developers
+# ChatGPT was used to generate docstring in June 2024 to help with legacy code interpretation
+# Docstring has not been inspected line by line
+##################################################
 
 class Database(object):
-	
+	"""
+	A class to interact with a SQLite database using APSW.
+
+	Attributes:
+		chr_num (dict): A dictionary mapping chromosome names and numbers.
+		chr_name (dict): A dictionary mapping chromosome numbers to names.
+		_schema (dict): A dictionary containing the schema definition for the database.
+	"""	
 	
 	##################################################
 	# class interrogation
 	
-	
 	@classmethod
 	def getVersionTuple(cls):
+		"""
+		Returns the version information of the database as a tuple.
+
+		Returns:
+			tuple: A tuple containing (major, minor, revision, dev, build, date).
+		"""
 		# tuple = (major,minor,revision,dev,build,date)
 		# dev must be in ('a','b','rc','release') for lexicographic comparison
 		return (2,2,5,'release','','2019-03-15')
@@ -23,6 +41,12 @@ class Database(object):
 	
 	@classmethod
 	def getVersionString(cls):
+		"""
+		Returns the version information of the database as a formatted string.
+
+		Returns:
+			str: A formatted version string.
+		"""
 		v = list(cls.getVersionTuple())
 		# tuple = (major,minor,revision,dev,build,date)
 		# dev must be > 'rc' for releases for lexicographic comparison,
@@ -34,24 +58,48 @@ class Database(object):
 	
 	@classmethod
 	def getDatabaseDriverName(cls):
+		"""
+		Returns the name of the database driver.
+
+		Returns:
+			str: The database driver name.
+		"""		
 		return "SQLite"
 	#getDatabaseDriverName()
 	
 	
 	@classmethod
 	def getDatabaseDriverVersion(cls):
+		"""
+		Returns the version of the SQLite library.
+
+		Returns:
+			str: The SQLite library version.
+		"""
 		return apsw.sqlitelibversion()
 	#getDatabaseDriverVersion()
 	
 	
 	@classmethod
 	def getDatabaseInterfaceName(cls):
+		"""
+		Returns the name of the database interface.
+
+		Returns:
+			str: The database interface name.
+		"""
 		return "APSW"
 	#getDatabaseInterfaceName()
 	
 	
 	@classmethod
 	def getDatabaseInterfaceVersion(cls):
+		"""
+		Returns the version of the APSW library.
+
+		Returns:
+			str: The APSW library version.
+		"""
 		return apsw.apswversion()
 	#getDatabaseInterfaceVersion()
 	
@@ -586,6 +634,15 @@ class Database(object):
 	
 	
 	def __init__(self, dbFile=None, testing=False, updating=False, tempMem=False):
+		"""
+		Initializes a Database instance.
+
+		Args:
+			dbFile (str, optional): The database file to attach.
+			testing (bool, optional): If True, runs in testing mode.
+			updating (bool, optional): If True, runs in updating mode.
+			tempMem (bool, optional): If True, uses memory for temporary storage.
+		"""
 		# initialize instance properties
 		self._is_test = testing
 		self._updating = updating
@@ -610,11 +667,28 @@ class Database(object):
 	
 	
 	def __enter__(self):
+		"""
+		Enters the context manager.
+
+		Returns:
+			Connection: The APSW connection object.
+		"""
 		return self._db.__enter__()
 	#__enter__()
 	
 	
 	def __exit__(self, excType, excVal, traceback):
+		"""
+		Exits the context manager.
+
+		Args:
+			excType (type): Exception type.
+			excVal (Exception): Exception value.
+			traceback (traceback): Traceback object.
+
+		Returns:
+			bool: True if no exception occurred, otherwise False.
+		"""
 		return self._db.__exit__(excType, excVal, traceback)
 	#__exit__()
 	
@@ -624,6 +698,12 @@ class Database(object):
 	
 	
 	def _checkTesting(self):
+		"""
+		Checks and updates the testing setting in the database.
+
+		Returns:
+			bool: True if testing settings match, otherwise False.
+		"""
 		now_test = self.getDatabaseSetting("testing")
 		if now_test is None or bool(int(now_test)) == bool(self._is_test):
 			self.setDatabaseSetting("testing", bool(self._is_test))
@@ -634,21 +714,52 @@ class Database(object):
 	
 	
 	def getVerbose(self):
+		"""
+		Gets the verbosity setting.
+
+		Returns:
+			bool: True if verbose logging is enabled, otherwise False.
+		"""
 		return self._verbose
 	#getVerbose()
 	
 	
 	def setVerbose(self, verbose=True):
+		"""
+		Sets the verbosity setting.
+
+		Args:
+			verbose (bool, optional): True to enable verbose logging, False to disable.
+		"""
 		self._verbose = verbose
 	#setVerbose()
 	
 	
 	def setLogger(self, logger=None):
+		"""
+		Sets the logger object.
+
+		Args:
+			logger (Logger, optional): The logger object.
+		"""
 		self._logger = logger
 	#setLogger()
 	
 	
 	def log(self, message=""):
+		"""
+		Logs a message to the configured logger or standard output with indentation.
+
+		Args:
+			message (str, optional): The message to log. Defaults to an empty string.
+
+		Returns:
+			int: The current indentation level.
+
+		The function logs the message with appropriate indentation and handles line breaks.
+		If a logger is set, it uses the logger to log the message. If verbose logging is enabled,
+		it writes the message to the standard output with indentation.
+		"""
 		if self._logger:
 			return self._logger.log(message)
 		if self._verbose:
@@ -666,6 +777,18 @@ class Database(object):
 	
 	
 	def logPush(self, message=None):
+		"""
+		Logs a message and increases the indentation level.
+
+		Args:
+			message (str, optional): The message to log. Defaults to None.
+
+		Returns:
+			int: The new indentation level.
+
+		The function logs the message if provided and increases the indentation level for subsequent logs.
+		If a logger is set, it uses the logger to log the message.
+		"""
 		if self._logger:
 			return self._logger.logPush(message)
 		if message:
@@ -678,6 +801,18 @@ class Database(object):
 	
 	
 	def logPop(self, message=None):
+		"""
+		Decreases the indentation level and logs a message.
+
+		Args:
+		message (str, optional): The message to log. Defaults to None.
+
+		Returns:
+		int: The new indentation level.
+
+		The function decreases the indentation level and logs the message if provided.
+		If a logger is set, it uses the logger to log the message.
+		"""
 		if self._logger:
 			return self._logger.logPop(message)
 		if self._logHanging:
@@ -694,21 +829,51 @@ class Database(object):
 	
 	
 	def getDatabaseMemoryUsage(self, resetPeak=False):
+		"""
+		Retrieves the current and peak memory usage of the database.
+
+		Args:
+			resetPeak (bool, optional): If True, resets the peak memory usage after retrieving it. Defaults to False.
+
+		Returns:
+			tuple: A tuple containing the current memory usage (int) and the peak memory usage (int) in bytes.
+		"""
 		return (apsw.memoryused(), apsw.memoryhighwater(resetPeak))
 	#getDatabaseMemoryUsage()
 	
 	
 	def getDatabaseMemoryLimit(self):
+		"""
+		Retrieves the current memory limit for the database.
+
+		Returns:
+			int: The current soft heap limit in bytes.
+		"""
 		return apsw.softheaplimit(-1)
 	#getDatabaseMemoryLimit()
 	
 	
 	def setDatabaseMemoryLimit(self, limit=0):
+		"""
+		Sets a new memory limit for the database.
+
+		Args:
+			limit (int, optional): The new memory limit in bytes. Defaults to 0, which sets no limit.
+		"""
 		apsw.softheaplimit(limit)
 	#setDatabaseMemoryLimit()
 	
 	
 	def configureDatabase(self, db=None, tempMem=False):
+		"""
+		Configures database settings for performance and behavior.
+
+		Args:
+			db (str, optional): The name of the database to configure. Defaults to None.
+			tempMem (bool, optional): If True, configures the temporary storage to use memory. Defaults to False.
+
+		The function sets various PRAGMA settings to optimize performance for typical usage scenarios.
+		"""
 		cursor = self._db.cursor()
 		db = ("%s." % db) if db else ""
 		
@@ -746,6 +911,14 @@ class Database(object):
 	
 		
 	def attachTempDatabase(self, db):
+		"""
+		Attaches a temporary database with the given name.
+
+		Args:
+			db (str): The name of the temporary database to attach.
+
+		The function first detaches any existing temporary database with the same name, then attaches a new one.
+		"""
 		cursor = self._db.cursor()
 		
 		# detach the current db, if any
@@ -762,6 +935,16 @@ class Database(object):
 	
 	
 	def attachDatabaseFile(self, dbFile, quiet=False):
+		"""
+		Attaches a new database file and configures it.
+
+		Args:
+			dbFile (str): The path to the database file to attach.
+			quiet (bool, optional): If True, suppresses log messages. Defaults to False.
+
+		The function detaches any currently attached database file, then attaches the new one and configures it.
+		It also establishes or audits the database schema.
+		"""
 		cursor = self._db.cursor()
 		
 		# detach the current db file, if any
@@ -819,11 +1002,29 @@ class Database(object):
 	
 	
 	def detachDatabaseFile(self, quiet=False):
+		"""
+		Detaches the currently attached database file.
+
+		Args:
+			quiet (bool, optional): If True, suppresses log messages. Defaults to False.
+
+		Returns:
+			None
+		"""
 		return self.attachDatabaseFile(None, quiet=quiet)
 	#detachDatabaseFile()
 	
 	
 	def testDatabaseWriteable(self):
+		"""
+		Tests if the current database file is writeable.
+
+		Raises:
+			Exception: If no database file is loaded or if the database is read-only.
+
+		Returns:
+			bool: True if the database file is writeable.
+		"""
 		if self._dbFile == None:
 			raise Exception("ERROR: no knowledge database file is loaded")
 		try:
@@ -839,6 +1040,19 @@ class Database(object):
 	
 	
 	def createDatabaseObjects(self, schema, dbName, tblList=None, doTables=True, idxList=None, doIndecies=True):
+		"""
+		Creates tables and indices in the database based on the provided schema.
+
+		Args:
+			schema (dict): The schema definition for the database objects.
+			dbName (str): The name of the database to create objects in.
+			tblList (list, optional): List of tables to create. Defaults to None, which creates all tables in the schema.
+			doTables (bool, optional): If True, creates tables. Defaults to True.
+			idxList (list, optional): List of indices to create. Defaults to None, which creates all indices in the schema.
+			doIndecies (bool, optional): If True, creates indices. Defaults to True.
+
+		The function creates the specified tables and indices, inserting initial data if provided in the schema.
+		"""
 		cursor = self._db.cursor()
 		schema = schema or self._schema[dbName]
 		dbType = "TEMP " if (dbName == "temp") else ""
@@ -872,16 +1086,52 @@ class Database(object):
 	
 	
 	def createDatabaseTables(self, schema, dbName, tblList, doIndecies=False):
+		"""
+		Creates tables in the database based on the provided schema.
+
+		Args:
+			schema (dict): The schema definition for the database objects.
+			dbName (str): The name of the database to create tables in.
+			tblList (list): List of tables to create.
+			doIndecies (bool, optional): If True, creates indices. Defaults to False.
+
+		The function creates the specified tables and optionally creates indices for them.
+		"""
 		return self.createDatabaseObjects(schema, dbName, tblList, True, None, doIndecies)
 	#createDatabaseTables()
 	
 	
-	def createDatabaseIndecies(self, schema, dbName, tblList, doTables=False, idxList=None):
+	def createDatabaseIndices(self, schema, dbName, tblList, doTables=False, idxList=None):
+		"""
+		Creates indices in the database based on the provided schema.
+
+		Args:
+			schema (dict): The schema definition for the database objects.
+			dbName (str): The name of the database to create indices in.
+			tblList (list): List of tables to create indices for.
+			doTables (bool, optional): If True, creates tables as well. Defaults to False.
+			idxList (list, optional): List of indices to create. Defaults to None, which creates all indices in the schema.
+
+		The function creates the specified indices and optionally creates tables for them.
+		"""
 		return self.createDatabaseObjects(schema, dbName, tblList, doTables, idxList, True)
-	#createDatabaseIndecies()
+	#createDatabaseIndices()
 	
 	
 	def dropDatabaseObjects(self, schema, dbName, tblList=None, doTables=True, idxList=None, doIndecies=True):
+		"""
+		Drops tables and indices in the database based on the provided schema.
+
+		Args:
+			schema (dict): The schema definition for the database objects.
+			dbName (str): The name of the database to drop objects from.
+			tblList (list, optional): List of tables to drop. Defaults to None, which drops all tables in the schema.
+			doTables (bool, optional): If True, drops tables. Defaults to True.
+			idxList (list, optional): List of indices to drop. Defaults to None, which drops all indices in the schema.
+			doIndecies (bool, optional): If True, drops indices. Defaults to True.
+
+		The function drops the specified tables and indices from the database.
+		"""
 		cursor = self._db.cursor()
 		schema = schema or self._schema[dbName]
 		if tblList and isinstance(tblList, str):
@@ -900,16 +1150,46 @@ class Database(object):
 	
 	
 	def dropDatabaseTables(self, schema, dbName, tblList):
+		"""
+		Drops tables in the database based on the provided schema.
+
+		Args:
+			schema (dict): The schema definition for the database objects.
+			dbName (str): The name of the database to drop tables from.
+			tblList (list): List of tables to drop.
+
+		The function drops the specified tables from the database.
+		"""
 		return self.dropDatabaseObjects(schema, dbName, tblList, True, None, True)
 	#dropDatabaseTables()
 	
 	
-	def dropDatabaseIndecies(self, schema, dbName, tblList, idxList=None):
+	def dropDatabaseIndices(self, schema, dbName, tblList, idxList=None):
+		"""
+		Drops indices in the database based on the provided schema.
+
+		Args:
+			schema (dict): The schema definition for the database objects.
+			dbName (str): The name of the database to drop indices from.
+			tblList (list): List of tables to drop indices for.
+			idxList (list, optional): List of indices to drop. Defaults to None, which drops all indices in the schema.
+
+		The function drops the specified indices from the database.
+		"""
 		return self.dropDatabaseObjects(schema, dbName, tblList, False, idxList, True)
-	#dropDatabaseIndecies()
+	#dropDatabaseIndices()
 	
 	
 	def updateDatabaseSchema(self):
+		"""
+		Updates the database schema to the latest version.
+
+		The function checks the current schema version and applies necessary updates to bring it to the latest version.
+		It logs the progress and results of each update step.
+
+		Raises:
+			Exception: If an error occurs during the schema update process.
+		"""
 		cursor = self._db.cursor()
 		
 		if self.getDatabaseSetting('schema',int) < 2:
@@ -926,7 +1206,7 @@ class Database(object):
 				self.createDatabaseTables(None, 'db', tblName)
 				cursor.execute("INSERT INTO `db`.`%s` (%s) SELECT %s FROM `db`.`___old_%s___`" % (tblName,tblColumns,tblColumns,tblName))
 				cursor.execute("DROP TABLE `db`.`___old_%s___`" % (tblName,))
-				self.createDatabaseIndecies(None, 'db', tblName)
+				self.createDatabaseIndices(None, 'db', tblName)
 				self.log(" OK\n")
 			self.setDatabaseSetting('schema', 2)
 			self.logPop("... OK\n")
@@ -942,6 +1222,24 @@ class Database(object):
 	
 	
 	def auditDatabaseObjects(self, schema, dbName, tblList=None, doTables=True, idxList=None, doIndecies=True, doRepair=True):
+		"""
+		Audits the database objects against the provided schema and repairs discrepancies if specified.
+
+		Args:
+			schema (dict, optional): The schema definition for the database objects. Defaults to None, which uses the internal schema.
+			dbName (str): The name of the database to audit.
+			tblList (list, optional): List of tables to audit. Defaults to None, which audits all tables in the schema.
+			doTables (bool, optional): If True, audits tables. Defaults to True.
+			idxList (list, optional): List of indices to audit. Defaults to None, which audits all indices in the schema.
+			doIndecies (bool, optional): If True, audits indices. Defaults to True.
+			doRepair (bool, optional): If True, repairs discrepancies. Defaults to True.
+
+		Returns:
+			bool: True if the audit is successful and all objects match the schema, False otherwise.
+
+		The function fetches the current database schema, compares it with the provided schema, and repairs any discrepancies if specified.
+		It logs warnings and errors for mismatches and repairs.
+		"""		
 		# fetch current schema
 		cursor = self._db.cursor()
 		current = dict()
@@ -1012,8 +1310,8 @@ class Database(object):
 							pass
 						elif doRepair:
 							self.log("WARNING: index '%s' on table '%s' schema mismatch -- repairing ..." % (idxName, tblName))
-							self.dropDatabaseIndecies(schema, dbName, tblName, idxName)
-							self.createDatabaseIndecies(schema, dbName, tblName, False, idxName)
+							self.dropDatabaseIndices(schema, dbName, tblName, idxName)
+							self.createDatabaseIndices(schema, dbName, tblName, False, idxName)
 							self.log(" OK\n")
 						else:
 							self.log("ERROR: index '%s' on table '%s' schema mismatch\n" % (idxName, tblName))
@@ -1021,7 +1319,7 @@ class Database(object):
 						#if definition match
 					elif doRepair:
 						self.log("WARNING: index '%s' on table '%s' is missing -- repairing ..." % (idxName, tblName))
-						self.createDatabaseIndecies(schema, dbName, tblName, False, idxName)
+						self.createDatabaseIndices(schema, dbName, tblName, False, idxName)
 						self.log(" OK\n")
 					else:
 						self.log("ERROR: index '%s' on table '%s' is missing\n" % (idxName, tblName))
@@ -1035,6 +1333,14 @@ class Database(object):
 	
 	
 	def finalizeDatabase(self):
+		"""
+		Finalizes the database by discarding intermediate data and setting finalization flags.
+
+		The function drops intermediate tables, recreates them, and sets the database settings to indicate that the database is finalized and not optimized.
+
+		Returns:
+			None
+		"""
 		self.log("discarding intermediate data ...")
 		self.dropDatabaseTables(None, 'db', ('snp_entrez_role','biopolymer_name_name','group_member_name'))
 		self.createDatabaseTables(None, 'db', ('snp_entrez_role','biopolymer_name_name','group_member_name'), True)
@@ -1045,6 +1351,14 @@ class Database(object):
 	
 	
 	def optimizeDatabase(self):
+		"""
+		Optimizes the database by updating optimizer statistics and compacting the database file.
+
+		The function updates the database statistics for query optimization and compacts the database to free up space.
+
+		Returns:
+			None
+		"""
 		self.log("updating optimizer statistics ...")
 		self._db.cursor().execute("ANALYZE `db`")
 		self.log(" OK\n")
@@ -1056,6 +1370,14 @@ class Database(object):
 	
 	
 	def defragmentDatabase(self):
+		"""
+		Defragments the database to compact it and free up space.
+
+		The function detaches the current database file, performs a VACUUM operation to compact it, and then re-attaches the database file.
+
+		Returns:
+			None
+		"""
 		# unfortunately sqlite's VACUUM doesn't work on attached databases,
 		# so we have to detach, make a new direct connection, then re-attach
 		if self._dbFile:
@@ -1069,6 +1391,16 @@ class Database(object):
 	
 	
 	def getDatabaseSetting(self, setting, type=None):
+		"""
+		Retrieves a specific setting value from the database.
+
+		Args:
+			setting (str): The name of the setting to retrieve.
+			type (type, optional): The type to cast the setting value to. Defaults to None.
+
+		Returns:
+			The setting value, cast to the specified type if provided.
+		"""		
 		value = None
 		if self._dbFile:
 			for row in self._db.cursor().execute("SELECT value FROM `db`.`setting` WHERE setting = ?", (setting,)):
@@ -1080,11 +1412,29 @@ class Database(object):
 	
 	
 	def setDatabaseSetting(self, setting, value):
+		"""
+		Sets a specific setting value in the database.
+
+		Args:
+			setting (str): The name of the setting to set.
+			value: The value to set for the specified setting.
+
+		Returns:
+			None
+		"""
 		self._db.cursor().execute("INSERT OR REPLACE INTO `db`.`setting` (setting, value) VALUES (?, ?)", (setting,value))
 	#setDatabaseSetting()
 	
 	
 	def getSourceModules(self):
+		"""
+		Retrieves the source modules available for updating the database.
+
+		If the updater is not already initialized, it imports and initializes the updater module.
+
+		Returns:
+			list: A list of available source modules.
+		"""
 		if not self._updater:
 			import loki.loki_updater as loki_updater
 			self._updater = loki_updater.Updater(self, self._is_test)
@@ -1093,6 +1443,17 @@ class Database(object):
 	
 	
 	def getSourceModuleVersions(self, sources=None):
+		"""
+		Retrieves the versions of the specified source modules.
+
+		If the updater is not already initialized, it imports and initializes the updater module.
+
+		Args:
+			sources (list, optional): A list of source modules to get versions for. Defaults to None, which retrieves versions for all modules.
+
+		Returns:
+			dict: A dictionary mapping source modules to their versions.
+		"""
 		if not self._updater:
 			import loki.loki_updater as loki_updater
 			self._updater = loki_updater.Updater(self, self._is_test)
@@ -1101,6 +1462,17 @@ class Database(object):
 	
 	
 	def getSourceModuleOptions(self, sources=None):
+		"""
+		Retrieves the options for the specified source modules.
+
+		If the updater is not already initialized, it imports and initializes the updater module.
+
+		Args:
+			sources (list, optional): A list of source modules to get options for. Defaults to None, which retrieves options for all modules.
+
+		Returns:
+			dict: A dictionary mapping source modules to their options.
+		"""
 		if not self._updater:
 			import loki.loki_updater as loki_updater
 			self._updater = loki_updater.Updater(self, self._is_test)
@@ -1109,6 +1481,23 @@ class Database(object):
 	
 	
 	def updateDatabase(self, sources=None, sourceOptions=None, cacheOnly=False, forceUpdate=False):
+		"""
+		Updates the database using the specified source modules and options.
+
+		If the updater is not already initialized, it imports and initializes the updater module.
+
+		Args:
+			sources (list, optional): A list of source modules to update from. Defaults to None, which updates from all sources.
+			sourceOptions (dict, optional): A dictionary of options for the source modules. Defaults to None.
+			cacheOnly (bool, optional): If True, only updates the cache. Defaults to False.
+			forceUpdate (bool, optional): If True, forces the update even if not necessary. Defaults to False.
+
+		Returns:
+			Any: The result of the update operation.
+
+		Raises:
+			Exception: If the database is finalized and cannot be updated.
+		"""
 		if self.getDatabaseSetting('finalized',int):
 			raise Exception("ERROR: cannot update a finalized database")
 		if not self._updater:
@@ -1119,6 +1508,20 @@ class Database(object):
 	
 	
 	def prepareTableForUpdate(self, table):
+		"""
+		Prepares a table for update by the updater.
+
+		If the database is finalized, it raises an exception.
+
+		Args:
+			table (str): The name of the table to prepare for update.
+
+		Returns:
+			Any: The result of the preparation.
+
+		Raises:
+			Exception: If the database is finalized and cannot be updated.
+		"""
 		if self.getDatabaseSetting('finalized',int):
 			raise Exception("ERROR: cannot update a finalized database")
 		if self._updater:
@@ -1128,6 +1531,15 @@ class Database(object):
 	
 	
 	def prepareTableForQuery(self, table):
+		"""
+		Prepares a table for query by the updater.
+
+		Args:
+			table (str): The name of the table to prepare for query.
+
+		Returns:
+			Any: The result of the preparation, or None if no updater is available.
+		"""
 		if self._updater:
 			return self._updater.prepareTableForQuery(table)
 		return None
@@ -1139,11 +1551,29 @@ class Database(object):
 	
 	
 	def generateGRChByUCSChg(self, ucschg):
+		"""
+		Generates GRCh values based on a given UCSC chain identifier.
+
+		Args:
+			ucschg (str): The UCSC chain identifier.
+
+		Returns:
+			generator: A generator yielding GRCh values corresponding to the given UCSC chain identifier.
+		"""
 		return (row[0] for row in self._db.cursor().execute("SELECT grch FROM grch_ucschg WHERE ucschg = ?", (ucschg,)))
 	#generateGRChByUCSChg()
 	
 	
 	def getUCSChgByGRCh(self, grch):
+		"""
+		Retrieves the UCSC chain identifier for a given GRCh value.
+
+		Args:
+			grch (str): The GRCh value.
+
+		Returns:
+			str: The UCSC chain identifier corresponding to the given GRCh value, or None if not found.
+		"""
 		ucschg = None
 		for row in self._db.cursor().execute("SELECT ucschg FROM grch_ucschg WHERE grch = ?", (grch,)):
 			ucschg = row[0]
@@ -1152,11 +1582,29 @@ class Database(object):
 	
 	
 	def getLDProfileID(self, ldprofile):
+		"""
+		Retrieves the identifier for a given LD profile.
+
+		Args:
+			ldprofile (str): The LD profile name.
+
+		Returns:
+			int: The identifier of the LD profile, or None if not found.
+		"""
 		return self.getLDProfileIDs([ldprofile])[ldprofile]
 	#getLDProfileID()
 	
 	
 	def getLDProfileIDs(self, ldprofiles):
+		"""
+		Retrieves the identifiers for a list of LD profiles.
+
+		Args:
+			ldprofiles (list): A list of LD profile names.
+
+		Returns:
+			dict: A dictionary mapping LD profile names to their identifiers.
+		"""
 		if not self._dbFile:
 			return { l:None for l in ldprofiles }
 		sql = "SELECT i.ldprofile, l.ldprofile_id FROM (SELECT ? AS ldprofile) AS i LEFT JOIN `db`.`ldprofile` AS l ON LOWER(TRIM(l.ldprofile)) = LOWER(TRIM(i.ldprofile))"
@@ -1167,6 +1615,15 @@ class Database(object):
 	
 	
 	def getLDProfiles(self, ldprofiles=None):
+		"""
+		Retrieves detailed information about LD profiles.
+
+		Args:
+			ldprofiles (list, optional): A list of LD profile names. Defaults to None, which retrieves information for all profiles.
+
+		Returns:
+			dict: A dictionary mapping LD profile names to a tuple containing their identifier, description, metric, and value.
+		"""
 		if not self._dbFile:
 			return { l:None for l in (ldprofiles or list()) }
 		with self._db:
@@ -1181,11 +1638,29 @@ class Database(object):
 	
 	
 	def getNamespaceID(self, namespace):
+		"""
+		Retrieves the identifier for a given namespace.
+
+		Args:
+			namespace (str): The namespace name.
+
+		Returns:
+			int: The identifier of the namespace, or None if not found.
+		"""
 		return self.getNamespaceIDs([namespace])[namespace]
 	#getNamespaceID()
 	
 	
 	def getNamespaceIDs(self, namespaces):
+		"""
+		Retrieves the identifiers for a list of namespaces.
+
+		Args:
+			namespaces (list): A list of namespace names.
+
+		Returns:
+			dict: A dictionary mapping namespace names to their identifiers.
+		"""
 		if not self._dbFile:
 			return { n:None for n in namespaces }
 		sql = "SELECT i.namespace, n.namespace_id FROM (SELECT ? AS namespace) AS i LEFT JOIN `db`.`namespace` AS n ON n.namespace = LOWER(i.namespace)"
@@ -1196,11 +1671,29 @@ class Database(object):
 	
 	
 	def getRelationshipID(self, relationship):
+		"""
+		Retrieves the identifier for a given relationship.
+
+		Args:
+			relationship (str): The relationship name.
+
+		Returns:
+			int: The identifier of the relationship, or None if not found.
+		"""
 		return self.getRelationshipIDs([relationship])[relationship]
 	#getRelationshipID()
 	
 	
 	def getRelationshipIDs(self, relationships):
+		"""
+		Retrieves the identifiers for a list of relationships.
+
+		Args:
+			relationships (list): A list of relationship names.
+
+		Returns:
+			dict: A dictionary mapping relationship names to their identifiers.
+		"""
 		if not self._dbFile:
 			return { r:None for r in relationships }
 		sql = "SELECT i.relationship, r.relationship_id FROM (SELECT ? AS relationship) AS i LEFT JOIN `db`.`relationship` AS r ON r.relationship = LOWER(i.relationship)"
@@ -1211,11 +1704,29 @@ class Database(object):
 	
 	
 	def getRoleID(self, role):
+		"""
+		Retrieves the identifier for a given role.
+
+		Args:
+			role (str): The role name.
+
+		Returns:
+			int: The identifier of the role, or None if not found.
+		"""
 		return self.getRoleIDs([role])[role]
 	#getRoleID()
 	
 	
 	def getRoleIDs(self, roles):
+		"""
+		Retrieves the identifiers for a list of roles.
+
+		Args:
+			roles (list): A list of role names.
+
+		Returns:
+			dict: A dictionary mapping role names to their identifiers.
+		"""
 		if not self._dbFile:
 			return { r:None for r in roles }
 		sql = "SELECT i.role, role_id FROM (SELECT ? AS role) AS i LEFT JOIN `db`.`role` AS r ON r.role = LOWER(i.role)"
@@ -1226,11 +1737,29 @@ class Database(object):
 	
 	
 	def getSourceID(self, source):
+		"""
+		Retrieves the identifier for a given data source.
+
+		Args:
+			source (str): The name of the data source.
+
+		Returns:
+			int: The identifier of the data source, or None if not found.
+		"""
 		return self.getSourceIDs([source])[source]
 	#getSourceID()
 	
 	
 	def getSourceIDs(self, sources=None):
+		"""
+		Retrieves the identifiers for a list of data sources.
+
+		Args:
+			sources (list, optional): A list of data source names. Defaults to None, which retrieves information for all sources.
+
+		Returns:
+			dict: A dictionary mapping data source names to their identifiers.
+		"""
 		if not self._dbFile:
 			return { s:None for s in (sources or list()) }
 		if sources:
@@ -1246,6 +1775,15 @@ class Database(object):
 	
 	
 	def getSourceIDVersion(self, sourceID):
+		"""
+		Retrieves the version of a data source given its identifier.
+
+		Args:
+			sourceID (int): The identifier of the data source.
+
+		Returns:
+			str: The version of the data source, or None if not found.
+		"""
 		sql = "SELECT version FROM `db`.`source` WHERE source_id = ?"
 		ret = None
 		with self._db:
@@ -1256,6 +1794,15 @@ class Database(object):
 	
 	
 	def getSourceIDOptions(self, sourceID):
+		"""
+		Retrieves the options associated with a data source given its identifier.
+
+		Args:
+			sourceID (int): The identifier of the data source.
+
+		Returns:
+			dict: A dictionary mapping option names to their values for the given data source.
+		"""
 		sql = "SELECT option, value FROM `db`.`source_option` WHERE source_id = ?"
 		with self._db:
 			ret = { row[0]:row[1] for row in self._db.cursor().execute(sql, (sourceID,)) }
@@ -1264,6 +1811,15 @@ class Database(object):
 	
 	
 	def getSourceIDFiles(self, sourceID):
+		"""
+		Retrieves information about files associated with a data source given its identifier.
+
+		Args:
+			sourceID (int): The identifier of the data source.
+
+		Returns:
+			dict: A dictionary mapping filenames to tuples containing their modified date, size, and md5 hash.
+		"""
 		sql = "SELECT filename, COALESCE(modified,''), COALESCE(size,''), COALESCE(md5,'') FROM `db`.`source_file` WHERE source_id = ?"
 		with self._db:
 			ret = { row[0]:tuple(row[1:]) for row in self._db.cursor().execute(sql, (sourceID,)) }
@@ -1272,11 +1828,29 @@ class Database(object):
 	
 	
 	def getTypeID(self, type):
+		"""
+		Retrieves the identifier for a given type.
+
+		Args:
+			type (str): The name of the type.
+
+		Returns:
+			int: The identifier of the type, or None if not found.
+		"""
 		return self.getTypeIDs([type])[type]
 	#getTypeID()
 	
 	
 	def getTypeIDs(self, types):
+		"""
+		Retrieves the identifiers for a list of types.
+
+		Args:
+			types (list): A list of type names.
+
+		Returns:
+			dict: A dictionary mapping type names to their identifiers.
+		"""
 		if not self._dbFile:
 			return { t:None for t in types }
 		sql = "SELECT i.type, t.type_id FROM (SELECT ? AS type) AS i LEFT JOIN `db`.`type` AS t ON t.type = LOWER(i.type)"
@@ -1286,11 +1860,30 @@ class Database(object):
 	#getTypeIDs()
 	
 	def getSubtypeID(self, subtype):
+		"""
+		Retrieves the identifier for a given subtype.
+
+		Args:
+			subtype (str): The name of the subtype.
+
+		Returns:
+			int: The identifier of the subtype, or None if not found.
+		"""
 		return self.getSubtypeIDs([subtype])[subtype]
 	#getSubtypeID()
 	
 	
 	def getSubtypeIDs(self, subtypes):
+		"""
+		Retrieves subtype IDs for given subtype names from the database.
+
+		Args:
+			subtypes (list): A list of subtype names.
+
+		Returns:
+			dict: A dictionary where keys are subtype names and values are their corresponding subtype IDs.
+					If a subtype is not found in the database, its value in the dictionary will be None.
+		"""
 		if not self._dbFile:
 			return { t:None for t in subtypes }
 		sql = "SELECT i.subtype, t.subtype_id FROM (SELECT ? AS subtype) AS i LEFT JOIN `db`.`subtype` AS t ON t.subtype = LOWER(i.subtype)"
@@ -1304,6 +1897,16 @@ class Database(object):
 	
 	
 	def generateCurrentRSesByRSes(self, rses, tally=None):
+		"""
+		Generates current RS IDs by merging RS IDs from the database.
+
+		Args:
+			rses (list): A list of tuples, where each tuple contains (rsMerged, extra).
+			tally (dict, optional): A dictionary to store tally counts for 'merge' and 'match'. Defaults to None.
+
+		Yields:
+			tuple: A tuple containing (rsMerged, extra, rsCurrent).
+		"""
 		# rses=[ (rsInput,extra), ... ]
 		# tally=dict()
 		# yield:[ (rsInput,extra,rsCurrent), ... ]
@@ -1330,6 +1933,20 @@ LEFT JOIN `db`.`snp_merge` AS sm USING (rsMerged)
 	
 	
 	def generateSNPLociByRSes(self, rses, minMatch=1, maxMatch=1, validated=None, tally=None, errorCallback=None):
+		"""
+		Generates SNP loci by RS IDs from the database.
+
+		Args:
+			rses (list): A list of tuples, where each tuple contains (rs, extra).
+			minMatch (int, optional): Minimum number of matches required. Defaults to 1.
+			maxMatch (int, optional): Maximum number of matches allowed. Defaults to 1.
+			validated (bool, optional): Flag to filter validated SNP loci. Defaults to None.
+			tally (dict, optional): A dictionary to store tally counts for 'zero', 'one', and 'many'. Defaults to None.
+			errorCallback (callable, optional): A callable function for error handling. Defaults to None.
+
+		Yields:
+			tuple: A tuple containing (rs, extra, chr, pos) for each SNP locus.
+		"""
 		# rses=[ (rs,extra), ... ]
 		# tally=dict()
 		# yield:[ (rs,extra,chr,pos), ... ]
@@ -1381,6 +1998,15 @@ ORDER BY sl.chr, sl.pos
 	
 	
 	def generateBiopolymersByIDs(self, ids):
+		"""
+		Generates biopolymers by their IDs from the database.
+
+		Args:
+			ids (list): A list of tuples, where each tuple contains (id, extra).
+
+		Yields:
+			tuple: A tuple containing (biopolymer_id, extra, type_id, label, description) for each biopolymer.
+		"""
 		# ids=[ (id,extra), ... ]
 		# yield:[ (id,extra,type_id,label,description), ... ]
 		sql = "SELECT biopolymer_id, ?2 AS extra, type_id, label, description FROM `db`.`biopolymer` WHERE biopolymer_id = ?1"
@@ -1389,6 +2015,20 @@ ORDER BY sl.chr, sl.pos
 	
 	
 	def _lookupBiopolymerIDs(self, typeID, identifiers, minMatch, maxMatch, tally, errorCallback):
+		"""
+		Looks up biopolymer IDs based on identifiers from the database.
+
+		Args:
+			typeID (int or Falseish): Type ID of the biopolymer, or Falseish for any type.
+			identifiers (list): A list of tuples, where each tuple contains (namespace, name, extra).
+			minMatch (int or Falseish): Minimum number of matches required, or Falseish for none.
+			maxMatch (int or Falseish): Maximum number of matches allowed, or Falseish for none.
+			tally (dict or None): A dictionary to store tally counts for 'zero', 'one', and 'many'. Defaults to None.
+			errorCallback (callable): A callable function for error handling.
+
+		Yields:
+			tuple: A tuple containing (namespace, name, extra, id) for each matched biopolymer.
+		"""
 		# typeID=int or Falseish for any
 		# identifiers=[ (namespace,name,extra), ... ]
 		#   namespace='' or '*' for any, '-' for labels, '=' for biopolymer_id
@@ -1456,18 +2096,74 @@ LEFT JOIN `db`.`biopolymer` AS bName
 	
 	
 	def generateBiopolymerIDsByIdentifiers(self, identifiers, minMatch=1, maxMatch=1, tally=None, errorCallback=None):
+		"""
+		Retrieve biopolymer IDs based on identifiers such as namespace and name.
+
+		Parameters:
+		-----------
+		identifiers : list of tuples
+			Each tuple contains (namespace, name, extra).
+		minMatch : int, optional
+			Minimum number of matches allowed (default is 1).
+		maxMatch : int, optional
+			Maximum number of matches allowed (default is 1).
+		tally : dict, optional
+			Dictionary to store match counts (default is None).
+		errorCallback : callable, optional
+			Function to handle errors.
+
+		Returns:
+		--------
+		Generator object yielding biopolymer IDs based on the given identifiers.
+		"""
 		# identifiers=[ (namespace,name,extra), ... ]
 		return self._lookupBiopolymerIDs(None, identifiers, minMatch, maxMatch, tally, errorCallback)
 	#generateBiopolymerIDsByIdentifiers()
 	
 	
 	def generateTypedBiopolymerIDsByIdentifiers(self, typeID, identifiers, minMatch=1, maxMatch=1, tally=None, errorCallback=None):
+		"""
+		Retrieve biopolymer IDs based on identifiers with a specific type.
+
+		Parameters:
+		-----------
+		typeID : int or None
+			Specific type ID for filtering.
+		identifiers : list of tuples
+			Each tuple contains (namespace, name, extra).
+		minMatch : int, optional
+			Minimum number of matches allowed (default is 1).
+		maxMatch : int, optional
+			Maximum number of matches allowed (default is 1).
+		tally : dict, optional
+			Dictionary to store match counts (default is None).
+		errorCallback : callable, optional
+			Function to handle errors.
+
+		Returns:
+		--------
+		Generator object yielding biopolymer IDs based on the given identifiers and type ID.
+		"""
 		# identifiers=[ (namespace,name,extra), ... ]
 		return self._lookupBiopolymerIDs(typeID, identifiers, minMatch, maxMatch, tally, errorCallback)
 	#generateTypedBiopolymerIDsByIdentifiers()
 	
 	
 	def _searchBiopolymerIDs(self, typeID, texts):
+		"""
+		Helper method to perform text-based search for biopolymer IDs.
+
+		Parameters:
+		-----------
+		typeID : int or None
+			Specific type ID for filtering.
+		texts : list of tuples
+			Each tuple contains (text, extra).
+
+		Yields:
+		-------
+		Tuples containing biopolymer IDs based on the given search criteria and type ID.
+		"""
 		# texts=[ (text,extra), ... ]
 		# yields (extra,label,id)
 		
@@ -1498,18 +2194,62 @@ GROUP BY b.biopolymer_id
 	
 	
 	def generateBiopolymerIDsBySearch(self, searches):
+		"""
+		Retrieve biopolymer IDs based on a text-based search.
+
+		Parameters:
+		-----------
+		searches : list of tuples
+			Each tuple contains (text, extra).
+
+		Returns:
+		--------
+		Generator object yielding biopolymer IDs based on the given search criteria.
+		"""
 		# searches=[ (text,extra), ... ]
 		return self._searchBiopolymerIDs(None, searches)
 	#generateBiopolymerIDsBySearch()
 	
 	
 	def generateTypedBiopolymerIDsBySearch(self, typeID, searches):
+		"""
+		Retrieve biopolymer IDs based on a text-based search with a specific type.
+
+		Parameters:
+		-----------
+		typeID : int or None
+			Specific type ID for filtering.
+		searches : list of tuples
+			Each tuple contains (text, extra).
+
+		Returns:
+		--------
+		Generator object yielding biopolymer IDs based on the given search criteria and type ID.
+		"""
 		# searches=[ (text,extra), ... ]
 		return self._searchBiopolymerIDs(typeID, searches)
 	#generateTypedBiopolymerIDsBySearch()
 	
 	
 	def generateBiopolymerNameStats(self, namespaceID=None, typeID=None):
+		"""
+		Generate statistics on biopolymer names, including counts of unique and ambiguous names.
+
+		Parameters:
+		-----------
+		namespaceID : int or None, optional
+			Optional namespace ID filter.
+		typeID : int or None, optional
+			Optional type ID filter.
+
+		Yields:
+		-------
+		Tuples containing statistics for biopolymer names:
+			- `namespace`: Name of the namespace.
+			- `names`: Total number of names.
+			- `unique`: Number of unique names.
+			- `ambiguous`: Number of ambiguous names.
+		"""
 		sql = """
 SELECT
   `namespace`,
@@ -1549,6 +2289,19 @@ GROUP BY namespace_id
 	
 	
 	def generateGroupsByIDs(self, ids):
+		"""
+		Retrieve groups based on provided group IDs.
+
+		Parameters:
+		-----------
+		ids : list of tuples
+			Each tuple contains (group_id, extra).
+
+		Yields:
+		-------
+		Tuples containing group information:
+			(group_id, extra, type_id, subtype_id, label, description)
+		"""
 		# ids=[ (id,extra), ... ]
 		# yield:[ (id,extra,type_id,subtype_id,label,description), ... ]
 		sql = "SELECT group_id, ?2 AS extra, type_id, subtype_id, label, description FROM `db`.`group` WHERE group_id = ?1"
@@ -1557,6 +2310,28 @@ GROUP BY namespace_id
 	
 	
 	def _lookupGroupIDs(self, typeID, identifiers, minMatch, maxMatch, tally, errorCallback):
+		"""
+		Helper method to look up group IDs based on identifiers.
+
+		Parameters:
+		-----------
+		typeID : int or None
+			Specific type ID for filtering.
+		identifiers : list of tuples
+			Each tuple contains (namespace, name, extra).
+		minMatch : int or None
+			Minimum number of matches allowed.
+		maxMatch : int or None
+			Maximum number of matches allowed.
+		tally : dict or None
+			Dictionary to store match counts.
+		errorCallback : callable or None
+			Function to handle errors.
+
+		Yields:
+		-------
+		Tuples containing (namespace, name, extra, group_id).
+		"""
 		# typeID=int or Falseish for any
 		# identifiers=[ (namespace,name,extra), ... ]
 		#   namespace='' or '*' for any, '-' for labels, '=' for group_id
@@ -1624,18 +2399,75 @@ LEFT JOIN `db`.`group` AS gName
 	
 	
 	def generateGroupIDsByIdentifiers(self, identifiers, minMatch=1, maxMatch=1, tally=None, errorCallback=None):
+		"""
+		Generate group IDs based on identifiers such as namespace and name.
+
+		Parameters:
+		-----------
+		identifiers : list of tuples
+			Each tuple contains (namespace, name, extra).
+		minMatch : int, optional
+			Minimum number of matches allowed (default is 1).
+		maxMatch : int, optional
+			Maximum number of matches allowed (default is 1).
+		tally : dict, optional
+			Dictionary to store match counts (default is None).
+		errorCallback : callable, optional
+			Function to handle errors.
+
+		Yields:
+		-------
+		Tuples containing (namespace, name, extra, group_id).
+		"""
 		# identifiers=[ (namespace,name,extra), ... ]
 		return self._lookupGroupIDs(None, identifiers, minMatch, maxMatch, tally, errorCallback)
 	#generateGroupIDsByIdentifiers()
 	
 	
 	def generateTypedGroupIDsByIdentifiers(self, typeID, identifiers, minMatch=1, maxMatch=1, tally=None, errorCallback=None):
+		"""
+		Generate group IDs based on identifiers with a specific type.
+
+		Parameters:
+		-----------
+		typeID : int
+			Specific type ID for filtering.
+		identifiers : list of tuples
+			Each tuple contains (namespace, name, extra).
+		minMatch : int, optional
+			Minimum number of matches allowed (default is 1).
+		maxMatch : int, optional
+			Maximum number of matches allowed (default is 1).
+		tally : dict, optional
+			Dictionary to store match counts (default is None).
+		errorCallback : callable, optional
+			Function to handle errors.
+
+		Yields:
+		-------
+		Tuples containing (namespace, name, extra, group_id).
+		"""
+
 		# identifiers=[ (namespace,name,extra), ... ]
 		return self._lookupGroupIDs(typeID, identifiers, minMatch, maxMatch, tally, errorCallback)
 	#generateTypedGroupIDsByIdentifiers()
 	
 	
 	def _searchGroupIDs(self, typeID, texts):
+		"""
+		Helper method to perform text-based search for group IDs.
+
+		Parameters:
+		-----------
+		typeID : int or None
+			Specific type ID for filtering.
+		texts : list of tuples
+			Each tuple contains (text, extra).
+
+		Yields:
+		-------
+		Tuples containing group IDs based on the given search criteria and type ID.
+		"""
 		# texts=[ (text,extra), ... ]
 		# yields (extra,label,id)
 		
@@ -1666,18 +2498,61 @@ GROUP BY g.group_id
 	
 	
 	def generateGroupIDsBySearch(self, searches):
+		"""
+		Retrieve group IDs based on a text-based search.
+
+		Parameters:
+		-----------
+		searches : list of tuples
+			Each tuple contains (text, extra).
+
+		Yields:
+		-------
+		Tuples containing group IDs based on the given search criteria.
+			(extra, label, group_id)
+		"""
 		# searches=[ (text,extra), ... ]
 		return self._searchGroupIDs(None, searches)
 	#generateGroupIDsBySearch()
 	
 	
 	def generateTypedGroupIDsBySearch(self, typeID, searches):
+		"""
+		Retrieve group IDs based on a text-based search with a specific type.
+
+		Parameters:
+		-----------
+		typeID : int
+			Specific type ID for filtering.
+		searches : list of tuples
+			Each tuple contains (text, extra).
+
+		Yields:
+		-------
+		Tuples containing group IDs based on the given search criteria and type ID.
+			(extra, label, group_id)
+		"""
 		# searches=[ (text,extra), ... ]
 		return self._searchGroupIDs(typeID, searches)
 	#generateTypedGroupIDsBySearch()
 	
 	
 	def generateGroupNameStats(self, namespaceID=None, typeID=None):
+		"""
+		Generate statistics on group names.
+
+		Parameters:
+		-----------
+		namespaceID : int or None, optional
+			Namespace ID for filtering (default is None).
+		typeID : int or None, optional
+			Specific type ID for filtering (default is None).
+
+		Yields:
+		-------
+		Tuples containing statistics on group names:
+			(namespace, names, unique, ambiguous)
+		"""
 		sql = """
 SELECT
   `namespace`,
@@ -1721,12 +2596,48 @@ GROUP BY namespace_id
 	
 	
 	def hasLiftOverChains(self, oldHG, newHG):
+		"""
+		Check if there are liftOver chains between old and new genome assemblies.
+
+		Parameters:
+		-----------
+		oldHG : str
+			Old genome assembly identifier.
+		newHG : str
+			New genome assembly identifier.
+
+		Returns:
+		--------
+		int
+			Number of liftOver chains found between old and new genome assemblies.
+		"""
 		sql = "SELECT COUNT() FROM `db`.`chain` WHERE old_ucschg = ? AND new_ucschg = ?"
 		return max(row[0] for row in self._db.cursor().execute(sql, (oldHG, newHG)))
 	#hasLiftOverChains()
 	
 	
 	def _generateApplicableLiftOverChains(self, oldHG, newHG, chrom, start, end):
+		"""
+		Generate applicable liftOver chains for a specific region.
+
+		Parameters:
+		-----------
+		oldHG : str
+			Old genome assembly identifier.
+		newHG : str
+			New genome assembly identifier.
+		chrom : str
+			Chromosome name.
+		start : int
+			Start position of the region.
+		end : int
+			End position of the region.
+
+		Yields:
+		-------
+		Tuples containing liftOver chain information for the given region.
+			(chain_id, old_chr, score, old_start, old_end, new_start, is_fwd, new_chr, old_start, old_end, new_start)
+		"""
 		conv = (oldHG,newHG)
 		if conv in self._liftOverCache:
 			chains = self._liftOverCache[conv]
@@ -1778,7 +2689,29 @@ ORDER BY c.old_chr, score DESC, cd.old_start
 	
 	def _liftOverRegionUsingChains(self, label, start, end, extra, first_seg, end_seg, total_mapped_sz):
 		"""
-		Map a region given the 1st and last segment as well as the total mapped size
+		Map a region given the 1st and last segment as well as the total mapped size.
+
+		Parameters:
+		-----------
+		label : str
+			Label of the region.
+		start : int
+			Start position of the region.
+		end : int
+			End position of the region.
+		extra : object
+			Additional data associated with the region.
+		first_seg : tuple
+			First segment information.
+		end_seg : tuple
+			Last segment information.
+		total_mapped_sz : int
+			Total mapped size of the region.
+
+		Returns:
+		--------
+		tuple or None
+			Mapped region information if mapped successfully, otherwise None.
 		"""
 		mapped_reg = None
 		
@@ -1813,6 +2746,28 @@ ORDER BY c.old_chr, score DESC, cd.old_start
 	
 	
 	def generateLiftOverRegions(self, oldHG, newHG, regions, tally=None, errorCallback=None):
+		"""
+		Generate liftOver regions based on old and new genome assemblies.
+
+		Parameters:
+		-----------
+		oldHG : str
+			Old genome assembly identifier.
+		newHG : str
+			New genome assembly identifier.
+		regions : iterable
+			Iterable of regions to be lifted over, where each region is represented as a tuple
+			(label, chr, posMin, posMax, extra).
+		tally : dict or None, optional
+			A dictionary to store the count of lifted and non-lifted regions (default is None).
+		errorCallback : function or None, optional
+			A callback function to handle errors for non-liftable regions (default is None).
+
+		Yields:
+		-------
+		tuple
+			Mapped regions in the format (label, chrom, new_start, new_end, extra).
+		"""
 		# regions=[ (label,chr,posMin,posMax,extra), ... ]
 		oldHG = int(oldHG)
 		newHG = int(newHG)
@@ -1869,6 +2824,29 @@ ORDER BY c.old_chr, score DESC, cd.old_start
 	
 	
 	def generateLiftOverLoci(self, oldHG, newHG, loci, tally=None, errorCallback=None):
+		"""
+		Generate liftOver loci based on old and new genome assemblies.
+
+		Parameters:
+		-----------
+		oldHG : str
+			Old genome assembly identifier.
+		newHG : str
+			New genome assembly identifier.
+		loci : iterable
+			Iterable of loci to be lifted over, where each locus is represented as a tuple
+			(label, chr, pos, extra).
+		tally : dict or None, optional
+			A dictionary to store the count of lifted and non-lifted loci (default is None).
+		errorCallback : function or None, optional
+			A callback function to handle errors for non-liftable loci (default is None).
+
+		Returns:
+		--------
+		iterable
+			Yields new loci in the format (label, chrom, new_pos, extra) for each successfully
+			lifted locus.
+		"""
 		# loci=[ (label,chr,pos,extra), ... ]
 		regions = ((l[0],l[1],l[2],l[2],l[3]) for l in loci)
 		newloci = ((r[0],r[1],r[2],r[4]) for r in self.generateLiftOverRegions(oldHG, newHG, regions, tally, errorCallback))
