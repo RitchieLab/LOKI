@@ -17,12 +17,9 @@ Attributes:
     data_files (list): A list of additional data files to be included in the knowledge base.
 """
 
+import setuptools
 
-import distutils.core
-import distutils.command.install
-import distutils.command.sdist
-
-distutils.core.setup(
+setuptools.setup(
 	name='LOKI',
 	version='3.0.0',
 	author='Ritchie Lab',
@@ -37,10 +34,6 @@ distutils.core.setup(
 		'loki.loaders.test',
 		'loki.util'
 	],
-	cmdclass={
-		'install':distutils.command.install.install,
-		'sdist':distutils.command.sdist.sdist
-	},
 	data_files=[
 		('', ['CHANGELOG'])
 	]
