@@ -28,6 +28,7 @@ class Updater(object):
 		self._sourceLoaders = None
 		self._sourceClasses = dict()
 		self._sourceObjects = dict()
+		self._sourceOptions = dict()
 		self._updating = False
 		self._tablesUpdated = None
 		self._tablesDeindexed = None
@@ -146,6 +147,10 @@ class Updater(object):
 		#foreach source
 		return srcSet
 	#attachSourceModules()
+
+	def downloadAndHash(self, srcName, srcOptions):
+		x = 0
+	#downloadAndHash()
 	
 	
 	def updateDatabase(self, sources=None, sourceOptions=None, cacheOnly=False, forceUpdate=False):
@@ -174,8 +179,7 @@ class Updater(object):
 		cursor.execute("SAVEPOINT 'updateDatabase'")
 		try:
 			for srcName in sorted(srcSet):
-				cursor.execute("SAVEPOINT 'updateDatabase_%s'" % (srcName,))
-				try:
+				
 					srcObj = self._sourceObjects[srcName]
 					srcID = srcObj.getSourceID()
 					
@@ -200,30 +204,40 @@ class Updater(object):
 					if not os.path.exists(path):
 						os.makedirs(path)
 					os.chdir(path)
-					
-					# download files into a local cache
-					if not cacheOnly:
-						self.logPush("downloading %s data ...\n" % srcName)
-						srcObj.download(options)
-						self.logPop("... OK\n")
-					
-					# calculate source file metadata
-					# all timestamps are assumed to be in UTC, but if a source
-					# provides file timestamps with no TZ (like via FTP) we use them
-					# as-is and assume they're supposed to be UTC
-					self.log("analyzing %s data files ..." % srcName)
-					filehash = dict()
-					for filename in os.listdir('.'):
-						stat = os.stat(filename)
-						md5 = hashlib.md5()
-						with open(filename,'rb') as f:
+
+			for srcName in sorted(srcSet):		
+				srcObj = self._sourceObjects[srcName]
+				srcID = srcObj.getSourceID()
+				
+				# download files into a local cache
+				if not cacheOnly:
+					self.logPush("downloading %s data ...\n" % srcName)
+					srcObj.download(options)
+					self.logPop("... OK\n")
+				
+				# calculate source file metadata
+				# all timestamps are assumed to be in UTC, but if a source
+				# provides file timestamps with no TZ (like via FTP) we use them
+				# as-is and assume they're supposed to be UTC
+				self.log("analyzing %s data files ..." % srcName)
+				filehash = dict()
+				for filename in os.listdir('.'):
+					stat = os.stat(filename)
+					md5 = hashlib.md5()
+					with open(filename,'rb') as f:
+						chunk = f.read(8*1024*1024)
+						while chunk:
+							md5.update(chunk)
 							chunk = f.read(8*1024*1024)
-							while chunk:
-								md5.update(chunk)
-								chunk = f.read(8*1024*1024)
-						filehash[filename] = (filename, int(stat.st_size), int(stat.st_mtime), md5.hexdigest())
-					self.log(" OK\n")
-					
+					filehash[filename] = (filename, int(stat.st_size), int(stat.st_mtime), md5.hexdigest())
+				self.log(" OK\n")
+			
+			for srcName in sorted(srcSet):		
+				srcObj = self._sourceObjects[srcName]
+				srcID = srcObj.getSourceID()
+				cursor.execute("SAVEPOINT 'updateDatabase_%s'" % (srcName,))
+
+				try:	
 					# compare current loader version, options and file metadata to the last update
 					skip = not forceUpdate
 					last = '?'
