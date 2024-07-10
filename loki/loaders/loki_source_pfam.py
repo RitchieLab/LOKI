@@ -25,6 +25,13 @@ class Source_pfam(loki_source.Source):
 			'pfamA_reg_full_significant.txt.gz': '/pub/databases/Pfam/current_release/database_files/pfamA_reg_full_significant.txt.gz',
 			'pfamseq.txt.gz':                    '/pub/databases/Pfam/current_release/database_files/pfamseq.txt.gz',
 		})
+
+		return 
+		[
+			'pfamA.txt.gz',
+			'pfamA_reg_full_significant.txt.gz',
+			'pfamseq.txt.gz'
+		]
 	#download()
 	
 	

@@ -66,6 +66,17 @@ class Source_entrez(loki_source.Source):
 		self.downloadFilesFromHTTP('ftp.uniprot.org', {
 			'HUMAN_9606_idmapping_selected.tab.gz': '/pub/databases/uniprot/current_release/knowledgebase/idmapping/by_organism/HUMAN_9606_idmapping_selected.tab.gz',
 		})
+
+		return 
+		[
+			'Homo_sapiens.gene_info.gz',
+			'gene2refseq.gz',     
+			'gene_history.gz',               
+			'gene2ensembl.gz',               
+			'gene2unigene',               
+			'gene_refseq_uniprotkb_collab.gz',
+			'HUMAN_9606_idmapping_selected.tab.gz'
+		]
 	#download()
 	
 	

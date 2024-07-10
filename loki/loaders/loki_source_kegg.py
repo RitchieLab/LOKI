@@ -53,6 +53,16 @@ class Source_kegg(loki_source.Source):
 				'category-disease':  '/get/br:br08403/json',
 			})
 		#if api==rest/cache
+
+		return 
+		[
+			'list-pathway-hsa',
+			'link-pathway-hsa',
+			'list-disease',
+			'link-disease-hsa',
+			'category-pathway',
+			'category-disease'
+		]
 	#download()
 	
 	

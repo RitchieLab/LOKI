@@ -26,6 +26,15 @@ class Source_reactome(loki_source.Source):
 		#	'homo_sapiens.interactions.txt.gz'            : '/download/current/homo_sapiens.interactions.txt.gz',
 		#	'gene_association.reactome'                   : '/download/current/gene_association.reactome',
 		})
+
+		return 
+		[
+			'ReactomePathways.txt',
+			'ReactomePathwaysRelation.txt',
+			'ReactomePathways.gmt.zip',
+			'UniProt2Reactome.txt',
+			'Ensembl2Reactome.txt'
+		]
 	#download()
 	
 	

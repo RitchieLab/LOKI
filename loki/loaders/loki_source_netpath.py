@@ -19,6 +19,8 @@ class Source_netpath(loki_source.Source):
 		#	'NetPath_GeneReg_TSV.zip':  '/data/batch/NetPath_GeneReg_TSV.zip', #Last-Modified: Fri, 31 Oct 2008 17:00:16 GMT
 			'NetPath_GeneReg_TSV1.zip': '/data/batch/NetPath_GeneReg_TSV1.zip', #Last-Modified: Sat, 03 Sep 2011 10:07:03 GMT
 		})
+
+		return [ 'NetPath_GeneReg_TSV1.zip' ]
 	#download()
 	
 	

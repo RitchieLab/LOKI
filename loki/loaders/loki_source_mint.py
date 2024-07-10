@@ -46,6 +46,8 @@ class Source_mint(loki_source.Source):
 		self.downloadFilesFromHTTP('www.ebi.ac.uk', {
 			'MINT_MiTab.txt': '/Tools/webservices/psicquic/mint/webservices/current/search/query/species:human',
 		})
+
+		return [ 'MINT_MiTab.txt' ]
 	#download()
 	
 	

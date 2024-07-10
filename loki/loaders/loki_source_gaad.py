@@ -23,6 +23,15 @@ class Source_gaad(loki_source.Source):
                         'disease_association_genecards.txt.gz': '/Downloads/disease_association_genecards.txt.gz',
                         'disease_gene_association_pubmed_textmining_zhao.txt.gz': '/Downloads/disease_gene_association_pubmed_textmining_zhao.txt.gz',        
                 })
+
+                return 
+                [
+                        'diseases2.txt.gz',
+                        'disease_relationships.txt.gz',
+                        'disease_association_database_annotations_uniprot_ncbiGene.txt.gz',
+                        'disease_association_genecards.txt.gz',
+                        'disease_gene_association_pubmed_textmining_zhao.txt.gz'
+                ]
         #download()
         
         

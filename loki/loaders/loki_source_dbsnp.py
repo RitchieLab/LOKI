@@ -121,6 +121,8 @@ class Source_dbsnp(loki_source.Source):
 		# download the latest source files
 #		self.downloadFilesFromFTP('ftp.ncbi.nih.gov', remFilesCallback)
 		self.downloadFilesFromHTTP('ftp.ncbi.nih.gov', remFiles)
+
+		return list(remFiles.keys())
 	#download()
 	
 	

@@ -26,6 +26,11 @@ class Source_gwas(loki_source.Source):
 		self.downloadFilesFromHTTP('www.ebi.ac.uk', {
 			'gwas_catalog_v1.0-associations.tsv' : '/gwas/api/search/downloads/full'
 		}, alwaysDownload=True)
+
+		return 
+		[
+			'gwas_catalog_v1.0-associations.tsv'
+		]
 	#download()
 	
 	

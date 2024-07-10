@@ -81,6 +81,8 @@ class Source_ucsc_ecr(loki_source.Source):
 				remFiles[d+'.chr'+chm+'.phastCons.txt.gz'] = '/goldenPath/hg19/phastCons46way/'+d+'/chr'+chm+'.phastCons46way.'+f+'wigFix.gz'
 #		self.downloadFilesFromFTP('hgdownload.cse.ucsc.edu', remFiles)
 		self.downloadFilesFromHTTP('hgdownload.cse.ucsc.edu', remFiles)
+
+		return list(remFiles.keys())
 	#download()
 	
 	
