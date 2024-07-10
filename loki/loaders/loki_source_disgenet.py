@@ -21,6 +21,8 @@ class Source_disgenet(loki_source.Source):
                 self.downloadFilesFromHTTP('disgenet.org', {
                         'disgenet_2020.db.gz': '/static/disgenet_ap1/files/sqlite_downloads/current/disgenet_2020.db.gz',          
                 })
+
+                return ['disgenet_2020.db.gz']
         #download()
         
         

@@ -20,6 +20,12 @@ class Source_go(loki_source.Source):
 			'goa_human.gaf.gz':      '/annotations/goa_human.gaf.gz',
 			'go.obo': '/ontology/go.obo',
 		})
+
+		return 
+		[
+			'goa_human.gaf.gz',
+			'go.obo'
+		]
 	#download()
 	
 	

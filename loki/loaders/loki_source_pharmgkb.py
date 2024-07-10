@@ -18,6 +18,12 @@ class Source_pharmgkb(loki_source.Source):
 			'genes.zip':        '/v1/download/file/data/genes.zip',
 			'pathways-tsv.zip': '/v1/download/file/data/pathways-tsv.zip',
 		})
+
+		return 
+		[
+			'genes.zip',
+			'pathways-tsv.zip'
+		]
 	#download()
 	
 	

@@ -7,6 +7,7 @@ import pkgutil
 import sys
 import traceback
 import shutil
+from threading import Thread
 
 import loki.loki_db as loki_db
 import loki.loki_source as loki_source
@@ -29,6 +30,7 @@ class Updater(object):
 		self._sourceClasses = dict()
 		self._sourceObjects = dict()
 		self._sourceOptions = dict()
+		self._filehash = dict()
 		self._updating = False
 		self._tablesUpdated = None
 		self._tablesDeindexed = None
@@ -149,7 +151,32 @@ class Updater(object):
 	#attachSourceModules()
 
 	def downloadAndHash(self, srcName, srcOptions):
-		x = 0
+		srcObj = self._sourceObjects[srcName]
+		srcID = srcObj.getSourceID()
+		options = self._sourceOptions[srcName]
+		try:
+			self.logPush("downloading %s data ...\n" % srcName)
+			downloadedFiles = srcObj.download(options)
+			self.logPop("... OK\n")
+		
+			# calculate source file metadata
+			# all timestamps are assumed to be in UTC, but if a source
+			# provides file timestamps with no TZ (like via FTP) we use them
+			# as-is and assume they're supposed to be UTC
+			self.log("analyzing %s data files ..." % srcName)
+			for filename in downloadedFiles:
+				stat = os.stat(filename)
+				md5 = hashlib.md5()
+				with open(filename,'rb') as f:
+					chunk = f.read(8*1024*1024)
+					while chunk:
+						md5.update(chunk)
+						chunk = f.read(8*1024*1024)
+				self._filehash[filename] = (filename, int(stat.st_size), int(stat.st_mtime), md5.hexdigest())
+			self.log(" OK\n")
+		except:
+			self.log("failed loading %s\n" % srcName)
+			# ToDo: determine how to handle failures
 	#downloadAndHash()
 	
 	
@@ -179,58 +206,46 @@ class Updater(object):
 		cursor.execute("SAVEPOINT 'updateDatabase'")
 		try:
 			for srcName in sorted(srcSet):
-				
-					srcObj = self._sourceObjects[srcName]
-					srcID = srcObj.getSourceID()
-					
-					# validate options, if any
-					prevOptions = dict()
-					for row in cursor.execute("SELECT option, value FROM `db`.`source_option` WHERE source_id = ?", (srcID,)):
-						prevOptions[str(row[0])] = str(row[1])
-					options = srcOpts.get(srcName, prevOptions).copy()
-					optionsList = sorted(options)
-					if optionsList:
-						self.logPush("%s %s options ...\n" % (("validating" if (srcName in srcOpts) else "loading prior"), srcName))
-					msg = srcObj.validateOptions(options)
-					if msg != True:
-						raise Exception(msg)
-					if optionsList:
-						for opt in optionsList:
-							self.log("%s = %s\n" % (opt,options[opt]))
-						self.logPop("... OK\n")
-
-					# switch to a temp subdirectory for this source
-					path = os.path.join(iwd, srcName)
-					if not os.path.exists(path):
-						os.makedirs(path)
-					os.chdir(path)
-
-			for srcName in sorted(srcSet):		
 				srcObj = self._sourceObjects[srcName]
 				srcID = srcObj.getSourceID()
 				
+				# validate options, if any
+				prevOptions = dict()
+				for row in cursor.execute("SELECT option, value FROM `db`.`source_option` WHERE source_id = ?", (srcID,)):
+					prevOptions[str(row[0])] = str(row[1])
+				options = srcOpts.get(srcName, prevOptions).copy()
+				optionsList = sorted(options)
+				if optionsList:
+					self.logPush("%s %s options ...\n" % (("validating" if (srcName in srcOpts) else "loading prior"), srcName))
+				msg = srcObj.validateOptions(options)
+				if msg != True:
+					raise Exception(msg)
+				if optionsList:
+					for opt in optionsList:
+						self.log("%s = %s\n" % (opt,options[opt]))
+					self.logPop("... OK\n")
+
+				#temp for now but should replace options everywhere below
+				self._sourceOptions[srcName] = options
+
+				# switch to a temp subdirectory for this source
+				path = os.path.join(iwd, srcName)
+				if not os.path.exists(path):
+					os.makedirs(path)
+				os.chdir(path)
+
+			downloadAndHashThreads = {}
+			for srcName in sorted(srcSet):		
 				# download files into a local cache
 				if not cacheOnly:
-					self.logPush("downloading %s data ...\n" % srcName)
-					srcObj.download(options)
-					self.logPop("... OK\n")
-				
-				# calculate source file metadata
-				# all timestamps are assumed to be in UTC, but if a source
-				# provides file timestamps with no TZ (like via FTP) we use them
-				# as-is and assume they're supposed to be UTC
-				self.log("analyzing %s data files ..." % srcName)
-				filehash = dict()
-				for filename in os.listdir('.'):
-					stat = os.stat(filename)
-					md5 = hashlib.md5()
-					with open(filename,'rb') as f:
-						chunk = f.read(8*1024*1024)
-						while chunk:
-							md5.update(chunk)
-							chunk = f.read(8*1024*1024)
-					filehash[filename] = (filename, int(stat.st_size), int(stat.st_mtime), md5.hexdigest())
-				self.log(" OK\n")
+					#self.downloadAndHash(srcName, self._sourceOptions[srcName])
+					downloadAndHashThreads[srcName] = Thread(target=self.downloadAndHash, args=(srcName, self._sourceOptions[srcName],))
+					downloadAndHashThreads[srcName].start()
+
+			for srcName in sorted(srcSet):		
+				# download files into a local cache
+				if not cacheOnly:
+					downloadAndHashThreads[srcName].join()
 			
 			for srcName in sorted(srcSet):		
 				srcObj = self._sourceObjects[srcName]
@@ -255,8 +270,8 @@ class Updater(object):
 						n = 0
 						for row in cursor.execute("SELECT filename, size, md5 FROM `db`.`source_file` WHERE source_id = ?", (srcID,)):
 							n += 1
-							skip = skip and (row[0] in filehash) and (row[1] == filehash[row[0]][1]) and (row[2] == filehash[row[0]][3])
-						skip = skip and (n == len(filehash))
+							skip = skip and (row[0] in self._filehash) and (row[1] == self._filehash[row[0]][1]) and (row[2] == self._filehash[row[0]][3])
+						skip = skip and (n == len(self._filehash))
 					
 					# skip the update if the current loader and all source file versions match the last update
 					if skip:
@@ -275,7 +290,7 @@ class Updater(object):
 						
 						cursor.execute("DELETE FROM `db`.`source_file` WHERE source_id = ?", (srcID,))
 						sql = "INSERT INTO `db`.`source_file` (source_id, filename, size, modified, md5) VALUES (%d,?,?,DATETIME(?,'unixepoch'),?)" % srcID
-						cursor.executemany(sql, filehash.values())
+						cursor.executemany(sql, self._filehash.values())
 						
 						self.logPop("... OK\n")
 					#if skip

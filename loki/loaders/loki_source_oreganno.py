@@ -24,6 +24,8 @@ class Source_oreganno(loki_source.Source):
 		"""
 #		self.downloadFilesFromFTP(self._remHost, dict(((f, self._remPath + f) for f in self._remFiles)))
 		self.downloadFilesFromHTTP(self._remHost, dict(((f, self._remPath + f) for f in self._remFiles)))
+
+		return self._remFiles
 		
 	def update(self, options):
 		"""

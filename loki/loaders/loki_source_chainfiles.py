@@ -59,6 +59,8 @@ class Source_chainfiles(loki_source.Source):
 					remFiles[filenames] = '/goldenPath/hg'+i+'/liftOver/'+filenames
 #		self.downloadFilesFromFTP("hgdownload.cse.ucsc.edu", remFilesCallback)
 		self.downloadFilesFromHTTP('hgdownload.cse.ucsc.edu', remFiles)
+
+		return list(remFiles.keys())
 	#download()
 	
 	

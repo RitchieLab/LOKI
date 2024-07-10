@@ -18,6 +18,8 @@ class Source_biogrid(loki_source.Source):
 		self.downloadFilesFromHTTP('downloads.thebiogrid.org', {
 			'BIOGRID-ORGANISM-LATEST.tab2.zip': '/Download/BioGRID/Latest-Release/BIOGRID-ORGANISM-LATEST.tab2.zip',
 		})
+
+		return [ 'BIOGRID-ORGANISM-LATEST.tab2.zip']
 	#download()
 	
 	
