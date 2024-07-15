@@ -155,10 +155,10 @@ class Updater(object):
 		srcID = srcObj.getSourceID()
 		options = self._sourceOptions[srcName]
 		try:
-			self.logPush("downloading %s data ...\n" % srcName)
+			self.log("downloading %s data ...\n" % srcName)
 			downloadedFiles = srcObj.download(options)
-			self.logPop("... OK\n")
-		
+			self.log("downloaded %s data ...\n" % srcName)
+
 			# calculate source file metadata
 			# all timestamps are assumed to be in UTC, but if a source
 			# provides file timestamps with no TZ (like via FTP) we use them
@@ -173,7 +173,7 @@ class Updater(object):
 						md5.update(chunk)
 						chunk = f.read(8*1024*1024)
 				self._filehash[filename] = (filename, int(stat.st_size), int(stat.st_mtime), md5.hexdigest())
-			self.log(" OK\n")
+			self.log("analyzed %s data files ..." % srcName)
 		except:
 			self.log("failed loading %s\n" % srcName)
 			# ToDo: determine how to handle failures
