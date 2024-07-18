@@ -19,8 +19,7 @@ class Source_pharmgkb(loki_source.Source):
 			'pathways-tsv.zip': '/v1/download/file/data/pathways-tsv.zip',
 		})
 
-		return 
-		[
+		return [
 			'genes.zip',
 			'pathways-tsv.zip'
 		]
