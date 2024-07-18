@@ -26,8 +26,7 @@ class Source_pfam(loki_source.Source):
 			'pfamseq.txt.gz':                    '/pub/databases/Pfam/current_release/database_files/pfamseq.txt.gz',
 		})
 
-		return 
-		[
+		return [
 			'pfamA.txt.gz',
 			'pfamA_reg_full_significant.txt.gz',
 			'pfamseq.txt.gz'

@@ -54,8 +54,7 @@ class Source_kegg(loki_source.Source):
 			})
 		#if api==rest/cache
 
-		return 
-		[
+		return [
 			'list-pathway-hsa',
 			'link-pathway-hsa',
 			'list-disease',

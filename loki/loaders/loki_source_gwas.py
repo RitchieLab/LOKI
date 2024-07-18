@@ -27,8 +27,7 @@ class Source_gwas(loki_source.Source):
 			'gwas_catalog_v1.0-associations.tsv' : '/gwas/api/search/downloads/full'
 		}, alwaysDownload=True)
 
-		return 
-		[
+		return [
 			'gwas_catalog_v1.0-associations.tsv'
 		]
 	#download()

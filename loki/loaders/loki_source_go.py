@@ -21,8 +21,7 @@ class Source_go(loki_source.Source):
 			'go.obo': '/ontology/go.obo',
 		})
 
-		return 
-		[
+		return [
 			'goa_human.gaf.gz',
 			'go.obo'
 		]

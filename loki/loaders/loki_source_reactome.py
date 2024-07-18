@@ -27,8 +27,7 @@ class Source_reactome(loki_source.Source):
 		#	'gene_association.reactome'                   : '/download/current/gene_association.reactome',
 		})
 
-		return 
-		[
+		return [
 			'ReactomePathways.txt',
 			'ReactomePathwaysRelation.txt',
 			'ReactomePathways.gmt.zip',
