@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import datetime
 import apsw
 import bisect
 import itertools
@@ -760,6 +761,10 @@ class Database(object):
 		If a logger is set, it uses the logger to log the message. If verbose logging is enabled,
 		it writes the message to the standard output with indentation.
 		"""
+		if message != "":
+			logtime = datetime.datetime.now().strftime("%d.%b %Y %H:%M:%S")
+			message = logtime + " " + message
+
 		if self._logger:
 			return self._logger.log(message)
 		if self._verbose:
@@ -789,6 +794,11 @@ class Database(object):
 		The function logs the message if provided and increases the indentation level for subsequent logs.
 		If a logger is set, it uses the logger to log the message.
 		"""
+		
+		if message != "":
+			logtime = datetime.datetime.now().strftime("%d.%b %Y %H:%M:%S")
+			message = logtime + " " + message
+
 		if self._logger:
 			return self._logger.logPush(message)
 		if message:
@@ -813,6 +823,11 @@ class Database(object):
 		The function decreases the indentation level and logs the message if provided.
 		If a logger is set, it uses the logger to log the message.
 		"""
+		
+		if message != "":
+			logtime = datetime.datetime.now().strftime("%d.%b %Y %H:%M:%S")
+			message = logtime + " " + message
+			
 		if self._logger:
 			return self._logger.logPop(message)
 		if self._logHanging:

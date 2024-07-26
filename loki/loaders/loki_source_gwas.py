@@ -49,7 +49,7 @@ class Source_gwas(loki_source.Source):
 		numInc = numInvalid = 0
 		setGwas = set()
 		if os.path.exists('gwas_catalog_v1.0-associations.tsv'):
-			with open('gwas_catalog_v1.0-associations.tsv','rU') as gwasFile:
+			with open('gwas_catalog_v1.0-associations.tsv','r') as gwasFile:
 				header = next(gwasFile).rstrip()
 				cols = list(w.strip() for w in header.split("\t"))
 				try:
@@ -114,7 +114,7 @@ class Source_gwas(loki_source.Source):
 				#foreach line
 			#with gwasFile
 		else:
-			with open('gwascatalog.txt','rU') as gwasFile:
+			with open('gwascatalog.txt','r') as gwasFile:
 				header = next(gwasFile).rstrip()
 				if header.startswith("Date Added to Catalog\tPUBMEDID\tFirst Author\tDate\tJournal\tLink\tStudy\tDisease/Trait\tInitial Sample Size\tReplication Sample Size\tRegion\tChr_id\tChr_pos\tReported Gene(s)\tMapped_gene\tUpstream_gene_id\tDownstream_gene_id\tSnp_gene_ids\tUpstream_gene_distance\tDownstream_gene_distance\tStrongest SNP-Risk Allele\tSNPs\tMerged\tSnp_id_current\tContext\tIntergenic\tRisk Allele Frequency\tp-Value\tPvalue_mlog\tp-Value (text)\tOR or beta\t95% CI (text)\t"): # "Platform [SNPs passing QC]\tCNV"
 					pass

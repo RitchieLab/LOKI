@@ -103,7 +103,7 @@ class Source_kegg(loki_source.Source):
 		pathCategory = None
 		#with pathCategory
 		pathName = {}
-		with open('list-pathway-hsa','rU') as pathFile:
+		with open('list-pathway-hsa','r') as pathFile:
 			for line in pathFile:
 				words = line.split("\t")
 				pathID = words[0]
@@ -137,7 +137,7 @@ class Source_kegg(loki_source.Source):
 		self.log("processing pathway gene associations ...")
 		entrezAssoc = set()
 		numAssoc = 0
-		with open('link-pathway-hsa','rU') as assocFile:
+		with open('link-pathway-hsa','r') as assocFile:
 			for line in assocFile:
 				words = line.split("\t")
 				hsaGene = words[0]
@@ -182,7 +182,7 @@ class Source_kegg(loki_source.Source):
 		diseaseCategory = None
 		#with diseaseCategory
 		diseaseName = {}
-		with open('list-disease','rU') as pathFile:
+		with open('list-disease','r') as pathFile:
 			for line in pathFile:
 				words = line.split("\t")
 				pathID = words[0]
@@ -212,7 +212,7 @@ class Source_kegg(loki_source.Source):
 		self.log("processing disease gene associations ...")
 		entrezAssoc = set()
 		numAssoc = 0
-		with open('link-disease-hsa','rU') as assocFile:
+		with open('link-disease-hsa','r') as assocFile:
 			for line in assocFile:
 				words = line.split("\t")
 				hsaGene = words[0]
