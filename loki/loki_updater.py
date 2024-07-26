@@ -7,7 +7,7 @@ import pkgutil
 import sys
 import traceback
 import shutil
-from threading import Thread
+from threading import Thread, Lock
 
 import loki.loki_db as loki_db
 import loki.loki_source as loki_source
@@ -34,6 +34,7 @@ class Updater(object):
 		self._updating = False
 		self._tablesUpdated = None
 		self._tablesDeindexed = None
+		self.lock = Lock()
 	#__init__()
 	
 	
@@ -150,10 +151,11 @@ class Updater(object):
 		return srcSet
 	#attachSourceModules()
 
-	def downloadAndHash(self, srcName, srcOptions):
+	def downloadAndHash(self, iwd, srcName, srcOptions):		
 		srcObj = self._sourceObjects[srcName]
 		srcID = srcObj.getSourceID()
 		options = self._sourceOptions[srcName]
+
 		try:
 			self.log("downloading %s data ...\n" % srcName)
 			downloadedFiles = srcObj.download(options)
@@ -172,7 +174,9 @@ class Updater(object):
 					while chunk:
 						md5.update(chunk)
 						chunk = f.read(8*1024*1024)
+				self.lock.acquire()
 				self._filehash[filename] = (filename, int(stat.st_size), int(stat.st_mtime), md5.hexdigest())
+				self.lock.release()		
 			self.log("analyzed %s data files ..." % srcName)
 		except:
 			self.log("failed loading %s\n" % srcName)
@@ -228,26 +232,19 @@ class Updater(object):
 				#temp for now but should replace options everywhere below
 				self._sourceOptions[srcName] = options
 
-				# switch to a temp subdirectory for this source
-				path = os.path.join(iwd, srcName)
-				if not os.path.exists(path):
-					os.makedirs(path)
-				os.chdir(path)
-
 			downloadAndHashThreads = {}
-			for srcName in sorted(srcSet):		
+			srcSetsToDownload = sorted(srcSet)
+			for srcName in srcSetsToDownload:		
 				# download files into a local cache
 				if not cacheOnly:
-					#self.downloadAndHash(srcName, self._sourceOptions[srcName])
-					downloadAndHashThreads[srcName] = Thread(target=self.downloadAndHash, args=(srcName, self._sourceOptions[srcName],))
+					downloadAndHashThreads[srcName] = Thread(target=self.downloadAndHash, args=(iwd, srcName, self._sourceOptions[srcName],))
 					downloadAndHashThreads[srcName].start()
 
-			for srcName in sorted(srcSet):		
-				# download files into a local cache
-				if not cacheOnly:
-					downloadAndHashThreads[srcName].join()
+			for srcName in downloadAndHashThreads.keys():		
+				downloadAndHashThreads[srcName].join()
+				self.log(srcName + "Rejoined main thread\n")
 			
-			for srcName in sorted(srcSet):		
+			for srcName in srcSetsToDownload:		
 				srcObj = self._sourceObjects[srcName]
 				srcID = srcObj.getSourceID()
 				cursor.execute("SAVEPOINT 'updateDatabase_%s'" % (srcName,))
@@ -312,8 +309,8 @@ class Updater(object):
 				#try/except/finally
 
 				# remove subdirectory to free up some space
-				os.chdir(iwd)
-				shutil.rmtree(path)
+				#os.chdir(iwd)
+				#shutil.rmtree(path)
 
 			#foreach source
 			

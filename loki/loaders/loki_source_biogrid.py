@@ -2,6 +2,7 @@
 
 import zipfile
 from loki import loki_source
+import os
 
 
 class Source_biogrid(loki_source.Source):
