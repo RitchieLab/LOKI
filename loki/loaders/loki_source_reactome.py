@@ -83,7 +83,7 @@ class Source_reactome(loki_source.Source):
 		self.log("processing pathways ...")
 		numNewPath = 0
 		numMismatch = 0
-		with open('ReactomePathways.txt', 'rU') as pathFile:
+		with open('ReactomePathways.txt', 'r') as pathFile:
 			# no header
 			for line in pathFile:
 				words = line.rstrip().split("\t")
@@ -107,7 +107,7 @@ class Source_reactome(loki_source.Source):
 		# <parent>\t<child>
 		self.log("processing pathway hierarchy ...")
 		numRelations = 0
-		with open('ReactomePathwaysRelation.txt', 'rU') as relFile:
+		with open('ReactomePathwaysRelation.txt', 'r') as relFile:
 			# no header
 			for line in relFile:
 				words = line.rstrip().split("\t")
@@ -169,7 +169,7 @@ class Source_reactome(loki_source.Source):
 		numNewPath = 0
 		numMismatch = 0
 		numNewAssoc = 0
-		with open('Ensembl2Reactome.txt', 'rU') as assocFile:
+		with open('Ensembl2Reactome.txt', 'r') as assocFile:
 			for line in assocFile:
 				words = line.rstrip().split("\t")
 				if line.startswith('#') or (len(words) < 6) or (words[5] != "Homo sapiens"):
@@ -208,7 +208,7 @@ class Source_reactome(loki_source.Source):
 		numNewPath = 0
 		numMismatch = 0
 		numNewAssoc = 0
-		with open('UniProt2Reactome.txt', 'rU') as assocFile:
+		with open('UniProt2Reactome.txt', 'r') as assocFile:
 			for line in assocFile:
 				words = line.rstrip().split("\t")
 				if line.startswith('#') or (len(words) < 6) or (words[5] != "Homo sapiens"):

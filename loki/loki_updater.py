@@ -165,7 +165,7 @@ class Updater(object):
 			# all timestamps are assumed to be in UTC, but if a source
 			# provides file timestamps with no TZ (like via FTP) we use them
 			# as-is and assume they're supposed to be UTC
-			self.log("analyzing %s data files ..." % srcName)
+			self.log("analyzing %s data files ...\n" % srcName)
 			for filename in downloadedFiles:
 				stat = os.stat(filename)
 				md5 = hashlib.md5()
@@ -177,7 +177,7 @@ class Updater(object):
 				self.lock.acquire()
 				self._filehash[filename] = (filename, int(stat.st_size), int(stat.st_mtime), md5.hexdigest())
 				self.lock.release()		
-			self.log("analyzed %s data files ..." % srcName)
+			self.log("analyzed %s data files ...\n" % srcName)
 		except:
 			self.log("failed loading %s\n" % srcName)
 			# ToDo: determine how to handle failures
@@ -242,7 +242,7 @@ class Updater(object):
 
 			for srcName in downloadAndHashThreads.keys():		
 				downloadAndHashThreads[srcName].join()
-				self.log(srcName + "Rejoined main thread\n")
+				self.log(srcName + " rejoined main thread\n")
 			
 			for srcName in srcSetsToDownload:		
 				srcObj = self._sourceObjects[srcName]

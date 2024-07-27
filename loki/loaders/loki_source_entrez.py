@@ -420,7 +420,7 @@ class Source_entrez(loki_source.Source):
 		
 		# process unigene gene names
 		self.log("processing unigene gene names ...")
-		with open('gene2unigene','rU') as ugFile:
+		with open('gene2unigene','r') as ugFile:
 			header = ugFile.__next__().rstrip()
 			if not (
 					header.startswith("#Format: GeneID UniGene_cluster") # "(tab is used as a separator, pound sign - start of a comment)"

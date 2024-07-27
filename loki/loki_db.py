@@ -795,7 +795,7 @@ class Database(object):
 		If a logger is set, it uses the logger to log the message.
 		"""
 		
-		if message != "":
+		if message != None and message != "":
 			logtime = datetime.datetime.now().strftime("%d.%b %Y %H:%M:%S")
 			message = logtime + " " + message
 
@@ -824,10 +824,10 @@ class Database(object):
 		If a logger is set, it uses the logger to log the message.
 		"""
 		
-		if message != "":
+		if message != None and message != "":
 			logtime = datetime.datetime.now().strftime("%d.%b %Y %H:%M:%S")
 			message = logtime + " " + message
-			
+
 		if self._logger:
 			return self._logger.logPop(message)
 		if self._logHanging:
