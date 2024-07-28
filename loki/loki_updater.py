@@ -247,6 +247,8 @@ class Updater(object):
 			for srcName in srcSetsToDownload:		
 				srcObj = self._sourceObjects[srcName]
 				srcID = srcObj.getSourceID()
+				options = self._sourceOptions[srcName]
+
 				cursor.execute("SAVEPOINT 'updateDatabase_%s'" % (srcName,))
 
 				try:	
