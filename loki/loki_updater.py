@@ -158,7 +158,11 @@ class Updater(object):
 
 		try:
 			self.log("downloading %s data ...\n" % srcName)
-			downloadedFiles = srcObj.download(options)
+			# switch to a temp subdirectory for this source
+			path = os.path.join(iwd, srcName)
+			if not os.path.exists(path):
+				os.makedirs(path)
+			downloadedFiles = srcObj.download(options, path)
 			self.log("downloaded %s data ...\n" % srcName)
 
 			# calculate source file metadata
@@ -180,7 +184,7 @@ class Updater(object):
 			self.log("analyzed %s data files ...\n" % srcName)
 		except:
 			self.log("failed loading %s\n" % srcName)
-			# ToDo: determine how to handle failures
+			# ToDo: determine how to handle failures	
 	#downloadAndHash()
 	
 	
@@ -248,6 +252,7 @@ class Updater(object):
 				srcObj = self._sourceObjects[srcName]
 				srcID = srcObj.getSourceID()
 				options = self._sourceOptions[srcName]
+				path = os.path.join(iwd, srcName)
 
 				cursor.execute("SAVEPOINT 'updateDatabase_%s'" % (srcName,))
 
@@ -280,7 +285,7 @@ class Updater(object):
 						self.logPush("processing %s data ...\n" % srcName)
 						
 						cursor.execute("DELETE FROM `db`.`warning` WHERE source_id = ?", (srcID,))
-						srcObj.update(options)
+						srcObj.update(options, path)
 						cursor.execute("UPDATE `db`.`source` SET updated = DATETIME('now'), version = ? WHERE source_id = ?", (srcObj.getVersionString(), srcID))
 						
 						cursor.execute("DELETE FROM `db`.`source_option` WHERE source_id = ?", (srcID,))
@@ -311,9 +316,7 @@ class Updater(object):
 				#try/except/finally
 
 				# remove subdirectory to free up some space
-				#os.chdir(iwd)
-				#shutil.rmtree(path)
-
+				shutil.rmtree(path)
 			#foreach source
 			
 			# pull the latest GRCh/UCSChg conversions

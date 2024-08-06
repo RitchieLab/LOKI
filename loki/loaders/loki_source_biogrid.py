@@ -14,17 +14,17 @@ class Source_biogrid(loki_source.Source):
 	#getVersionString()
 	
 	
-	def download(self, options):
+	def download(self, options, path):
 		# download the latest source files
 		self.downloadFilesFromHTTP('downloads.thebiogrid.org', {
-			'BIOGRID-ORGANISM-LATEST.tab2.zip': '/Download/BioGRID/Latest-Release/BIOGRID-ORGANISM-LATEST.tab2.zip',
+			path+'/BIOGRID-ORGANISM-LATEST.tab2.zip': '/Download/BioGRID/Latest-Release/BIOGRID-ORGANISM-LATEST.tab2.zip',
 		})
 
-		return [ 'BIOGRID-ORGANISM-LATEST.tab2.zip']
+		return [ path+'/BIOGRID-ORGANISM-LATEST.tab2.zip']
 	#download()
 	
 	
-	def update(self, options):
+	def update(self, options, path):
 		# clear out all old data from this source
 		self.log("deleting old records from the database ...")
 		self.deleteAll()
@@ -48,7 +48,7 @@ class Source_biogrid(loki_source.Source):
 		self.log("verifying archive file ...")
 		pairLabels = dict()
 		empty = tuple()
-		with zipfile.ZipFile('BIOGRID-ORGANISM-LATEST.tab2.zip','r') as assocZip:
+		with zipfile.ZipFile(path+'/BIOGRID-ORGANISM-LATEST.tab2.zip','r') as assocZip:
 			err = assocZip.testzip()
 			if err:
 				self.log(" ERROR\n")
