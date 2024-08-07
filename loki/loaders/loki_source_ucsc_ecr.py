@@ -71,14 +71,14 @@ class Source_ucsc_ecr(loki_source.Source):
 	#validateOptions()
 	
 	
-	def download(self, options):
+	def download(self, options, path):
 		"""
 		Download the files
 		"""
 		remFiles = dict()
 		for chm in self._chmList:
 			for (d,f) in self._comparisons.items():
-				remFiles[d+'.chr'+chm+'.phastCons.txt.gz'] = '/goldenPath/hg19/phastCons46way/'+d+'/chr'+chm+'.phastCons46way.'+f+'wigFix.gz'
+				remFiles[path+'/'+d+'.chr'+chm+'.phastCons.txt.gz'] = '/goldenPath/hg19/phastCons46way/'+d+'/chr'+chm+'.phastCons46way.'+f+'wigFix.gz'
 #		self.downloadFilesFromFTP('hgdownload.cse.ucsc.edu', remFiles)
 		self.downloadFilesFromHTTP('hgdownload.cse.ucsc.edu', remFiles)
 
@@ -86,7 +86,7 @@ class Source_ucsc_ecr(loki_source.Source):
 	#download()
 	
 	
-	def update(self, options):
+	def update(self, options, path):
 		"""
 		Load the data from all of the files
 		UCSC's phastCons files use 1-based coordinates, according to:
@@ -128,7 +128,7 @@ class Source_ucsc_ecr(loki_source.Source):
 			for ch in self._chmList:
 				ch_id = self._loki.chr_num[ch]
 				self.log("processing Chromosome " + ch + " ...")
-				f = self.zfile(sp + ".chr" + ch + ".phastCons.txt.gz")
+				f = self.zfile(path+'/'+sp +'.chr'+ ch+'.phastCons.txt.gz')
 				curr_band = 1
 				num_regions = 0
 				desc = "ECRs for " + sp + " on Chromosome " + ch

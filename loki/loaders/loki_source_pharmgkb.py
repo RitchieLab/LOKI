@@ -13,20 +13,20 @@ class Source_pharmgkb(loki_source.Source):
 	#getVersionString()
 	
 	
-	def download(self, options):
+	def download(self, options, path):
 		self.downloadFilesFromHTTPS('api.pharmgkb.org', {
-			'genes.zip':        '/v1/download/file/data/genes.zip',
-			'pathways-tsv.zip': '/v1/download/file/data/pathways-tsv.zip',
+			path+'/genes.zip':        '/v1/download/file/data/genes.zip',
+			path+'/pathways-tsv.zip': '/v1/download/file/data/pathways-tsv.zip',
 		})
 
 		return [
-			'genes.zip',
-			'pathways-tsv.zip'
+			path+'/genes.zip',
+			path+'/pathways-tsv.zip'
 		]
 	#download()
 	
 	
-	def update(self, options):
+	def update(self, options, path):
 		# clear out all old data from this source
 		self.log("deleting old records from the database ...")
 		self.deleteAll()
@@ -59,7 +59,7 @@ class Source_pharmgkb(loki_source.Source):
 		self.log("verifying gene name archive file ...")
 		setNames = set()
 		empty = tuple()
-		with zipfile.ZipFile('genes.zip','r') as geneZip:
+		with zipfile.ZipFile(path+'/genes.zip','r') as geneZip:
 			err = geneZip.testzip()
 			if err:
 				self.log(" ERROR\n")
@@ -78,7 +78,7 @@ class Source_pharmgkb(loki_source.Source):
 			}
 			for info in geneZip.infolist():
 				if info.filename == 'genes.tsv':
-					geneFile = geneZip.open(info,'r')
+					geneFile = geneZip.open(path+'/'+info,'r')
 					header = geneFile.__next__().rstrip()
 					if header.decode().startswith("PharmGKB Accession Id	Entrez Id	Ensembl Id	Name	Symbol	Alternate Names	Alternate Symbols	Is VIP	Has Variant Annotation	Cross-references"):
 						new2 = 0
@@ -142,7 +142,7 @@ class Source_pharmgkb(loki_source.Source):
 			'symbol':       set(),
 		}
 		numAssoc = numID = 0
-		with zipfile.ZipFile('pathways-tsv.zip','r') as pathZip:
+		with zipfile.ZipFile(path+'/pathways-tsv.zip','r') as pathZip:
 			err = pathZip.testzip()
 			if err:
 				self.log(" ERROR\n")
@@ -153,7 +153,7 @@ class Source_pharmgkb(loki_source.Source):
 			for info in pathZip.infolist():
 				if info.filename == 'pathways.tsv':
 					# the old format had all pathways in one giant file, delimited by blank lines
-					pathFile = pathZip.open(info,'r')
+					pathFile = pathZip.open(path+'/'+info,'r')
 					curPath = None
 					for line in pathFile:
 						line = line.decode('latin-1').rstrip("\r\n")

@@ -39,19 +39,19 @@ class Source_mint(loki_source.Source):
 	#getVersionString()
 	
 	
-	def download(self, options):
+	def download(self, options, path):
 		#self.downloadFilesFromHTTP('mint.bio.uniroma2.it', {
 		#	'MINT_MiTab.txt': '/mitab/MINT_MiTab.txt',
 		#})
 		self.downloadFilesFromHTTP('www.ebi.ac.uk', {
-			'MINT_MiTab.txt': '/Tools/webservices/psicquic/mint/webservices/current/search/query/species:human',
+			path+'/MINT_MiTab.txt': '/Tools/webservices/psicquic/mint/webservices/current/search/query/species:human',
 		})
 
-		return [ 'MINT_MiTab.txt' ]
+		return [ path+'/MINT_MiTab.txt' ]
 	#download()
 	
 	
-	def update(self, options):
+	def update(self, options, path):
 		# clear out all old data from this source
 		self.log("deleting old records from the database ...")
 		self.deleteAll()
@@ -89,8 +89,8 @@ class Source_mint(loki_source.Source):
 			'uniprot_pid': set(),
 		}
 		numAssoc = numID = 0
-		if os.path.exists('MINT_MiTab.txt'):
-			with open('MINT_MiTab.txt','r') as assocFile:
+		if os.path.exists(path+'/MINT_MiTab.txt'):
+			with open(path+'/MINT_MiTab.txt','r') as assocFile:
 				l = 0
 				for line in assocFile:
 					l += 1
@@ -154,7 +154,7 @@ class Source_mint(loki_source.Source):
 				#foreach line in assocFile
 			#with assocFile
 		else: # old FTP file
-			with open(self._identifyLatestFilename(os.listdir('.')),'r') as assocFile:
+			with open(self._identifyLatestFilename(os.listdir(path)),'r') as assocFile:
 				header = assocFile.next().rstrip()
 				if not header.startswith("ID interactors A (baits)\tID interactors B (preys)\tAlt. ID interactors A (baits)\tAlt. ID interactors B (preys)\tAlias(es) interactors A (baits)\tAlias(es) interactors B (preys)\tInteraction detection method(s)\tPublication 1st author(s)\tPublication Identifier(s)\tTaxid interactors A (baits)\tTaxid interactors B (preys)\tInteraction type(s)\tSource database(s)\tInteraction identifier(s)\t"): #Confidence value(s)\texpansion\tbiological roles A (baits)\tbiological role B\texperimental roles A (baits)\texperimental roles B (preys)\tinteractor types A (baits)\tinteractor types B (preys)\txrefs A (baits)\txrefs B (preys)\txrefs Interaction\tAnnotations A (baits)\tAnnotations B (preys)\tInteraction Annotations\tHost organism taxid\tparameters Interaction\tdataset\tCaution Interaction\tbinding sites A (baits)\tbinding sites B (preys)\tptms A (baits)\tptms B (preys)\tmutations A (baits)\tmutations B (preys)\tnegative\tinference\tcuration depth":
 					self.log(" ERROR\n")

@@ -18,22 +18,22 @@ class Source_gwas(loki_source.Source):
 	#getVersionString()
 	
 	
-	def download(self, options):
+	def download(self, options, path):
 		# download the latest source files
 	#	self.downloadFilesFromHTTP('www.genome.gov', {
 	#		'gwascatalog.txt': '/admin/gwascatalog.txt',
 	#	})
 		self.downloadFilesFromHTTP('www.ebi.ac.uk', {
-			'gwas_catalog_v1.0-associations.tsv' : '/gwas/api/search/downloads/full'
+			path+'/gwas_catalog_v1.0-associations.tsv' : '/gwas/api/search/downloads/full'
 		}, alwaysDownload=True)
 
 		return [
-			'gwas_catalog_v1.0-associations.tsv'
+			path+'/gwas_catalog_v1.0-associations.tsv'
 		]
 	#download()
 	
 	
-	def update(self, options):
+	def update(self, options, path):
 		# clear out all old data from this source
 		self.log("deleting old records from the database ...")
 		self.deleteAll()
@@ -48,8 +48,8 @@ class Source_gwas(loki_source.Source):
 		listNone = [None]
 		numInc = numInvalid = 0
 		setGwas = set()
-		if os.path.exists('gwas_catalog_v1.0-associations.tsv'):
-			with open('gwas_catalog_v1.0-associations.tsv','r') as gwasFile:
+		if os.path.exists(path+'/gwas_catalog_v1.0-associations.tsv'):
+			with open(path+'/gwas_catalog_v1.0-associations.tsv','r') as gwasFile:
 				header = next(gwasFile).rstrip()
 				cols = list(w.strip() for w in header.split("\t"))
 				try:
@@ -114,7 +114,7 @@ class Source_gwas(loki_source.Source):
 				#foreach line
 			#with gwasFile
 		else:
-			with open('gwascatalog.txt','r') as gwasFile:
+			with open(path+'/gwascatalog.txt','r') as gwasFile:
 				header = next(gwasFile).rstrip()
 				if header.startswith("Date Added to Catalog\tPUBMEDID\tFirst Author\tDate\tJournal\tLink\tStudy\tDisease/Trait\tInitial Sample Size\tReplication Sample Size\tRegion\tChr_id\tChr_pos\tReported Gene(s)\tMapped_gene\tUpstream_gene_id\tDownstream_gene_id\tSnp_gene_ids\tUpstream_gene_distance\tDownstream_gene_distance\tStrongest SNP-Risk Allele\tSNPs\tMerged\tSnp_id_current\tContext\tIntergenic\tRisk Allele Frequency\tp-Value\tPvalue_mlog\tp-Value (text)\tOR or beta\t95% CI (text)\t"): # "Platform [SNPs passing QC]\tCNV"
 					pass

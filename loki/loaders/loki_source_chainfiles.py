@@ -34,7 +34,7 @@ class Source_chainfiles(loki_source.Source):
 	#getVersionString()
 	
 	
-	def download(self, options):
+	def download(self, options, path):
 		# define a callback to search for all available hgX liftover chain files
 #		def remFilesCallback(ftp):
 #			remFiles = {}
@@ -56,7 +56,7 @@ class Source_chainfiles(loki_source.Source):
 			for j in onlyfiles:
 				if i == j[0]:
 					filenames = 'hg'+j[0]+'ToHg'+j[1]+'.over.chain.gz'
-					remFiles[filenames] = '/goldenPath/hg'+i+'/liftOver/'+filenames
+					remFiles[path+'/'+filenames] = '/goldenPath/hg'+i+'/liftOver/'+filenames
 #		self.downloadFilesFromFTP("hgdownload.cse.ucsc.edu", remFilesCallback)
 		self.downloadFilesFromHTTP('hgdownload.cse.ucsc.edu', remFiles)
 
@@ -64,7 +64,7 @@ class Source_chainfiles(loki_source.Source):
 	#download()
 	
 	
-	def update(self, options):
+	def update(self, options, path):
 		"""
 		Parse all of the chain files and insert them into the database
 		"""	
@@ -74,7 +74,7 @@ class Source_chainfiles(loki_source.Source):
 		self.deleteAll()
 		self.log(" OK\n")
 		
-		for fn in os.listdir('.'):
+		for fn in os.listdir(path):
 			match = self._reFile.match(fn)
 			if not match:
 				continue
