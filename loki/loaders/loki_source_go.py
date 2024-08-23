@@ -14,16 +14,21 @@ class Source_go(loki_source.Source):
 	#getVersionString()
 	
 	
-	def download(self, options):
+	def download(self, options, path):
 		# download the latest source files
 		self.downloadFilesFromHTTP('current.geneontology.org', {
-			'goa_human.gaf.gz':      '/annotations/goa_human.gaf.gz',
-			'go.obo': '/ontology/go.obo',
+			path+'/goa_human.gaf.gz':      '/annotations/goa_human.gaf.gz',
+			path+'/go.obo': '/ontology/go.obo',
 		})
+
+		return [
+			path+'/goa_human.gaf.gz',
+			path+'/go.obo'
+		]
 	#download()
 	
 	
-	def update(self, options):
+	def update(self, options, path):
 		# clear out all old data from this source
 		self.log("deleting old records from the database ...")
 		self.deleteAll()
@@ -62,7 +67,7 @@ class Source_go(loki_source.Source):
 		#goNS = {}
 		#oboProps = {}
 		curStanza = curID = curAnon = curObs = curName = curNS = curDef = curLinks = None
-		with open('go.obo','rU') as oboFile:
+		with open(path+'/go.obo','r') as oboFile:
 			while True:
 				try:
 					line = next(oboFile).rstrip()
@@ -160,10 +165,10 @@ class Source_go(loki_source.Source):
 		
 		# process gene associations
 		self.log("processing gene associations ...")
-		if os.path.isfile('gene_association.goa_human.gz') and not os.path.isfile('goa_human.gaf.gz'):
-			assocFile = self.zfile('gene_association.goa_human.gz') #TODO:context manager,iterator
+		if os.path.isfile(path+'/gene_association.goa_human.gz') and not os.path.isfile(path+'/goa_human.gaf.gz'):
+			assocFile = self.zfile(path+'/gene_association.goa_human.gz') #TODO:context manager,iterator
 		else:
-			assocFile = self.zfile('goa_human.gaf.gz') #TODO:context manager,iterator
+			assocFile = self.zfile(path+'/goa_human.gaf.gz') #TODO:context manager,iterator
 		nsAssoc = {
 			'uniprot_pid': set(),
 			'symbol':      set()

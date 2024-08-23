@@ -13,7 +13,7 @@ class Source_pfam(loki_source.Source):
 	#getVersionString()
 	
 	
-	def download(self, options):
+	def download(self, options, path):
 		# download the latest source files
 #		self.downloadFilesFromFTP('ftp.ebi.ac.uk', {
 #			'pfamA.txt.gz':                      '/pub/databases/Pfam/current_release/database_files/pfamA.txt.gz',
@@ -21,14 +21,20 @@ class Source_pfam(loki_source.Source):
 #			'pfamseq.txt.gz':                    '/pub/databases/Pfam/current_release/database_files/pfamseq.txt.gz',
 #		})
 		self.downloadFilesFromHTTP('ftp.ebi.ac.uk', {
-			'pfamA.txt.gz':                      '/pub/databases/Pfam/current_release/database_files/pfamA.txt.gz',
-			'pfamA_reg_full_significant.txt.gz': '/pub/databases/Pfam/current_release/database_files/pfamA_reg_full_significant.txt.gz',
-			'pfamseq.txt.gz':                    '/pub/databases/Pfam/current_release/database_files/pfamseq.txt.gz',
+			path+'/pfamA.txt.gz':                      '/pub/databases/Pfam/current_release/database_files/pfamA.txt.gz',
+			path+'/pfamA_reg_full_significant.txt.gz': '/pub/databases/Pfam/current_release/database_files/pfamA_reg_full_significant.txt.gz',
+			path+'/pfamseq.txt.gz':                    '/pub/databases/Pfam/current_release/database_files/pfamseq.txt.gz',
 		})
+
+		return [
+			path+'/pfamA.txt.gz',
+			path+'/pfamA_reg_full_significant.txt.gz',
+			path+'/pfamseq.txt.gz'
+		]
 	#download()
 	
 	
-	def update(self, options):
+	def update(self, options, path):
 		# clear out all old data from this source
 		self.log("deleting old records from the database ...")
 		self.deleteAll()
@@ -53,7 +59,7 @@ class Source_pfam(loki_source.Source):
 		
 		# process protein families
 		self.log("processing protein families ...")
-		pfamFile = self.zfile('pfamA.txt.gz') #TODO:context manager,iterator
+		pfamFile = self.zfile(path+'/pfamA.txt.gz') #TODO:context manager,iterator
 		groupFam = collections.defaultdict(set)
 		famAcc = {}
 		famID = {}
@@ -114,7 +120,7 @@ class Source_pfam(loki_source.Source):
 		
 		# process protein identifiers
 		self.log("processing protein identifiers ...")
-		seqFile = self.zfile('pfamseq.txt.gz') #TODO:context manager,iterator
+		seqFile = self.zfile(path+'/pfamseq.txt.gz') #TODO:context manager,iterator
 		proNames = dict()
 		for line in seqFile:
 			words = line.split("\t",10)
@@ -137,7 +143,7 @@ class Source_pfam(loki_source.Source):
 		
 		# process associations
 		self.log("processing protein associations ...")
-		assocFile = self.zfile('pfamA_reg_full_significant.txt.gz') #TODO:context manager,iterator
+		assocFile = self.zfile(path+'/pfamA_reg_full_significant.txt.gz') #TODO:context manager,iterator
 		setAssoc = set()
 		numAssoc = numID = 0
 		for line in assocFile:

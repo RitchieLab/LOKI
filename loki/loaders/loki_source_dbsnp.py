@@ -80,18 +80,18 @@ class Source_dbsnp(loki_source.Source):
 	#validateOptions()
 	
 	
-	def download(self, options):
+	def download(self, options, path):
 		# define a callback to identify the latest SNPContigLocusId file
-		def remFilesCallback(ftp):
+		def remFilesCallback(ftp, path):
 			remFiles = dict()
 			for chm in self._chmList:
-				remFiles['chr_%s.txt.gz' % chm] = '/snp/organisms/human_9606/chr_rpts/chr_%s.txt.gz' % chm
+				remFiles[path+'/chr_'+chm+'.txt.gz'] = '/snp/organisms/human_9606/chr_rpts/chr_%s.txt.gz' % chm
 			
 			if options['merges'] == 'yes':
-				remFiles['RsMergeArch.bcp.gz'] = '/snp/organisms/human_9606/database/organism_data/RsMergeArch.bcp.gz'
+				remFiles[path+'/RsMergeArch.bcp.gz'] = '/snp/organisms/human_9606/database/organism_data/RsMergeArch.bcp.gz'
 			
 			if options.get['roles'] == 'yes':
-				remFiles['SnpFunctionCode.bcp.gz'] = '/snp/organisms/database/shared_data/SnpFunctionCode.bcp.gz'
+				remFiles[path+'/SnpFunctionCode.bcp.gz'] = '/snp/organisms/database/shared_data/SnpFunctionCode.bcp.gz'
 				path = '/snp/organisms/human_9606/database/organism_data'
 				ftp.cwd(path)
 				bestfile = self._identifyLatestSNPContig(ftp.nlst())
@@ -104,27 +104,29 @@ class Source_dbsnp(loki_source.Source):
 
 		remFiles = dict()
 		for chm in self._chmList:
-			remFiles['chr_%s.txt.gz' % chm] = '/snp/organisms/human_9606/chr_rpts/chr_%s.txt.gz' % chm
+			remFiles[path+'chr_%s.txt.gz' % chm] = '/snp/organisms/human_9606/chr_rpts/chr_%s.txt.gz' % chm
 		if options['merges'] == 'yes':
-			remFiles['RsMergeArch.bcp.gz'] = '/snp/organisms/human_9606/database/organism_data/RsMergeArch.bcp.gz'
+			remFiles[path+'/RsMergeArch.bcp.gz'] = '/snp/organisms/human_9606/database/organism_data/RsMergeArch.bcp.gz'
 		if options['roles'] == 'yes':
-			remFiles['SnpFunctionCode.bcp.gz'] = '/snp/organisms/database/shared_data/SnpFunctionCode.bcp.gz'
-			path = '/snp/organisms/human_9606/database/organism_data'
-			urlpath = urllib2.urlopen('https://ftp.ncbi.nih.gov' + path)
+			remFiles[path+'/SnpFunctionCode.bcp.gz'] = '/snp/organisms/database/shared_data/SnpFunctionCode.bcp.gz'
+			urlfolderpath = '/snp/organisms/human_9606/database/organism_data'
+			urlpath = urllib2.urlopen('https://ftp.ncbi.nih.gov' + urlfolderpath)
 			string = urlpath.read().decode('utf-8')
 			onlyfiles = list(set(re.findall(r'b([0-9]+)_SNPContigLocusId_(.*)\.bcp\.gz', string)))
 			bestfile = self._identifyLatestSNPContig(onlyfiles)
 			bestfilename = 'b'+bestfile[0]+'_SNPContigLocusId_'+bestfile[1]+'.bcp.gz'
 			if bestfile:
-				remFiles[bestfilename] = '%s/%s' % (path,bestfilename)
+				remFiles[path+'/'+bestfilename] = '%s/%s' % (urlfolderpath,bestfilename)
 
 		# download the latest source files
 #		self.downloadFilesFromFTP('ftp.ncbi.nih.gov', remFilesCallback)
 		self.downloadFilesFromHTTP('ftp.ncbi.nih.gov', remFiles)
+
+		return list(remFiles.keys())
 	#download()
 	
 	
-	def update(self, options):
+	def update(self, options, path):
 		# clear out all old data from this source
 		self.log("deleting old records from the database ...")
 		self.deleteAll()
@@ -147,7 +149,7 @@ CREATE TABLE [RsMergeArch]
 )
 """
 			self.log("processing SNP merge records ...")
-			mergeFile = self.zfile('RsMergeArch.bcp.gz') #TODO:context manager,iterator
+			mergeFile = self.zfile(path+'/RsMergeArch.bcp.gz') #TODO:context manager,iterator
 			numMerge = 0
 			setMerge = set()
 			for line in mergeFile:
@@ -198,7 +200,7 @@ CREATE TABLE [SnpFunctionCode]
 """
 			self.log("processing SNP role codes ...")
 			roleID = dict()
-			codeFile = self.zfile('SnpFunctionCode.bcp.gz')
+			codeFile = self.zfile(path+'/SnpFunctionCode.bcp.gz')
 			for line in codeFile:
 				words = line.split('\t')
 				code = int(words[0])
@@ -249,7 +251,7 @@ CREATE TABLE [b137_SNPContigLocusId]
 			setRole = set()
 			numRole = numOrphan = numInc = 0
 			setOrphan = set()
-			funcFile = self.zfile(list(filter(re.compile(r'b([0-9]+)_SNPContigLocusId_(.*)\.bcp\.gz').match, os.listdir('.')))[0])
+			funcFile = self.zfile(list(filter(re.compile(r'b([0-9]+)_SNPContigLocusId_(.*)\.bcp\.gz').match, os.listdir(path)))[0])
 			for line in funcFile:
 				words = list(w.strip() for w in line.split("\t"))
 				rs = int(words[0]) if words[0] else None
@@ -307,7 +309,7 @@ CREATE TABLE [b137_SNPContigLocusId]
 		includeWithdrawn = (options['withdrawn'] == 'yes')
 		for fileChm in self._chmList:
 			self.log("processing chromosome %s SNPs ..." % fileChm)
-			chmFile = self.zfile('chr_%s.txt.gz' % fileChm)
+			chmFile = self.zfile(path+'/chr_'+fileChm+'.txt.gz')
 
 			# verify file headers
 			header1 = chmFile.__next__().rstrip()

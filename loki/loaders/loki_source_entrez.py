@@ -41,7 +41,7 @@ class Source_entrez(loki_source.Source):
 	#validateOptions()
 	
 	
-	def download(self, options):
+	def download(self, options, path):
 		# download the latest source files
 #		self.downloadFilesFromFTP('ftp.ncbi.nih.gov', {
 #			'Homo_sapiens.gene_info.gz':       '/gene/DATA/GENE_INFO/Mammalia/Homo_sapiens.gene_info.gz',
@@ -56,20 +56,31 @@ class Source_entrez(loki_source.Source):
 #		})
 
 		self.downloadFilesFromHTTP('ftp.ncbi.nih.gov', {
-			'Homo_sapiens.gene_info.gz':       '/gene/DATA/GENE_INFO/Mammalia/Homo_sapiens.gene_info.gz',
-			'gene2refseq.gz':                  '/gene/DATA/gene2refseq.gz',
-			'gene_history.gz':                 '/gene/DATA/gene_history.gz',
-			'gene2ensembl.gz':                 '/gene/DATA/gene2ensembl.gz',
-			'gene2unigene':                    '/gene/DATA/ARCHIVE/gene2unigene',
-			'gene_refseq_uniprotkb_collab.gz': '/gene/DATA/gene_refseq_uniprotkb_collab.gz',
+			path+'/Homo_sapiens.gene_info.gz':       '/gene/DATA/GENE_INFO/Mammalia/Homo_sapiens.gene_info.gz',
+			path+'/gene2refseq.gz':                  '/gene/DATA/gene2refseq.gz',
+			path+'/gene_history.gz':                 '/gene/DATA/gene_history.gz',
+			path+'/gene2ensembl.gz':                 '/gene/DATA/gene2ensembl.gz',
+			path+'/gene2unigene':                    '/gene/DATA/ARCHIVE/gene2unigene',
+			path+'/gene_refseq_uniprotkb_collab.gz': '/gene/DATA/gene_refseq_uniprotkb_collab.gz',
 		})
 		self.downloadFilesFromHTTP('ftp.uniprot.org', {
-			'HUMAN_9606_idmapping_selected.tab.gz': '/pub/databases/uniprot/current_release/knowledgebase/idmapping/by_organism/HUMAN_9606_idmapping_selected.tab.gz',
+			path+'/HUMAN_9606_idmapping_selected.tab.gz': '/pub/databases/uniprot/current_release/knowledgebase/idmapping/by_organism/HUMAN_9606_idmapping_selected.tab.gz',
 		})
+
+		return 
+		[
+			path+'/Homo_sapiens.gene_info.gz',
+			path+'/gene2refseq.gz',     
+			path+'/gene_history.gz',               
+			path+'/gene2ensembl.gz',               
+			path+'/gene2unigene',               
+			path+'/gene_refseq_uniprotkb_collab.gz',
+			path+'/HUMAN_9606_idmapping_selected.tab.gz'
+		]
 	#download()
 	
 	
-	def update(self, options):
+	def update(self, options, path):
 		# clear out all old data from this source
 		self.log("deleting old records from the database ...")
 		self.deleteAll()
@@ -120,7 +131,7 @@ class Source_entrez(loki_source.Source):
 			'RGD':       'rgd_id',
 			'miRBase':   'mirbase_id',
 		}
-		geneFile = self.zfile('Homo_sapiens.gene_info.gz') #TODO:context manager,iterator
+		geneFile = self.zfile(path+'/Homo_sapiens.gene_info.gz') #TODO:context manager,iterator
 		for line in geneFile:
 			# quickly filter out all non-9606 (human) taxonomies before taking the time to split()
 			if line.startswith("9606\t"):
@@ -206,7 +217,7 @@ class Source_entrez(loki_source.Source):
 		setBadBuild = set()
 		setBadChr = set()
 		refseqBIDs = collections.defaultdict(set)
-		regionFile = self.zfile('gene2refseq.gz') #TODO:context manager,iterator
+		regionFile = self.zfile(path+'/gene2refseq.gz') #TODO:context manager,iterator
 		header = regionFile.__next__().rstrip()
 		if not (
 				header.startswith("#Format: tax_id GeneID status RNA_nucleotide_accession.version RNA_nucleotide_gi protein_accession.version protein_gi genomic_nucleotide_accession.version genomic_nucleotide_gi start_position_on_the_genomic_accession end_position_on_the_genomic_accession orientation assembly") # "(tab is used as a separator, pound sign - start of a comment)"
@@ -319,7 +330,7 @@ class Source_entrez(loki_source.Source):
 		self.log("processing historical gene names ...")
 		entrezUpdate = {}
 		historyEntrez = {}
-		histFile = self.zfile('gene_history.gz') #TODO:context manager,iterator
+		histFile = self.zfile(path+'/gene_history.gz') #TODO:context manager,iterator
 		header = histFile.__next__().rstrip()
 		if not (
 				header.startswith("#Format: tax_id GeneID Discontinued_GeneID Discontinued_Symbol") # "Discontinue_Date (tab is used as a separator, pound sign - start of a comment)"
@@ -369,7 +380,7 @@ class Source_entrez(loki_source.Source):
 		
 		# process ensembl gene names
 		self.log("processing ensembl gene names ...")
-		ensFile = self.zfile('gene2ensembl.gz') #TODO:context manager,iterator
+		ensFile = self.zfile(path+'/gene2ensembl.gz') #TODO:context manager,iterator
 		header = ensFile.__next__().rstrip()
 		if not (
 				header.startswith("#Format: tax_id GeneID Ensembl_gene_identifier RNA_nucleotide_accession.version Ensembl_rna_identifier protein_accession.version Ensembl_protein_identifier") # "(tab is used as a separator, pound sign - start of a comment)"
@@ -409,7 +420,7 @@ class Source_entrez(loki_source.Source):
 		
 		# process unigene gene names
 		self.log("processing unigene gene names ...")
-		with open('gene2unigene','rU') as ugFile:
+		with open(path+'/gene2unigene','r') as ugFile:
 			header = ugFile.__next__().rstrip()
 			if not (
 					header.startswith("#Format: GeneID UniGene_cluster") # "(tab is used as a separator, pound sign - start of a comment)"
@@ -441,7 +452,7 @@ class Source_entrez(loki_source.Source):
 		if True:
 			# process uniprot gene names from entrez
 			self.log("processing uniprot gene names ...")
-			upFile = self.zfile('gene_refseq_uniprotkb_collab.gz') #TODO:context manager,iterator
+			upFile = self.zfile(path+'/gene_refseq_uniprotkb_collab.gz') #TODO:context manager,iterator
 			header = upFile.__next__().rstrip()
 			if not (
 					header.startswith("#Format: NCBI_protein_accession UniProtKB_protein_accession") # "(tab is used as a separator, pound sign - start of a comment)"
@@ -469,7 +480,7 @@ class Source_entrez(loki_source.Source):
 		else:
 			# process uniprot gene names from uniprot (no header!)
 			self.log("processing uniprot gene names ...")
-			upFile = self.zfile('HUMAN_9606_idmapping_selected.tab.gz') #TODO:context manager,iterator
+			upFile = self.zfile(path+'/HUMAN_9606_idmapping_selected.tab.gz') #TODO:context manager,iterator
 			""" /* ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/idmapping/README */
 1. UniProtKB-AC
 2. UniProtKB-ID

@@ -18,14 +18,16 @@ class Source_oreganno(loki_source.Source):
 	#getVersionString()
 	
 	
-	def download(self, options):
+	def download(self, options, path):
 		"""
 		Download OregAnno from UCSC
 		"""
 #		self.downloadFilesFromFTP(self._remHost, dict(((f, self._remPath + f) for f in self._remFiles)))
-		self.downloadFilesFromHTTP(self._remHost, dict(((f, self._remPath + f) for f in self._remFiles)))
+		self.downloadFilesFromHTTP(path+'/'+self._remHost, dict(((f, self._remPath + f) for f in self._remFiles)))
+
+		return [(path+'/'+f) for f in self._remFiles]
 		
-	def update(self, options):
+	def update(self, options, path):
 		"""
 		Update the database with the OregAnno data from ucsc
 		"""
@@ -68,7 +70,7 @@ class Source_oreganno(loki_source.Source):
 		oreg_gene = {}
 		oreg_tfbs = {}
 		oreg_snp = {}
-		link_f = self.zfile("oregannoLink.txt.gz")
+		link_f = self.zfile(path+'/oregannoLink.txt.gz')
 		entrez_ns = external_ns['entrez_gid']
 		ensembl_ns = external_ns['ensembl_gid']
 		symbol_ns = external_ns['symbol']
@@ -113,7 +115,7 @@ class Source_oreganno(loki_source.Source):
 		self.log("OK: %d genes, %d TFBs\n" % (len(oreg_gene),len(oreg_tfbs)))
 		
 		# OK, now parse the actual regions themselves
-		region_f = self.zfile("oreganno.txt.gz")
+		region_f = self.zfile(path+'/oreganno.txt.gz')
 		oreganno_roles = []
 		oreganno_regions = []
 		oreganno_bounds = []
