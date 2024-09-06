@@ -2,7 +2,7 @@
 
 #import collections
 import itertools
-import sys
+from threading import Thread
 from loki import loki_source
 
 
@@ -19,6 +19,7 @@ class Source_ucsc_ecr(loki_source.Source):
 	
 	_chmList = ('1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19','20','21','22','X','Y','M')
 	_comparisons = {"vertebrate":"", "placentalMammals":"placental." , "primates":"primates." }
+	chr_grp_ids = []
 	
 	
 	##################################################
@@ -90,12 +91,12 @@ class Source_ucsc_ecr(loki_source.Source):
 		"""
 		Load the data from all of the files
 		UCSC's phastCons files use 1-based coordinates, according to:
-		  http://genome.ucsc.edu/goldenPath/help/phastCons.html
+			http://genome.ucsc.edu/goldenPath/help/phastCons.html
 		Since this matches LOKI's convention, we can store them as-is.
 		"""
-		self.log("deleting old records from the database ...")
+		self.log("deleting old records from the database ...\n")
 		self.deleteAll()
-		self.log(" OK\n")
+		self.log("deleting old records from the database completed\n")
 		
 		# Add a namespace
 		ecr_ns = self.addNamespace("ucsc_ecr")
@@ -116,7 +117,7 @@ class Source_ucsc_ecr(loki_source.Source):
 		rel_id = self.addRelationship("contains")			
 		
 		for sp in self._comparisons:
-			self.logPush("processing ECRs for " + sp + " ...")
+			self.log("processing ECRs for " + sp + " ...\n")
 			desc = "ECRs for " + sp
 			label = "ecr_" + sp
 			
@@ -125,62 +126,70 @@ class Source_ucsc_ecr(loki_source.Source):
 			self.addGroupNamespacedNames(ecr_ns, [(ecr_gid, label)])
 			
 			chr_grp_ids = []
+			processThreads = {}
 			for ch in self._chmList:
-				ch_id = self._loki.chr_num[ch]
-				self.log("processing Chromosome " + ch + " ...")
-				f = self.zfile(path+'/'+sp +'.chr'+ ch+'.phastCons.txt.gz')
-				curr_band = 1
-				num_regions = 0
-				desc = "ECRs for " + sp + " on Chromosome " + ch
-				chr_grp_ids.append(self.addTypedGroups(ecr_group_typeid, [(subtypeID['-'], "ecr_%s_chr%s" % (sp, ch), desc)])[0])
-				self.addGroupNamespacedNames(ecr_ns, [(chr_grp_ids[-1], "ecr_%s_chr%s" % (sp, ch))])
-				band_grps = []
-				grp_rid = {}
-				for regions in self.getRegions(f, options):
-					label = "ecr_%s_chr%s_band%d" % (sp, ch, curr_band)
-					desc = "ECRs for " + sp + " on Chromosome " + ch + ", Band %d" % (curr_band,)
-					num_regions += len(regions)
-					
-					if regions:
-						band_grps.append((subtypeID['-'], label, desc))
-					
-					# Add the region itself
-					reg_ids = self.addTypedBiopolymers(ecr_typeid, ((self.getRegionName(sp, ch, r), '') for r in regions))
-					# Add the name of the region
-					self.addBiopolymerNamespacedNames(ecr_ns, zip(reg_ids, (self.getRegionName(sp, ch, r) for r in regions)))
-					# Add the region Boundaries
-					# This gives a generator that yields [(region_id, (chrom_id, start, stop)) ... ]
-					region_bound_gen = zip(((i,) for i in reg_ids), ((ch_id, r[0], r[1]) for r in regions))
-					self.addBiopolymerLDProfileRegions(ecr_ldprofile_id, (tuple(itertools.chain(*c)) for c in region_bound_gen))			
-					
-					if regions:
-						grp_rid[band_grps[-1]] = reg_ids
-						#Add the region to the group
-						#self.addGroupBiopolymers(((band_gids[-1], r_id) for r_id in reg_ids))
-					
-					curr_band += 1
-				
-				
-				band_gids = self.addTypedGroups(ecr_group_typeid, band_grps)
-				self.addGroupNamespacedNames(ecr_ns, zip(band_gids, (r[0] for r in band_grps)))
-				gid_rid = []
-				for i in range(len(band_gids)):
-					gid_rid.extend(((band_gids[i], rid) for rid in grp_rid[band_grps[i]]))
-				
-				self.addGroupBiopolymers(gid_rid)
-				
-				self.addGroupRelationships(((chr_grp_ids[-1], b, rel_id, 1) for b in band_gids))
-				
-				self.log("OK (%d regions found in %d bands)\n" % (num_regions, curr_band - 1))
+				processThreads[ch] = Thread(target=self.processECRs, args=(sp, ch, chr_grp_ids, ecr_group_typeid, subtypeID, ecr_ns, ecr_typeid, ecr_ldprofile_id, rel_id, options, path))
+				processThreads[ch].start()
+
+			for ch in self._chmList:
+				processThreads[ch].join()
 			
 			self.addGroupRelationships(((ecr_gid, c, rel_id, 1) for c in chr_grp_ids))
 			
-			self.logPop("... OK\n")
+			self.log("processing ECRs for " + sp + " completed\n")
 		
 		# store source metadata
 		self.setSourceBuilds(None, 19) # TODO: check for latest FTP path rather than hardcoded /goldenPath/hg19/phastCons46way/
 	#update()
 	
+	def processECRs(self, sp, ch, chr_grp_ids, ecr_group_typeid, subtypeID, ecr_ns, ecr_typeid, ecr_ldprofile_id, rel_id, options, path):
+		ch_id = self._loki.chr_num[ch]
+		self.log("processing Chromosome " + ch + " ...\n")
+		f = self.zfile(path+'/'+sp +'.chr'+ ch+'.phastCons.txt.gz')
+		curr_band = 1
+		num_regions = 0
+		desc = "ECRs for " + sp + " on Chromosome " + ch
+		chr_grp_ids.append(self.addTypedGroups(ecr_group_typeid, [(subtypeID['-'], "ecr_%s_chr%s" % (sp, ch), desc)])[0])
+		self.addGroupNamespacedNames(ecr_ns, [(chr_grp_ids[-1], "ecr_%s_chr%s" % (sp, ch))])
+		band_grps = []
+		grp_rid = {}
+		for regions in self.getRegions(f, options):
+			label = "ecr_%s_chr%s_band%d" % (sp, ch, curr_band)
+			desc = "ECRs for " + sp + " on Chromosome " + ch + ", Band %d" % (curr_band,)
+			num_regions += len(regions)
+			
+			if regions:
+				band_grps.append((subtypeID['-'], label, desc))
+			
+			# Add the region itself
+			reg_ids = self.addTypedBiopolymers(ecr_typeid, ((self.getRegionName(sp, ch, r), '') for r in regions))
+			# Add the name of the region
+			self.addBiopolymerNamespacedNames(ecr_ns, zip(reg_ids, (self.getRegionName(sp, ch, r) for r in regions)))
+			# Add the region Boundaries
+			# This gives a generator that yields [(region_id, (chrom_id, start, stop)) ... ]
+			region_bound_gen = zip(((i,) for i in reg_ids), ((ch_id, r[0], r[1]) for r in regions))
+			self.addBiopolymerLDProfileRegions(ecr_ldprofile_id, (tuple(itertools.chain(*c)) for c in region_bound_gen))			
+			
+			if regions:
+				grp_rid[band_grps[-1]] = reg_ids
+				#Add the region to the group
+				#self.addGroupBiopolymers(((band_gids[-1], r_id) for r_id in reg_ids))
+			
+			curr_band += 1
+		
+		
+		band_gids = self.addTypedGroups(ecr_group_typeid, band_grps)
+		self.addGroupNamespacedNames(ecr_ns, zip(band_gids, (r[0] for r in band_grps)))
+		gid_rid = []
+		for i in range(len(band_gids)):
+			gid_rid.extend(((band_gids[i], rid) for rid in grp_rid[band_grps[i]]))
+		
+		self.addGroupBiopolymers(gid_rid)
+		
+		self.addGroupRelationships(((chr_grp_ids[-1], b, rel_id, 1) for b in band_gids))
+		
+		self.log("processing Chromosome %s completed (%d regions found in %d bands)\n" % (ch, num_regions, curr_band - 1))
+	#processECRs()
 	
 	def getRegionName(self, species, ch, region):
 		"""
@@ -218,7 +227,7 @@ class Source_ucsc_ecr(loki_source.Source):
 				while True:
 					loopState = state
 					loopPos = pos
-					if (state == False) and (curCount > maxGap):
+					if (state is False) and (curCount > maxGap):
 						# in a low segment that is already beyond the max gap length
 						# (so we don't care about sum or count anymore)
 						for line in f:
@@ -228,7 +237,7 @@ class Source_ucsc_ecr(loki_source.Source):
 								break
 							pos += step
 						#for line in f
-					elif (state == False):
+					elif (state is False):
 						# in a low segment which is still within the max gap length
 						for line in f:
 							v = float(line)
@@ -241,7 +250,7 @@ class Source_ucsc_ecr(loki_source.Source):
 							if curCount > maxGap:
 								break
 						#for line in f
-					elif (state == True):
+					elif (state is True):
 						# in a high segment
 						for line in f:
 							v = float(line)
@@ -303,9 +312,9 @@ class Source_ucsc_ecr(loki_source.Source):
 			
 			# set min/max segment indecies to skip leading or trailing low or invalid segments
 			sn,sx = 0,len(segments)-1
-			while (sn <= sx) and (segments[sn][4] != True):
+			while (sn <= sx) and (segments[sn][4] is not True):
 				sn += 1
-			while (sn <= sx) and (segments[sx][4] != True):
+			while (sn <= sx) and (segments[sx][4] is not True):
 				sx -= 1
 			#assert ((sn > sx) or ((sx-sn+1)%2)), "segment list size cannot be even (must be hi , hi-lo-hi , etc)"
 			

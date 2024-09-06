@@ -70,9 +70,9 @@ class Source_chainfiles(loki_source.Source):
 		"""	
 		
 		# clear out all old data from this source
-		self.log("deleting old records from the database ...")
+		self.log("deleting old records from the database ...\n")
 		self.deleteAll()
-		self.log(" OK\n")
+		self.log("deleting old records from the database completed\n")
 		
 		for fn in os.listdir(path):
 			match = self._reFile.match(fn)
@@ -80,8 +80,8 @@ class Source_chainfiles(loki_source.Source):
 				continue
 			old_ucschg = int(match.group(1))
 			new_ucschg = int(match.group(2))
-			self.log("parsing chains for hg%d -> hg%d ..." % (old_ucschg,new_ucschg))
-			f = self.zfile(fn)
+			self.log("parsing chains for hg%d -> hg%d ...\n" % (old_ucschg,new_ucschg))
+			f = self.zfile(path+'/'+fn)
 			
 			is_hdr = True
 			is_valid = True
@@ -116,7 +116,7 @@ class Source_chainfiles(loki_source.Source):
 			
 			self.addChainData(chain_data_itr)
 			
-			self.log("OK\n")
+			self.log("parsing chains completed\n")
 		# for fn in dir
 		
 	#update()

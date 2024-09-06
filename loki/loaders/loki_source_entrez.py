@@ -82,9 +82,9 @@ class Source_entrez(loki_source.Source):
 	
 	def update(self, options, path):
 		# clear out all old data from this source
-		self.log("deleting old records from the database ...")
+		self.log("deleting old records from the database ...\n")
 		self.deleteAll()
-		self.log(" OK\n")
+		self.log("deleting old records from the database completed\n")
 		
 		# get or create the required metadata records
 		ldprofileID = self.addLDProfiles([
@@ -116,7 +116,7 @@ class Source_entrez(loki_source.Source):
 		numNames = numNameNames = numNameRefs = 0
 		
 		# process genes (no header!)
-		self.log("processing genes ...")
+		self.log("processing genes ...\n")
 		entrezGene = dict()
 		entrezChm = dict()
 		primaryEntrez = dict()
@@ -185,15 +185,15 @@ class Source_entrez(loki_source.Source):
 		numGenes = len(entrezGene)
 		numNames0 = numNames
 		numNames = sum(len(nsNames[ns]) for ns in nsNames)
-		self.log(" OK: %d genes, %d identifiers\n" % (numGenes,numNames-numNames0))
+		self.log("processing genes completed: %d genes, %d identifiers\n" % (numGenes,numNames-numNames0))
 		
 		# store genes
-		self.log("writing genes to the database ...")
+		self.log("writing genes to the database ...\n")
 		listEntrez = entrezGene.keys()
 		listBID = self.addTypedBiopolymers(typeID['gene'], (entrezGene[entrezID] for entrezID in listEntrez))
 		entrezBID = dict(zip(listEntrez,listBID))
 		numGenes = len(entrezBID)
-		self.log(" OK: %d genes\n" % (numGenes))
+		self.log("writing genes to the database completed: %d genes\n" % (numGenes))
 		entrezGene = None
 		
 		# translate target entrezID to biopolymer_id in nsNames
@@ -207,7 +207,7 @@ class Source_entrez(loki_source.Source):
 		#   http://www.ncbi.nlm.nih.gov/books/NBK3840/#genefaq.Representation_of_nucleotide_pos
 		# and comparison of web-reported boundary coordinates to gene length (len = end - start + 1).
 		# Since LOKI uses 1-based closed intervals, we add 1 to all coordinates.
-		self.log("processing gene regions ...")
+		self.log("processing gene regions ...\n")
 		reBuild = re.compile('GRCh([0-9]+)')
 		grcBuild = None
 		buildGenes = collections.defaultdict(set)
@@ -303,7 +303,7 @@ class Source_entrez(loki_source.Source):
 			numGenes = len(buildGenes[grcBuild])
 			numNames0 = numNames
 			numNames = sum(len(nsNames[ns]) for ns in nsNames)
-			self.log(" OK: %d regions (%d genes), %d identifiers\n" % (numRegions,numGenes,numNames-numNames0))
+			self.log("processing gene regions completed: %d regions (%d genes), %d identifiers\n" % (numRegions,numGenes,numNames-numNames0))
 			self.logPush()
 			if setOrphan:
 				self.log("WARNING: %d regions for undefnied EntrezIDs\n" % (len(setOrphan)))
@@ -319,15 +319,15 @@ class Source_entrez(loki_source.Source):
 			entrezChm = setOrphan = setBadNC = setBadBuild = setBadChr = setBadVers = buildGenes = None
 			
 			# store gene regions
-			self.log("writing gene regions to the database ...")
+			self.log("writing gene regions to the database ...\n")
 			numRegions = len(buildRegions[grcBuild])
 			self.addBiopolymerLDProfileRegions(ldprofileID[''], buildRegions[grcBuild])
-			self.log(" OK: %d regions\n" % (numRegions))
+			self.log("writing gene regions to the database completed: %d regions\n" % (numRegions))
 			buildRegions = None
 		#if gene regions header ok
 		
 		# process historical gene names
-		self.log("processing historical gene names ...")
+		self.log("processing historical gene names ...\n")
 		entrezUpdate = {}
 		historyEntrez = {}
 		histFile = self.zfile(path+'/gene_history.gz') #TODO:context manager,iterator
@@ -375,11 +375,11 @@ class Source_entrez(loki_source.Source):
 			# print stats
 			numNames0 = numNames
 			numNames = sum(len(nsNames[ns]) for ns in nsNames)
-			self.log(" OK: %d identifiers\n" % (numNames-numNames0))
+			self.log("processing historical gene names completed: %d identifiers\n" % (numNames-numNames0))
 		#if historical name header ok
 		
 		# process ensembl gene names
-		self.log("processing ensembl gene names ...")
+		self.log("processing ensembl gene names ...\n")
 		ensFile = self.zfile(path+'/gene2ensembl.gz') #TODO:context manager,iterator
 		header = ensFile.__next__().rstrip()
 		if not (
@@ -415,11 +415,11 @@ class Source_entrez(loki_source.Source):
 			# print stats
 			numNames0 = numNames
 			numNames = sum(len(nsNames[ns]) for ns in nsNames)
-			self.log(" OK: %d identifiers\n" % (numNames-numNames0))
+			self.log("processing ensembl gene names completed: %d identifiers\n" % (numNames-numNames0))
 		#if ensembl name header ok
 		
 		# process unigene gene names
-		self.log("processing unigene gene names ...")
+		self.log("processing unigene gene names ...\n")
 		with open(path+'/gene2unigene','r') as ugFile:
 			header = ugFile.__next__().rstrip()
 			if not (
@@ -445,13 +445,13 @@ class Source_entrez(loki_source.Source):
 				# print stats
 				numNames0 = numNames
 				numNames = sum(len(nsNames[ns]) for ns in nsNames)
-				self.log(" OK: %d identifiers\n" % (numNames-numNames0))
+				self.log("processing unigene gene names completed: %d identifiers\n" % (numNames-numNames0))
 			#if unigene name header ok
 		#with ugFile
 		
 		if True:
 			# process uniprot gene names from entrez
-			self.log("processing uniprot gene names ...")
+			self.log("processing uniprot gene names ...\n")
 			upFile = self.zfile(path+'/gene_refseq_uniprotkb_collab.gz') #TODO:context manager,iterator
 			header = upFile.__next__().rstrip()
 			if not (
@@ -475,11 +475,11 @@ class Source_entrez(loki_source.Source):
 				# print stats
 				numNames0 = numNames
 				numNames = sum(len(nsNames[ns]) for ns in nsNames)
-				self.log(" OK: %d identifiers\n" % (numNames-numNames0))
+				self.log("processing uniprot gene names completed: %d identifiers\n" % (numNames-numNames0))
 			#if header ok
 		else:
 			# process uniprot gene names from uniprot (no header!)
-			self.log("processing uniprot gene names ...")
+			self.log("processing uniprot gene names ...\n")
 			upFile = self.zfile(path+'/HUMAN_9606_idmapping_selected.tab.gz') #TODO:context manager,iterator
 			""" /* ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/idmapping/README */
 1. UniProtKB-AC
@@ -567,27 +567,27 @@ class Source_entrez(loki_source.Source):
 			numNameNames = sum(len(set(n[2] for n in nsNameNames[ns])) for ns in nsNameNames)
 			numNameRefs0 = numNameRefs
 			numNameRefs = sum(len(nsNameNames[ns]) for ns in nsNameNames)
-			self.log(" OK: %d identifiers (%d references)\n" % (numNames-numNames0+numNameNames-numNameNames0,numNameRefs-numNameRefs0))
+			self.log("processing uniprot gene names completed: %d identifiers (%d references)\n" % (numNames-numNames0+numNameNames-numNameNames0,numNameRefs-numNameRefs0))
 		#switch uniprot source
 		
 		# store gene names
-		self.log("writing gene identifiers to the database ...")
+		self.log("writing gene identifiers to the database ...\n")
 		numNames = 0
 		for ns in nsNames:
 			if nsNames[ns]:
 				numNames += len(nsNames[ns])
 				self.addBiopolymerNamespacedNames(namespaceID[ns], nsNames[ns])
-		self.log(" OK: %d identifiers\n" % (numNames,))
+		self.log("writing gene identifiers to the database completed: %d identifiers\n" % (numNames,))
 		nsNames = None
 		
 		# store gene names
 		numNameNames = sum(len(nsNameNames[ns]) for ns in nsNameNames)
 		if numNameNames:
-			self.log("writing gene identifier references to the database ...")
+			self.log("writing gene identifier references to the database ...\n")
 			for ns in nsNameNames:
 				if nsNameNames[ns]:
 					self.addBiopolymerTypedNameNamespacedNames(typeID['gene'], namespaceID[ns], nsNameNames[ns])
-			self.log(" OK: %d references\n" % (numNameNames,))
+			self.log("writing gene identifier references to the database completed: %d references\n" % (numNameNames,))
 			nsNameNames = None
 		#if numNameNames
 		

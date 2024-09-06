@@ -26,9 +26,9 @@ class Source_biogrid(loki_source.Source):
 	
 	def update(self, options, path):
 		# clear out all old data from this source
-		self.log("deleting old records from the database ...")
+		self.log("deleting old records from the database ...\n")
 		self.deleteAll()
-		self.log(" OK\n")
+		self.log("deleting old records from the database completed\n")
 		
 		# get or create the required metadata records
 		namespaceID = self.addNamespaces([
@@ -45,7 +45,7 @@ class Source_biogrid(loki_source.Source):
 		])
 		
 		# process associations
-		self.log("verifying archive file ...")
+		self.log("verifying archive file ...\n")
 		pairLabels = dict()
 		empty = tuple()
 		with zipfile.ZipFile(path+'/BIOGRID-ORGANISM-LATEST.tab2.zip','r') as assocZip:
@@ -54,8 +54,8 @@ class Source_biogrid(loki_source.Source):
 				self.log(" ERROR\n")
 				self.log("CRC failed for %s\n" % err)
 				return False
-			self.log(" OK\n")
-			self.log("processing gene interactions ...")
+			self.log("verifying archive file completed\n")
+			self.log("processing gene interactions ...\n")
 			for info in assocZip.infolist():
 				if info.filename.find('Homo_sapiens') >= 0:
 					assocFile = assocZip.open(info,'r')
@@ -102,25 +102,25 @@ class Source_biogrid(loki_source.Source):
 		numAssoc = len(pairLabels)
 		numGene = len(set(pair[0] for pair in pairLabels) | set(pair[1] for pair in pairLabels))
 		numName = sum(len(pairLabels[pair]) for pair in pairLabels)
-		self.log(" OK: %d interactions (%d genes), %d pair identifiers\n" % (numAssoc,numGene,numName))
+		self.log("processing gene interactions completed: %d interactions (%d genes), %d pair identifiers\n" % (numAssoc,numGene,numName))
 		
 		# store interaction groups
-		self.log("writing interaction pairs to the database ...")
+		self.log("writing interaction pairs to the database ...\n")
 		listPair = pairLabels.keys()
 		listGID = self.addTypedGroups(typeID['interaction'], ((subtypeID['-'], "biogrid:%s" % min(pairLabels[pair]),None) for pair in listPair))
 		pairGID = dict(zip(listPair,listGID))
-		self.log(" OK\n")
+		self.log("writing interaction pairs to the database completed\n")
 		
 		# store interaction labels
 		listLabels = []
 		for pair in listPair:
 			listLabels.extend( (pairGID[pair],label) for label in pairLabels[pair] )
-		self.log("writing interaction names to the database ...")
+		self.log("writing interaction names to the database ...\n")
 		self.addGroupNamespacedNames(namespaceID['biogrid_id'], listLabels)
-		self.log(" OK\n")
+		self.log("writing interaction names to the database completed\n")
 		
 		# store gene interactions
-		self.log("writing gene interactions to the database ...")
+		self.log("writing gene interactions to the database ...\n")
 		nsAssoc = {
 			'symbol':     set(),
 			'entrez_gid': set(),
@@ -138,7 +138,7 @@ class Source_biogrid(loki_source.Source):
 				nsAssoc['symbol'].add( (pairGID[pair],numAssoc,pair[1][n]) )
 		for ns in nsAssoc:
 			self.addGroupMemberTypedNamespacedNames(typeID['gene'], namespaceID[ns], nsAssoc[ns])
-		self.log(" OK\n")
+		self.log("writing gene interactions to the database completed\n")
 		
 		# TODO: decide if there's any value in trying to identify pseudo-pathways
 		"""

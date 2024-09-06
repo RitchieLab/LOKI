@@ -28,9 +28,9 @@ class Source_pharmgkb(loki_source.Source):
 	
 	def update(self, options, path):
 		# clear out all old data from this source
-		self.log("deleting old records from the database ...")
+		self.log("deleting old records from the database ...\n")
 		self.deleteAll()
-		self.log(" OK\n")
+		self.log("deleting old records from the database completed\n")
 		
 		# get or create the required metadata records
 		namespaceID = self.addNamespaces([
@@ -56,7 +56,7 @@ class Source_pharmgkb(loki_source.Source):
 		])
 		
 		# process gene names
-		self.log("verifying gene name archive file ...")
+		self.log("verifying gene name archive file ...\n")
 		setNames = set()
 		empty = tuple()
 		with zipfile.ZipFile(path+'/genes.zip','r') as geneZip:
@@ -65,8 +65,8 @@ class Source_pharmgkb(loki_source.Source):
 				self.log(" ERROR\n")
 				self.log("CRC failed for %s\n" % err)
 				return False
-			self.log(" OK\n")
-			self.log("processing gene names ...")
+			self.log("verifying gene name archive file completed\n")
+			self.log("processing gene names ...\n")
 			xrefNS = {
 				'entrezGene':    ('entrez_gid',),
 				'refSeqDna':     ('refseq_gid',),
@@ -126,16 +126,16 @@ class Source_pharmgkb(loki_source.Source):
 			#foreach file in geneZip
 		#with geneZip
 		numIDs = len(set(n[2] for n in setNames))
-		self.log(" OK: %d identifiers (%d references)\n" % (numIDs,len(setNames)))
+		self.log("processing gene names completed: %d identifiers (%d references)\n" % (numIDs,len(setNames)))
 		
 		# store gene names
-		self.log("writing gene names to the database ...")
+		self.log("writing gene names to the database ...\n")
 		self.addBiopolymerTypedNameNamespacedNames(typeID['gene'], namespaceID['pharmgkb_gid'], setNames)
-		self.log(" OK\n")
+		self.log("writing gene names to the database completed\n")
 		setNames = None
 		
 		# process pathways
-		self.log("verifying pathway archive file ...")
+		self.log("verifying pathway archive file ...\n")
 		pathDesc = {}
 		nsAssoc = {
 			'pharmgkb_gid': set(),
@@ -148,8 +148,8 @@ class Source_pharmgkb(loki_source.Source):
 				self.log(" ERROR\n")
 				self.log("CRC failed for %s\n" % err)
 				return False
-			self.log(" OK\n")
-			self.log("processing pathways ...")
+			self.log("verifying pathway archive file completed\n")
+			self.log("processing pathways ...\n")
 			for info in pathZip.infolist():
 				if info.filename == 'pathways.tsv':
 					# the old format had all pathways in one giant file, delimited by blank lines
@@ -210,26 +210,26 @@ class Source_pharmgkb(loki_source.Source):
 				#if pathways.tsv
 			#foreach file in pathZip
 		#with pathZip
-		self.log(" OK: %d pathways, %d associations (%d identifiers)\n" % (len(pathDesc),numAssoc,numID))
+		self.log("processing pathways completed: %d pathways, %d associations (%d identifiers)\n" % (len(pathDesc),numAssoc,numID))
 		
 		# store pathways
-		self.log("writing pathways to the database ...")
+		self.log("writing pathways to the database ...\n")
 		listPath = pathDesc.keys()
 		listGID = self.addTypedGroups(typeID['pathway'], (pathDesc[path] for path in listPath))
 		pathGID = dict(zip(listPath,listGID))
-		self.log(" OK\n")
+		self.log("writing pathways to the database completed\n")
 		
 		# store pathway names
-		self.log("writing pathway names to the database ...")
+		self.log("writing pathway names to the database ...\n")
 		self.addGroupNamespacedNames(namespaceID['pharmgkb_id'], ((pathGID[path],path) for path in listPath))
 		self.addGroupNamespacedNames(namespaceID['pathway'], ((pathGID[path],pathDesc[path][0]) for path in listPath))
-		self.log(" OK\n")
+		self.log("writing pathway names to the database completed\n")
 		
 		# store gene associations
-		self.log("writing gene associations to the database ...")
+		self.log("writing gene associations to the database ...\n")
 		for ns in nsAssoc:
 			self.addGroupMemberTypedNamespacedNames(typeID['gene'], namespaceID[ns], ((pathGID[a[0]],a[1],a[2]) for a in nsAssoc[ns]) )
-		self.log(" OK\n")
+		self.log("writing gene associations to the database completed\n")
 		
 		#TODO: eventually add diseases, drugs, relationships
 		

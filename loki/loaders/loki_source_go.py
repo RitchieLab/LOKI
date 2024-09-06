@@ -30,9 +30,9 @@ class Source_go(loki_source.Source):
 	
 	def update(self, options, path):
 		# clear out all old data from this source
-		self.log("deleting old records from the database ...")
+		self.log("deleting old records from the database ...\n")
 		self.deleteAll()
-		self.log(" OK\n")
+		self.log("deleting old records from the database completed\n")
 		
 		# get or create the required metadata records
 		namespaceID = self.addNamespaces([
@@ -53,7 +53,7 @@ class Source_go(loki_source.Source):
 		])
 		
 		# process ontology terms
-		self.log("processing ontology terms ...")
+		self.log("processing ontology terms ...\n")
 		# file format specification: http://www.geneontology.org/GO.format.obo-1_2.shtml
 		# correctly handling all the possible escape sequences and special cases
 		# in the OBO spec would be somewhat involved, but the previous version
@@ -138,33 +138,33 @@ class Source_go(loki_source.Source):
 		#with oboFile
 		numTerms = len(goName)
 		numLinks = sum(len(goLinks[goID]) for goID in goLinks)
-		self.log(" OK: %d terms, %d links\n" % (numTerms,numLinks))
+		self.log("processing ontology terms completed: %d terms, %d links\n" % (numTerms,numLinks))
 		
 		# store ontology terms
-		self.log("writing ontology terms to the database ...")
+		self.log("writing ontology terms to the database ...\n")
 		listGoID = goName.keys()
 		listGID = self.addTypedGroups(typeID['ontology'], ((subtypeID['-'], goName[goID],goDef[goID]) for goID in listGoID))
 		goGID = dict(zip(listGoID,listGID))
-		self.log(" OK\n")
+		self.log("writing ontology terms to the database completed\n")
 		
 		# store ontology term names
-		self.log("writing ontology term names to the database ...")
+		self.log("writing ontology term names to the database ...\n")
 		self.addGroupNamespacedNames(namespaceID['go_id'], ((goGID[goID],goID) for goID in listGoID))
 		self.addGroupNamespacedNames(namespaceID['ontology'], ((goGID[goID],goName[goID]) for goID in listGoID))
-		self.log(" OK\n")
+		self.log("writing ontology term names to the database completed\n")
 		
 		# store ontology term links
-		self.log("writing ontology term relationships to the database ...")
+		self.log("writing ontology term relationships to the database ...\n")
 		listLinks = []
 		for goID in goLinks:
 			for link in (goLinks[goID] or empty):
 				if link[0] in goGID:
 					listLinks.append( (goGID[goID],goGID[link[0]],link[1],link[2]) )
 		self.addGroupRelationships(listLinks)
-		self.log(" OK\n")
+		self.log("writing ontology term relationships to the database completed\n")
 		
 		# process gene associations
-		self.log("processing gene associations ...")
+		self.log("processing gene associations ...\n")
 		if os.path.isfile(path+'/gene_association.goa_human.gz') and not os.path.isfile(path+'/goa_human.gaf.gz'):
 			assocFile = self.zfile(path+'/gene_association.goa_human.gz') #TODO:context manager,iterator
 		else:
@@ -209,13 +209,13 @@ class Source_go(loki_source.Source):
 					nsAssoc['symbol'].add( (goGID[goID],numAssoc,alias) )
 			#if association is ok
 		#foreach association
-		self.log(" OK: %d associations (%d identifiers)\n" % (numAssoc,numID))
+		self.log("processing gene associations completed: %d associations (%d identifiers)\n" % (numAssoc,numID))
 		
 		# store gene associations
-		self.log("writing gene associations to the database ...")
+		self.log("writing gene associations to the database ...\n")
 		for ns in nsAssoc:
 			self.addGroupMemberTypedNamespacedNames(typeID['gene'], namespaceID[ns], nsAssoc[ns])
-		self.log(" OK\n")
+		self.log("writing gene associations to the database completed\n")
 	#update()
 	
 #Source_go

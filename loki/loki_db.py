@@ -761,7 +761,7 @@ class Database(object):
 		If a logger is set, it uses the logger to log the message. If verbose logging is enabled,
 		it writes the message to the standard output with indentation.
 		"""
-		if message != "":
+		if message != "" and message != "\n":
 			logtime = datetime.datetime.now().strftime("%d.%b %Y %H:%M:%S")
 			message = logtime + " " + message
 
@@ -794,10 +794,6 @@ class Database(object):
 		The function logs the message if provided and increases the indentation level for subsequent logs.
 		If a logger is set, it uses the logger to log the message.
 		"""
-		
-		if message != None and message != "":
-			logtime = datetime.datetime.now().strftime("%d.%b %Y %H:%M:%S")
-			message = logtime + " " + message
 
 		if self._logger:
 			return self._logger.logPush(message)
@@ -823,10 +819,6 @@ class Database(object):
 		The function decreases the indentation level and logs the message if provided.
 		If a logger is set, it uses the logger to log the message.
 		"""
-		
-		if message != None and message != "":
-			logtime = datetime.datetime.now().strftime("%d.%b %Y %H:%M:%S")
-			message = logtime + " " + message
 
 		if self._logger:
 			return self._logger.logPop(message)
@@ -971,7 +963,7 @@ class Database(object):
 			if not str(e).startswith('SQLError: no such database: '):
 				raise e
 		if self._dbFile and not quiet:
-			self.log(" OK\n")
+			self.log("unloading knowledge database file completed\n")
 		
 		# reset db info
 		self._dbFile = None
@@ -1005,7 +997,7 @@ class Database(object):
 			
 			if ok:
 				if not quiet:
-					self.logPop("... OK\n")
+					self.logPop("loading knowledge database file completed\n")
 			else:
 				self._dbFile = None
 				self._dbNew = None
@@ -1374,13 +1366,11 @@ class Database(object):
 		Returns:
 			None
 		"""
-		self.log("updating optimizer statistics ...")
 		self._db.cursor().execute("ANALYZE `db`")
-		self.log(" OK\n")
-		self.log("compacting knowledge database file ...")
+		self.log("updating optimizer statistics completed\n")
 		self.defragmentDatabase()
-		self.log(" OK\n")
 		self.setDatabaseSetting('optimized', 1)
+		self.log("compacting knowledge database file completed\n")
 	#optimizeDatabase()
 	
 	

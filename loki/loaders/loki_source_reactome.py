@@ -39,9 +39,9 @@ class Source_reactome(loki_source.Source):
 	
 	def update(self, options, path):
 		# clear out all old data from this source
-		self.log("deleting old records from the database ...")
+		self.log("deleting old records from the database ...\n")
 		self.deleteAll()
-		self.log(" OK\n")
+		self.log("deleting old records from the database completed\n")
 		
 		# get or create the required metadata records
 		namespaceID = self.addNamespaces([
@@ -80,7 +80,7 @@ class Source_reactome(loki_source.Source):
 		
 		# process pathways
 		# <react_id>\t<description>\t<species>
-		self.log("processing pathways ...")
+		self.log("processing pathways ...\n")
 		numNewPath = 0
 		numMismatch = 0
 		with open(path+'/ReactomePathways.txt', 'r') as pathFile:
@@ -100,12 +100,12 @@ class Source_reactome(loki_source.Source):
 					numMismatch += 1
 			#for line in pathFile
 		#with pathFile
-		self.log(" OK: %d pathways (%d mismatches)\n" % (numNewPath,numMismatch))
+		self.log("processing pathways completed: %d pathways (%d mismatches)\n" % (numNewPath,numMismatch))
 		numPath += numNewPath
 		
 		# process pathway relationships
 		# <parent>\t<child>
-		self.log("processing pathway hierarchy ...")
+		self.log("processing pathway hierarchy ...\n")
 		numRelations = 0
 		with open(path+'/ReactomePathwaysRelation.txt', 'r') as relFile:
 			# no header
@@ -117,11 +117,11 @@ class Source_reactome(loki_source.Source):
 				numRelations += 1
 				listRelationships.append( (words[0],words[1]) )
 		#with relFile
-		self.log(" OK: %d relationships\n" % (numRelations,))
+		self.log("processing pathway hierarchy completed: %d relationships\n" % (numRelations,))
 		
 		# process gene sets
 		# <description>\t"Reactome Pathway"\t<symbol1>\t<symbol2>...
-		self.log("verifying gene set archive ...")
+		self.log("verifying gene set archive ...\n")
 		numNewPath = 0
 		numNewAssoc = 0
 		with zipfile.ZipFile(path+'/ReactomePathways.gmt.zip','r') as geneZip:
@@ -129,8 +129,8 @@ class Source_reactome(loki_source.Source):
 			if err:
 				self.log(" ERROR\n")
 				raise Exception("CRC failed for %s\n" % err)
-			self.log(" OK\n")
-			self.log("processing gene sets ...")
+			self.log("verifying gene set archive completed\n")
+			self.log("processing gene sets ...\n")
 			for info in geneZip.infolist():
 				# there should be only one file in the archive, but just in case..
 				if info.filename == 'ReactomePathways.gmt':
@@ -157,7 +157,7 @@ class Source_reactome(loki_source.Source):
 					geneFile.close()
 				#if file ok
 			#foreach file in geneZip
-			self.log(" OK: %d associations (%d new pathways)\n" % (numNewAssoc,numNewPath))
+			self.log("processing gene sets completed: %d associations (%d new pathways)\n" % (numNewAssoc,numNewPath))
 		#with geneZip
 		
 		# TODO: ChEBI or miRBase mappings?
@@ -165,7 +165,7 @@ class Source_reactome(loki_source.Source):
 		# process ensembl mappings (to lowest reactome pathway, not parents)
 		# http://www.reactome.org/download/mapping.README.txt
 		# <mapID>\t<reactID>\t<url>\t<pathway>\t<evidence>\t<species>
-		self.log("processing ensembl associations ...")
+		self.log("processing ensembl associations ...\n")
 		numNewPath = 0
 		numMismatch = 0
 		numNewAssoc = 0
@@ -199,12 +199,12 @@ class Source_reactome(loki_source.Source):
 				nsAssoc[ns]['path'].add( (pathway,numAssoc,ensemblID) )
 			#foreach line in assocFile
 		#with assocFile
-		self.log(" OK: %d associations (%d new pathways, %d mismatches)\n" % (numNewAssoc,numNewPath,numMismatch))
+		self.log("processing ensembl associations completed: %d associations (%d new pathways, %d mismatches)\n" % (numNewAssoc,numNewPath,numMismatch))
 		
 		# process uniprot mappings (to lowest reactome pathway, not parents)
 		# http://www.reactome.org/download/mapping.README.txt
 		# <mapID>\t<reactID>\t<url>\t<pathway>\t<evidence>\t<species>
-		self.log("processing uniprot associations ...")
+		self.log("processing uniprot associations ...\n")
 		numNewPath = 0
 		numMismatch = 0
 		numNewAssoc = 0
@@ -231,7 +231,7 @@ class Source_reactome(loki_source.Source):
 				nsAssoc['uniprot_pid']['path'].add( (pathway,numAssoc,uniprotPID) )
 			#foreach line in assocFile
 		#with assocFile
-		self.log(" OK: %d associations (%d new pathways, %d mismatches)\n" % (numNewAssoc,numNewPath,numMismatch))
+		self.log("processing uniprot associations completed: %d associations (%d new pathways, %d mismatches)\n" % (numNewAssoc,numNewPath,numMismatch))
 		numPath += numNewPath
 		numAssoc += numNewAssoc
 		
@@ -241,7 +241,7 @@ class Source_reactome(loki_source.Source):
 			tally = collections.defaultdict(int)
 			# http://www.reactome.org/download/interactions.README.txt
 			# <uniprot>\t<ensembl>\t<entrez>\t<uniprot>\t<ensembl>\t<entrez>\t<reacttype>\t<reactID>["<->"<reactID>]\t<pubmedIDs>
-			self.log("processing protein interactions ...")
+			self.log("processing protein interactions ...\n")
 			numNewPath = 0
 			numNewAssoc = 0
 			iaFile = self.zfile(path+'/homo_sapiens.interactions.txt.gz') #TODO:context manager,iterator
@@ -331,7 +331,7 @@ class Source_reactome(loki_source.Source):
 					tally['%d/%d protein 2 in react 1' % (in2,of2)] += 1
 				#if reactID1
 			#foreach line in iaFile
-			self.log(" OK: %d associations (%d new pathways)\n" % (numNewAssoc,numNewPath))
+			self.log("processing protein interactions completed: %d associations (%d new pathways)\n" % (numNewAssoc,numNewPath))
 			numPath += numNewPath
 			numAssoc += numNewAssoc
 			for k,v in tally.items():
@@ -339,29 +339,29 @@ class Source_reactome(loki_source.Source):
 		#TODO
 		
 		# store pathways
-		self.log("writing pathways to the database ...")
+		self.log("writing pathways to the database ...\n")
 		listReact = list(reactPath.keys())
 		listGID = self.addTypedGroups(typeID['pathway'], ((subtypeID['-'], reactID, reactPath[reactID]) for reactID in listReact))
 		reactGID = dict(zip(listReact, listGID))
-		self.log(" OK\n")
+		self.log("writing pathways to the database completed\n")
 		
 		# store pathway names
-		self.log("writing pathway names to the database ...")
+		self.log("writing pathway names to the database ...\n")
 		self.addGroupNamespacedNames(namespaceID['reactome_id'], ((gid,reactID) for reactID,gid in reactGID.items()))
 		self.addGroupNamespacedNames(namespaceID['pathway'], ((gid,reactPath[reactID]) for reactID,gid in reactGID.items()))
-		self.log(" OK\n")
+		self.log("writing pathway names to the database completed\n")
 		
 		# store pathway relationships
-		self.log("writing pathway relationships to the database ...")
+		self.log("writing pathway relationships to the database ...\n")
 		self.addGroupParentRelationships( (reactGID[parentID],reactGID[childID],relationshipID['']) for parentID,childID in listRelationships if ((parentID in reactGID) and (childID in reactGID)) )
-		self.log(" OK\n")
+		self.log("writing pathway relationships to the database completed\n")
 		
 		# store gene associations
-		self.log("writing gene associations to the database ...")
+		self.log("writing gene associations to the database ...\n")
 		for ns in nsAssoc:
 			self.addGroupMemberTypedNamespacedNames(typeID['gene'], namespaceID[ns], ((reactGID[reactID],num,name) for reactID,num,name in nsAssoc[ns]['react']))
 			self.addGroupMemberTypedNamespacedNames(typeID['gene'], namespaceID[ns], ((reactGID[pathReact[path]],num,name) for path,num,name in nsAssoc[ns]['path']))
-		self.log(" OK\n")
+		self.log("writing gene associations to the database completed\n")
 	#update()
 	
 #Source_reactome

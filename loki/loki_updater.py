@@ -32,8 +32,8 @@ class Updater(object):
 		self._sourceOptions = dict()
 		self._filehash = dict()
 		self._updating = False
-		self._tablesUpdated = None
-		self._tablesDeindexed = None
+		self._tablesUpdated = set()
+		self._tablesDeindexed = set()
 		self.lock = Lock()
 	#__init__()
 	
@@ -86,7 +86,7 @@ class Updater(object):
 	
 	
 	def findSourceModules(self):
-		if self._sourceLoaders == None:
+		if self._sourceLoaders is None:
 			self._sourceLoaders = {}
 			loader_path = loaders.__path__
 			if self._is_test:
@@ -163,7 +163,7 @@ class Updater(object):
 			if not os.path.exists(path):
 				os.makedirs(path)
 			downloadedFiles = srcObj.download(options, path)
-			self.log("downloaded %s data ...\n" % srcName)
+			self.log("downloading %s data completed\n" % srcName)
 
 			# calculate source file metadata
 			# all timestamps are assumed to be in UTC, but if a source
@@ -180,8 +180,8 @@ class Updater(object):
 						chunk = f.read(8*1024*1024)
 				self.lock.acquire()
 				self._filehash[filename] = (filename, int(stat.st_size), int(stat.st_mtime), md5.hexdigest())
-				self.lock.release()		
-			self.log("analyzed %s data files ...\n" % srcName)
+				self.lock.release()	
+			self.log("analyzing %s data files completed\n" % srcName)
 		except:
 			self.log("failed loading %s\n" % srcName)
 			# ToDo: determine how to handle failures	
@@ -202,7 +202,7 @@ class Updater(object):
 		for srcName in srcOpts.keys():
 			if srcName not in srcSet:
 				self.log("WARNING: not updating from source '%s' for which options were supplied\n" % srcName)
-		logIndent = self.logPop("... OK\n")
+		logIndent = self.logPop("preparing for update completed\n")
 		
 		# update all specified sources
 		iwd = os.path.abspath(os.getcwd())
@@ -246,7 +246,7 @@ class Updater(object):
 
 			for srcName in downloadAndHashThreads.keys():		
 				downloadAndHashThreads[srcName].join()
-				self.log(srcName + " rejoined main thread\n")
+				#self.log(srcName + " rejoined main thread\n")
 			
 			for srcName in srcSetsToDownload:		
 				srcObj = self._sourceObjects[srcName]
@@ -296,7 +296,7 @@ class Updater(object):
 						sql = "INSERT INTO `db`.`source_file` (source_id, filename, size, modified, md5) VALUES (%d,?,?,DATETIME(?,'unixepoch'),?)" % srcID
 						cursor.executemany(sql, self._filehash.values())
 						
-						self.logPop("... OK\n")
+						self.logPop("processing %s data completed\n" % srcName)
 					#if skip
 				except:
 					srcErrors.add(srcName)
@@ -324,7 +324,7 @@ class Updater(object):
 			#   http://genome.ucsc.edu/goldenPath/releaseLog.html
 			# TODO: find a better machine-readable source for this data
 			if not cacheOnly:
-				self.log("updating GRCh:UCSChg genome build identities ...")
+				self.log("updating GRCh:UCSChg genome build identities ...\n")
 				import urllib.request as urllib2
 				import re
 				response = urllib2.urlopen('http://genome.ucsc.edu/FAQ/FAQreleases.html')
@@ -354,7 +354,7 @@ class Updater(object):
 					else:
 						rowHuman = False
 				#foreach tablerow
-				self.log(" OK\n")
+				self.log("updating GRCh:UCSChg genome build identities completed\n")
 			#if not cacheOnly
 			
 			# cross-map GRCh/UCSChg build versions for all sources
@@ -443,12 +443,11 @@ class Updater(object):
 				#self.log("MEMORY: %d bytes (%d peak)\n" % self._loki.getDatabaseMemoryUsage()) #DEBUG
 			
 			# reindex all remaining tables
-			self.log("finishing update ...")
 			if self._tablesDeindexed:
 				self._loki.createDatabaseIndices(None, 'db', self._tablesDeindexed)
 			if self._tablesUpdated:
 				self._loki.setDatabaseSetting('optimized',0)
-			self.log(" OK\n")
+			self.log("updating database completed\n")
 		except:
 			excType,excVal,excTrace = sys.exc_info()
 			while self.logPop() > logIndent:
@@ -464,8 +463,8 @@ class Updater(object):
 		finally:
 			cursor.execute("RELEASE SAVEPOINT 'updateDatabase'")
 			self._updating = False
-			self._tablesUpdated = None
-			self._tablesDeindexed = None
+			self._tablesUpdated = set()
+			self._tablesDeindexed = set()
 			os.chdir(iwd)
 		#try/except/finally
 		
@@ -818,12 +817,12 @@ FROM (
 """):
 			numMatch = row[0] or 0
 		numAmbig = numTotal - numUnrec - numMatch
-		self.log(" OK: %d identifiers (%d ambiguous, %d unrecognized)\n" % (numMatch,numAmbig,numUnrec))
+		self.log("resolving biopolymer names completed: %d identifiers (%d ambiguous, %d unrecognized)\n" % (numMatch,numAmbig,numUnrec))
 	#resolveBiopolymerNames()
 	
 	
 	def resolveSNPBiopolymerRoles(self):
-		self.log("resolving SNP roles ...")
+		self.log("resolving SNP roles ...\n")
 		dbc = self._db.cursor()
 		
 		typeID = self._loki.getTypeID('gene')
@@ -880,12 +879,12 @@ HAVING MAX(b.biopolymer_id) IS NULL
 			numTotal = row[0]
 			numSNPs = row[1]
 			numGenes = row[2]
-		self.log(" OK: %d roles (%d SNPs, %d genes; %d unrecognized)\n" % (numTotal,numSNPs,numGenes,numUnrec))
+		self.log("resolving SNP roles completed: %d roles (%d SNPs, %d genes; %d unrecognized)\n" % (numTotal,numSNPs,numGenes,numUnrec))
 	#resolveSNPBiopolymerRoles()
 	
 	
 	def resolveGroupMembers(self):
-		self.log("resolving group members ...")
+		self.log("resolving group members ...\n")
 		dbc = self._db.cursor()
 		
 		# calculate confidence scores for each possible name match
@@ -1069,7 +1068,7 @@ FROM `db`.`group_biopolymer`
 			numMatch = row[2]
 			numAmbig = row[3]
 			numUnrec = row[4]
-		self.log(" OK: %d associations (%d explicit, %d definite, %d conditional, %d unrecognized)\n" % (numTotal,numSourced,numMatch,numAmbig,numUnrec))
+		self.log("resolving group members completed: %d associations (%d explicit, %d definite, %d conditional, %d unrecognized)\n" % (numTotal,numSourced,numMatch,numAmbig,numUnrec))
 	#resolveGroupMembers()
 	
 	
@@ -1109,7 +1108,7 @@ FROM `db`.`group_biopolymer`
 		for row in dbc.execute("SELECT COUNT(), COUNT(DISTINCT biopolymer_id) FROM `db`.`biopolymer_zone`"):
 			numTotal = row[0]
 			numGenes = row[1]
-		self.log(" OK: %d records (%d regions)\n" % (numTotal,numGenes))
+		self.log("calculating zone coverage completed: %d records (%d regions)\n" % (numTotal,numGenes))
 	#updateBiopolymerZones()
 	
 	

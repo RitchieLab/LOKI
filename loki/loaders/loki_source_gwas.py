@@ -35,13 +35,13 @@ class Source_gwas(loki_source.Source):
 	
 	def update(self, options, path):
 		# clear out all old data from this source
-		self.log("deleting old records from the database ...")
+		self.log("deleting old records from the database ...\n")
 		self.deleteAll()
-		self.log(" OK\n")
+		self.log("deleting old records from the database completed\n")
 		
 		# process gwas cataog
 		# the catalog uses dbSNP positions from b132, which should already be 1-based
-		self.log("processing GWAS catalog annotations ...")
+		self.log("processing GWAS catalog annotations ...\n")
 		reRS = re.compile('rs([0-9]+)', re.I)
 		reChrPos = re.compile('(?:^|[^_])chr([0-9XYMT]+)[:_]([0-9]+)', re.I)
 		reSNP = re.compile('(?:^|[^_])(?:chr([0-9XYMT]+)[:_]([0-9]+)|rs([0-9]+))', re.I)
@@ -145,11 +145,11 @@ class Source_gwas(loki_source.Source):
 				#foreach line
 			#with gwasFile
 		#if path
-		self.log(" OK: %d entries (%d incomplete, %d invalid)\n" % (len(setGwas),numInc,numInvalid))
+		self.log("processing GWAS catalog annotations completed: %d entries (%d incomplete, %d invalid)\n" % (len(setGwas),numInc,numInvalid))
 		if setGwas:
-			self.log("writing GWAS catalog annotations to the database ...")
+			self.log("writing GWAS catalog annotations to the database ...\n")
 			self.addGWASAnnotations(setGwas)
-			self.log(" OK\n")
+			self.log("writing GWAS catalog annotations to the database completed\n")
 	#update()
 	
 #Source_gwas

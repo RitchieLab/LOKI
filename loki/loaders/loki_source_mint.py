@@ -53,9 +53,9 @@ class Source_mint(loki_source.Source):
 	
 	def update(self, options, path):
 		# clear out all old data from this source
-		self.log("deleting old records from the database ...")
+		self.log("deleting old records from the database ...\n")
 		self.deleteAll()
-		self.log(" OK\n")
+		self.log("deleting old records from the database completed\n")
 		
 		# get or create the required metadata records
 		namespaceID = self.addNamespaces([
@@ -77,7 +77,7 @@ class Source_mint(loki_source.Source):
 		])
 		
 		# process interation groups
-		self.log("processing interaction groups ...")
+		self.log("processing interaction groups ...\n")
 		mintDesc = dict()
 		nsAssoc = {
 			'symbol':      set(),
@@ -214,25 +214,25 @@ class Source_mint(loki_source.Source):
 				#foreach line in assocFile
 			#with assocFile
 		#if new/old file
-		self.log(" OK: %d groups, %d associations (%d identifiers)\n" % (len(mintDesc),numAssoc,numID))
+		self.log("processing interaction groups completed: %d groups, %d associations (%d identifiers)\n" % (len(mintDesc),numAssoc,numID))
 		
 		# store interaction groups
-		self.log("writing interaction groups to the database ...")
+		self.log("writing interaction groups to the database ...\n")
 		listMint = mintDesc.keys()
 		listGID = self.addTypedGroups(typeID['interaction'], ((subtypeID['-'], mint,mintDesc[mint]) for mint in listMint))
 		mintGID = dict(zip(listMint,listGID))
-		self.log(" OK\n")
+		self.log("writing interaction groups to the database completed\n")
 		
 		# store interaction group names
-		self.log("writing interaction group names to the database ...")
+		self.log("writing interaction group names to the database ...\n")
 		self.addGroupNamespacedNames(namespaceID['mint_id'], ((mintGID[mint],mint) for mint in listMint))
-		self.log(" OK\n")
+		self.log("writing interaction group names to the database completed\n")
 		
 		# store gene interactions
-		self.log("writing gene interactions to the database ...")
+		self.log("writing gene interactions to the database ...\n")
 		for ns in nsAssoc:
 			self.addGroupMemberTypedNamespacedNames(typeID['gene'], namespaceID[ns], ((mintGID[a[0]],a[1],a[2]) for a in nsAssoc[ns]))
-		self.log(" OK\n")
+		self.log("writing gene interactions to the database completed\n")
 	#update()
 	
 #Source_mint

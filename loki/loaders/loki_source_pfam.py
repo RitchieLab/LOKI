@@ -36,9 +36,9 @@ class Source_pfam(loki_source.Source):
 	
 	def update(self, options, path):
 		# clear out all old data from this source
-		self.log("deleting old records from the database ...")
+		self.log("deleting old records from the database ...\n")
 		self.deleteAll()
-		self.log(" OK\n")
+		self.log("deleting old records from the database completed\n")
 		
 		# get or create the required metadata records
 		namespaceID = self.addNamespaces([
@@ -58,7 +58,7 @@ class Source_pfam(loki_source.Source):
 		])
 		
 		# process protein families
-		self.log("processing protein families ...")
+		self.log("processing protein families ...\n")
 		pfamFile = self.zfile(path+'/pfamA.txt.gz') #TODO:context manager,iterator
 		groupFam = collections.defaultdict(set)
 		famAcc = {}
@@ -90,36 +90,36 @@ class Source_pfam(loki_source.Source):
 			famDesc[pfamNum] = desc
 		numGroup = len(groupFam)
 		numFam = len(famName)
-		self.log(" OK: %d categories, %d families\n" % (numGroup,numFam))
+		self.log("processing protein families completed: %d categories, %d families\n" % (numGroup,numFam))
 		
 		# store protein families
-		self.log("writing protein families to the database ...")
+		self.log("writing protein families to the database ...\n")
 		listGroup = groupFam.keys()
 		listGID = self.addTypedGroups(typeID['proteinfamily'], ((subtypeID['-'], group,"") for group in listGroup))
 		groupGID = dict(zip(listGroup,listGID))
 		listFam = famAcc.keys()
 		listGID = self.addTypedGroups(typeID['proteinfamily'], ((subtypeID['-'], famName[fam],famDesc[fam]) for fam in listFam))
 		famGID = dict(zip(listFam,listGID))
-		self.log(" OK\n")
+		self.log("writing protein families to the database completed\n")
 		
 		# store protein family names
-		self.log("writing protein family names to the database ...")
+		self.log("writing protein family names to the database ...\n")
 		self.addGroupNamespacedNames(namespaceID['pfam_id'], ((groupGID[group],group) for group in listGroup))
 		self.addGroupNamespacedNames(namespaceID['pfam_id'], ((famGID[fam],famAcc[fam]) for fam in listFam))
 		self.addGroupNamespacedNames(namespaceID['proteinfamily'], ((famGID[fam],famID[fam]) for fam in listFam))
 		self.addGroupNamespacedNames(namespaceID['proteinfamily'], ((famGID[fam],famName[fam]) for fam in listFam))
 		famName = famDesc = None
-		self.log(" OK\n")
+		self.log("writing protein family names to the database completed\n")
 		
 		# store protein family meta-group links
-		self.log("writing protein family links to the database ...")
+		self.log("writing protein family links to the database ...\n")
 		for group in groupFam:
 			self.addGroupRelationships( (famGID[fam],groupGID[group],relationshipID[''],None) for fam in groupFam[group] )
 		groupFam = None
-		self.log(" OK\n")
+		self.log("writing protein family links to the database completed\n")
 		
 		# process protein identifiers
-		self.log("processing protein identifiers ...")
+		self.log("processing protein identifiers ...\n")
 		seqFile = self.zfile(path+'/pfamseq.txt.gz') #TODO:context manager,iterator
 		proNames = dict()
 		for line in seqFile:
@@ -139,10 +139,10 @@ class Source_pfam(loki_source.Source):
 			if species == 'Homo sapiens (Human)':
 				proNames[proteinNum] = (uniprotID,uniprotAcc)
 		#foreach protein
-		self.log(" OK: %d proteins\n" % (len(proNames),))
+		self.log("processing protein identifiers completed: %d proteins\n" % (len(proNames),))
 		
 		# process associations
-		self.log("processing protein associations ...")
+		self.log("processing protein associations ...\n")
 		assocFile = self.zfile(path+'/pfamA_reg_full_significant.txt.gz') #TODO:context manager,iterator
 		setAssoc = set()
 		numAssoc = numID = 0
@@ -166,12 +166,12 @@ class Source_pfam(loki_source.Source):
 					setAssoc.add( (famGID[pfamNum],numAssoc,name) )
 			#if association is ok
 		#foreach association
-		self.log(" OK: %d associations (%d identifiers)\n" % (numAssoc,numID))
+		self.log("processing protein associations completed: %d associations (%d identifiers)\n" % (numAssoc,numID))
 		
 		# store gene associations
-		self.log("writing gene associations to the database ...")
+		self.log("writing gene associations to the database ...\n")
 		self.addGroupMemberTypedNamespacedNames(typeID['gene'], namespaceID['uniprot_pid'], setAssoc)
-		self.log(" OK\n")
+		self.log("writing gene associations to the database completed\n")
 	#update()
 	
 #Source_pfam
