@@ -4,6 +4,7 @@ import collections
 import hashlib
 import os
 import pkgutil
+import importlib
 import sys
 import traceback
 import shutil
@@ -26,7 +27,7 @@ class Updater(object):
 		self._is_test = is_test
 		self._loki = lokidb
 		self._db = lokidb._db
-		self._sourceLoaders = None
+		self._sourceLoaders = {}
 		self._sourceClasses = dict()
 		self._sourceObjects = dict()
 		self._sourceOptions = dict()
@@ -86,14 +87,14 @@ class Updater(object):
 	
 	
 	def findSourceModules(self):
-		if self._sourceLoaders is None:
+		if not self._sourceLoaders:
 			self._sourceLoaders = {}
 			loader_path = loaders.__path__
 			if self._is_test:
-				loader_path = [os.path.join(l, "test") for l in loaders.__path__]
-			for srcImporter,srcModuleName,_ in pkgutil.iter_modules(loader_path):
+				loader_path = [os.path.join(loader, "test") for loader in loaders.__path__]
+			for srcImporter,srcModuleName,_ in pkgutil.walk_packages(loader_path):
 				if srcModuleName.startswith('loki_source_'):
-					self._sourceLoaders[srcModuleName[12:]] = srcImporter.find_module(srcModuleName)
+					self._sourceLoaders[srcModuleName[12:]] = srcImporter
 	#findSourceModules()
 	
 	
@@ -112,7 +113,7 @@ class Updater(object):
 					self.log("WARNING: unknown source '%s'\n" % srcName)
 					continue
 				#if module not available
-				srcModule = self._sourceLoaders[srcName].load_module('loki_source_%s' % srcName)
+				srcModule = importlib.import_module('%s.loki_source_%s' % (loaders.__name__, srcName))
 				srcClass = getattr(srcModule, 'Source_%s' % srcName)
 				if not issubclass(srcClass, loki_source.Source):
 					self.log("WARNING: invalid module for source '%s'\n" % srcName)

@@ -23,7 +23,7 @@ class Source_oreganno(loki_source.Source):
 		Download OregAnno from UCSC
 		"""
 #		self.downloadFilesFromFTP(self._remHost, dict(((f, self._remPath + f) for f in self._remFiles)))
-		self.downloadFilesFromHTTP(path+'/'+self._remHost, dict(((f, self._remPath + f) for f in self._remFiles)))
+		self.downloadFilesFromHTTP(self._remHost, dict(((path+'/'+f, self._remPath + f) for f in self._remFiles)))
 
 		return [(path+'/'+f) for f in self._remFiles]
 		
@@ -102,7 +102,7 @@ class Source_oreganno(loki_source.Source):
 		# Now, create a dict of oreganno id->type
 		oreganno_type = {}
 		self.log("parsing region attributes ...\n")
-		attr_f = self.zfile("oregannoAttr.txt.gz")
+		attr_f = self.zfile(path+"/oregannoAttr.txt.gz")
 		for l in attr_f:
 			fields = l.split('\t')
 			if fields[1] == "type":
