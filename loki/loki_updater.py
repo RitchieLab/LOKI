@@ -247,7 +247,7 @@ class Updater(object):
 
 			for srcName in downloadAndHashThreads.keys():		
 				downloadAndHashThreads[srcName].join()
-				#self.log(srcName + " rejoined main thread\n")
+				self.log(srcName + " rejoined main thread\n")
 			
 			for srcName in srcSetsToDownload:		
 				srcObj = self._sourceObjects[srcName]

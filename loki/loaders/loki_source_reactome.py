@@ -134,7 +134,7 @@ class Source_reactome(loki_source.Source):
 			for info in geneZip.infolist():
 				# there should be only one file in the archive, but just in case..
 				if info.filename == 'ReactomePathways.gmt':
-					geneFile = geneZip.open(path+'/'+info,'r')
+					geneFile = geneZip.open(info,'r')
 					for line in geneFile:
 						words = line.decode('latin-1').rstrip().split("\t")
 						if line.decode().startswith('#') or (len(words) < 3) or (words[1] != "Reactome Pathway"):
@@ -148,7 +148,7 @@ class Source_reactome(loki_source.Source):
 							pathReact[pathway] = reactID
 							reactPath[reactID] = pathway
 						
-						for n in xrange(2, len(words)):
+						for n in range(2, len(words)):
 							numAssoc += 1
 							numNewAssoc += 1
 							nsAssoc['symbol']['path'].add( (pathway,numAssoc,words[n]) )

@@ -78,7 +78,7 @@ class Source_pharmgkb(loki_source.Source):
 			}
 			for info in geneZip.infolist():
 				if info.filename == 'genes.tsv':
-					geneFile = geneZip.open(path+'/'+info,'r')
+					geneFile = geneZip.open(info,'r')
 					header = geneFile.__next__().rstrip()
 					if header.decode().startswith("PharmGKB Accession Id	Entrez Id	Ensembl Id	Name	Symbol	Alternate Names	Alternate Symbols	Is VIP	Has Variant Annotation	Cross-references"):
 						new2 = 0

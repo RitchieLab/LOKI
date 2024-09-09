@@ -2,7 +2,6 @@
 
 import zipfile
 from loki import loki_source
-import os
 
 
 class Source_biogrid(loki_source.Source):
@@ -107,7 +106,7 @@ class Source_biogrid(loki_source.Source):
 		# store interaction groups
 		self.log("writing interaction pairs to the database ...\n")
 		listPair = pairLabels.keys()
-		listGID = self.addTypedGroups(typeID['interaction'], ((subtypeID['-'], "biogrid:%s" % min(pairLabels[pair]),None) for pair in listPair))
+		listGID = self.addTypedGroups(typeID['interaction'], ((subtypeID['-'], "biogrid:%s" % min(pairLabels[pair]), "") for pair in listPair))
 		pairGID = dict(zip(listPair,listGID))
 		self.log("writing interaction pairs to the database completed\n")
 		
