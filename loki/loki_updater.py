@@ -92,9 +92,10 @@ class Updater(object):
 			loader_path = loaders.__path__
 			if self._is_test:
 				loader_path = [os.path.join(loader, "test") for loader in loaders.__path__]
-			for srcImporter,srcModuleName,_ in pkgutil.walk_packages(loader_path):
-				if srcModuleName.startswith('loki_source_'):
-					self._sourceLoaders[srcModuleName[12:]] = srcImporter
+			for path in loader_path:
+				for srcModuleName in os.listdir(path):
+					if srcModuleName.startswith('loki_source_'):
+						self._sourceLoaders[srcModuleName[12:-3]] = 1
 	#findSourceModules()
 	
 	

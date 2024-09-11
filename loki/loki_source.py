@@ -322,7 +322,7 @@ class Source(object):
 		# snpMerges=[ (rsMerged,rsCurrent), ... ]
 		self.prepareTableForUpdate('snp_merge')
 		sql = "INSERT OR IGNORE INTO `db`.`snp_merge` (rsMerged,rsCurrent,source_id) VALUES (?,?,%d)" % (self.getSourceID(),)
-		with self._db: # type: ignore
+		with self._db:
 			self._db.cursor().executemany(sql, snpMerges)
 	#addSNPMerges()
 	

@@ -149,7 +149,7 @@ class liftOver(object):
 				# if the region overlaps the chain...
 				if start <= c[2] and end >= c[1]:
 					data = self._cached_data[chrom][c]
-					idx = bisect.bisect(data, (start, sys.maxint, sys.maxint))
+					idx = bisect.bisect(data, (start, sys.maxsize, sys.maxsize))
 					if idx:
 						idx = idx-1
 
@@ -294,7 +294,7 @@ if __name__ == "__main__":
 	from loki import loki_db
 	
 	if len(sys.argv) < 5:
-		print "usage: %s <input> <lokidb> <output> <unmap> [oldhg=19] [newhg=38]" % (sys.argv[0],)
+		print("usage: %s <input> <lokidb> <output> <unmap> [oldhg=19] [newhg=38]" % (sys.argv[0],))
 		sys.exit(2)
 	
 	db = loki_db.Database(sys.argv[2])
@@ -302,9 +302,9 @@ if __name__ == "__main__":
 	old = int(sys.argv[5]) if (len(sys.argv) > 5) else 19
 	new = int(sys.argv[6]) if (len(sys.argv) > 6) else 38
 	#lo = liftOver(db, old, new, False)
-	f = (sys.stdin  if (sys.argv[1] == '-') else file(sys.argv[1],'r'))
-	m = (sys.stdout if (sys.argv[3] == '-') else file(sys.argv[3],'w'))
-	u = (sys.stderr if (sys.argv[4] == '-') else file(sys.argv[4],'w'))
+	f = (sys.stdin  if (sys.argv[1] == '-') else open(sys.argv[1],'r'))
+	m = (sys.stdout if (sys.argv[3] == '-') else open(sys.argv[3],'w'))
+	u = (sys.stderr if (sys.argv[4] == '-') else open(sys.argv[4],'w'))
 	
 	def generateInputs(f):
 		"""
@@ -347,7 +347,7 @@ if __name__ == "__main__":
 		This function prints the error details to the stderr stream 'u'
 		in a tab-separated format.
 		"""
-		print >> u, "\t".join(str(c) for c in r)
+		print("\t".join(str(c) for c in r), end="", file=u)
 	
 	for r in db.generateLiftOverRegions(old, new, generateInputs(f), errorCallback=errorCallback):
-		print >> m, "chr%s\t%s\t%d\t%d" % (db.chr_name.get(r[1],r[1]), r[0], r[2], r[3])
+		print("chr%s\t%s\t%d\t%d" % (db.chr_name.get(r[1],r[1]), r[0], r[2], r[3]), end="", file=m)
