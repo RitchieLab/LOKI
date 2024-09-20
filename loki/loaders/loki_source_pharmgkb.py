@@ -155,11 +155,12 @@ class Source_pharmgkb(loki_source.Source):
 					# the old format had all pathways in one giant file, delimited by blank lines
 					pathFile = pathZip.open(path+'/'+info,'r')
 					curPath = None
+					lastline = ""
 					for line in pathFile:
 						line = line.decode('latin-1').rstrip("\r\n")
 						if line == "" and lastline == "":
 							curPath = None
-						elif curPath == None:
+						elif curPath is None:
 							words = line.split(':',1)
 							if len(words) >= 2:
 								curPath = words[0].strip()
@@ -168,7 +169,7 @@ class Source_pharmgkb(loki_source.Source):
 								#line.decode('latin-1') should handle this above
 								#pathDesc[curPath] = (unicode(desc[0].strip(),errors='ignore'),unicode(desc[1].strip(),errors='ignore'))
 								pathDesc[curPath] = (desc[0].strip().replace("`", "'"),desc[1].strip().replace("`", "'"))
-						elif curPath == False:
+						elif curPath is False:
 							pass
 						else:
 							words = line.split("\t")

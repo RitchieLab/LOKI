@@ -63,12 +63,11 @@ class Source_entrez(loki_source.Source):
 			path+'/gene2unigene':                    '/gene/DATA/ARCHIVE/gene2unigene',
 			path+'/gene_refseq_uniprotkb_collab.gz': '/gene/DATA/gene_refseq_uniprotkb_collab.gz',
 		})
-		self.downloadFilesFromHTTP('ftp.uniprot.org', {
+		self.downloadFilesFromHTTP('ftp.ebi.ac.uk', {
 			path+'/HUMAN_9606_idmapping_selected.tab.gz': '/pub/databases/uniprot/current_release/knowledgebase/idmapping/by_organism/HUMAN_9606_idmapping_selected.tab.gz',
 		})
 
-		return 
-		[
+		return [
 			path+'/Homo_sapiens.gene_info.gz',
 			path+'/gene2refseq.gz',     
 			path+'/gene_history.gz',               
