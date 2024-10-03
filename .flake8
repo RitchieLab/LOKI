@@ -7,3 +7,5 @@ ignore =
     ; W503,  # line break before binary operator
     ; W191,  # indentation contains tabs
     ; E101,  # indentation contains mixed spaces and tabs
+
+    ; be more restrictive after the refactor code
