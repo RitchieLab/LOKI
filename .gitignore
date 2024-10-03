@@ -1,1 +1,7 @@
 **/*.pyc
+.pytest_cache/
+.python-version
+venv
+build
+dist
+LOKI.egg-info
