@@ -1,5 +1,17 @@
 {
+    "version": "0.2.0",
     "configurations": [
+        {
+            "name": "Debug Pytest",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/tests",  // Caminho para seus arquivos de teste
+            "console": "integratedTerminal",
+            "justMyCode": true,  // Define como false se você quiser depurar bibliotecas externas
+            "args": [
+                "-m", "pytest"
+            ]
+        },
         {
             "name": "Docker: Python - General",
             "type": "docker",

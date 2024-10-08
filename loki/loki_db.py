@@ -37,7 +37,7 @@ class Database(object):
         """
         # tuple = (major,minor,revision,dev,build,date)
         # dev must be in ('a','b','rc','release') for lexicographic comparison
-        return (2, 2, 5, "release", "", "2019-03-15")
+        return (2, 2, 5, "release", "", "2019-03-15") # NOTE: (ANDRE) WHAT IS THIS VERSION?
 
     # getVersionTuple()
 
@@ -53,8 +53,9 @@ class Database(object):
         # tuple = (major,minor,revision,dev,build,date)
         # dev must be > 'rc' for releases for lexicographic comparison,
         # but we don't need to actually print 'release' in the version string
-        v[3] = "" if v[3] > "rc" else v[3]
-        return "%d.%d.%d%s%s (%s)" % tuple(v)
+        # v[3] = "" if v[3] > "rc" else v[3] # FIXED: (ANDRE) LITERAL ERROR
+        v[3] = "" if isinstance(v[3], str) and v[3] > "rc" else v[3]
+        return "%d.%d.%d%s%s (%s)" % tuple(v)  # NOTE: (ANDRE) WHAT IS THIS VERSION?
 
     # getVersionString()
 
@@ -1074,7 +1075,7 @@ class Database(object):
 
         The function creates the specified tables and optionally creates indices for them.
         """
-        return self.createDatabaseObjects(
+        return self.createDatabsaseObjects(
             schema, dbName, tblList, True, None, doIndecies
         )
 
