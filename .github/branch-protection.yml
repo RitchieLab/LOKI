@@ -1,0 +1,28 @@
+name: Branch Protection Rules
+
+on:
+  push:
+    branches:
+      - master
+      - development
+  pull_request:
+    branches:
+      - master
+      - development
+
+jobs:
+  branch_protection:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Enforce branch protection on master and development
+        run: |
+          echo "Checking branch protection rules for master and development"
+          BRANCH_NAME=$(echo $GITHUB_REF | sed 's|refs/heads/||')
+
+          if [ "$BRANCH_NAME" == "master" ] || [ "$BRANCH_NAME" == "development" ]; then
+            echo "Merges to the $BRANCH_NAME branch are restricted."
+            exit 1
+          else
+            echo "Branch $BRANCH_NAME is allowed."
+          fi
