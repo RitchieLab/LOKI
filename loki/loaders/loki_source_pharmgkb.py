@@ -13,24 +13,19 @@ class Source_pharmgkb(loki_source.Source):
 	#getVersionString()
 	
 	
-	def download(self, options, path):
+	def download(self, options):
 		self.downloadFilesFromHTTPS('api.pharmgkb.org', {
-			path+'/genes.zip':        '/v1/download/file/data/genes.zip',
-			path+'/pathways-tsv.zip': '/v1/download/file/data/pathways-tsv.zip',
+			'genes.zip':        '/v1/download/file/data/genes.zip',
+			'pathways-tsv.zip': '/v1/download/file/data/pathways-tsv.zip',
 		})
-
-		return [
-			path+'/genes.zip',
-			path+'/pathways-tsv.zip'
-		]
 	#download()
 	
 	
-	def update(self, options, path):
+	def update(self, options):
 		# clear out all old data from this source
-		self.log("deleting old records from the database ...\n")
+		self.log("deleting old records from the database ...")
 		self.deleteAll()
-		self.log("deleting old records from the database completed\n")
+		self.log(" OK\n")
 		
 		# get or create the required metadata records
 		namespaceID = self.addNamespaces([
@@ -51,22 +46,19 @@ class Source_pharmgkb(loki_source.Source):
 			('gene',),
 			('pathway',),
 		])
-		subtypeID = self.addSubtypes([
-			('-',),
-		])
 		
 		# process gene names
-		self.log("verifying gene name archive file ...\n")
+		self.log("verifying gene name archive file ...")
 		setNames = set()
 		empty = tuple()
-		with zipfile.ZipFile(path+'/genes.zip','r') as geneZip:
+		with zipfile.ZipFile('genes.zip','r') as geneZip:
 			err = geneZip.testzip()
 			if err:
 				self.log(" ERROR\n")
 				self.log("CRC failed for %s\n" % err)
 				return False
-			self.log("verifying gene name archive file completed\n")
-			self.log("processing gene names ...\n")
+			self.log(" OK\n")
+			self.log("processing gene names ...")
 			xrefNS = {
 				'entrezGene':    ('entrez_gid',),
 				'refSeqDna':     ('refseq_gid',),
@@ -126,41 +118,40 @@ class Source_pharmgkb(loki_source.Source):
 			#foreach file in geneZip
 		#with geneZip
 		numIDs = len(set(n[2] for n in setNames))
-		self.log("processing gene names completed: %d identifiers (%d references)\n" % (numIDs,len(setNames)))
+		self.log(" OK: %d identifiers (%d references)\n" % (numIDs,len(setNames)))
 		
 		# store gene names
-		self.log("writing gene names to the database ...\n")
+		self.log("writing gene names to the database ...")
 		self.addBiopolymerTypedNameNamespacedNames(typeID['gene'], namespaceID['pharmgkb_gid'], setNames)
-		self.log("writing gene names to the database completed\n")
+		self.log(" OK\n")
 		setNames = None
 		
 		# process pathways
-		self.log("verifying pathway archive file ...\n")
+		self.log("verifying pathway archive file ...")
 		pathDesc = {}
 		nsAssoc = {
 			'pharmgkb_gid': set(),
 			'symbol':       set(),
 		}
 		numAssoc = numID = 0
-		with zipfile.ZipFile(path+'/pathways-tsv.zip','r') as pathZip:
+		with zipfile.ZipFile('pathways-tsv.zip','r') as pathZip:
 			err = pathZip.testzip()
 			if err:
 				self.log(" ERROR\n")
 				self.log("CRC failed for %s\n" % err)
 				return False
-			self.log("verifying pathway archive file completed\n")
-			self.log("processing pathways ...\n")
+			self.log(" OK\n")
+			self.log("processing pathways ...")
 			for info in pathZip.infolist():
 				if info.filename == 'pathways.tsv':
 					# the old format had all pathways in one giant file, delimited by blank lines
-					pathFile = pathZip.open(path+'/'+info,'r')
+					pathFile = pathZip.open(info,'r')
 					curPath = None
-					lastline = ""
 					for line in pathFile:
 						line = line.decode('latin-1').rstrip("\r\n")
 						if line == "" and lastline == "":
 							curPath = None
-						elif curPath is None:
+						elif curPath == None:
 							words = line.split(':',1)
 							if len(words) >= 2:
 								curPath = words[0].strip()
@@ -169,7 +160,7 @@ class Source_pharmgkb(loki_source.Source):
 								#line.decode('latin-1') should handle this above
 								#pathDesc[curPath] = (unicode(desc[0].strip(),errors='ignore'),unicode(desc[1].strip(),errors='ignore'))
 								pathDesc[curPath] = (desc[0].strip().replace("`", "'"),desc[1].strip().replace("`", "'"))
-						elif curPath is False:
+						elif curPath == False:
 							pass
 						else:
 							words = line.split("\t")
@@ -200,7 +191,7 @@ class Source_pharmgkb(loki_source.Source):
 					parts = info.filename.split('-')
 					curPath = parts[0]
 					parts = parts[1].split('.')
-					pathDesc[curPath] = (subtypeID['-'], parts[0].replace("_"," "),None)
+					pathDesc[curPath] = (parts[0].replace("_"," "),None)
 					for line in pathFile:
 						for symbol in line.decode('latin-1').split("\t")[7].split(","):
 							numAssoc += 1
@@ -211,26 +202,26 @@ class Source_pharmgkb(loki_source.Source):
 				#if pathways.tsv
 			#foreach file in pathZip
 		#with pathZip
-		self.log("processing pathways completed: %d pathways, %d associations (%d identifiers)\n" % (len(pathDesc),numAssoc,numID))
+		self.log(" OK: %d pathways, %d associations (%d identifiers)\n" % (len(pathDesc),numAssoc,numID))
 		
 		# store pathways
-		self.log("writing pathways to the database ...\n")
+		self.log("writing pathways to the database ...")
 		listPath = pathDesc.keys()
 		listGID = self.addTypedGroups(typeID['pathway'], (pathDesc[path] for path in listPath))
 		pathGID = dict(zip(listPath,listGID))
-		self.log("writing pathways to the database completed\n")
+		self.log(" OK\n")
 		
 		# store pathway names
-		self.log("writing pathway names to the database ...\n")
+		self.log("writing pathway names to the database ...")
 		self.addGroupNamespacedNames(namespaceID['pharmgkb_id'], ((pathGID[path],path) for path in listPath))
 		self.addGroupNamespacedNames(namespaceID['pathway'], ((pathGID[path],pathDesc[path][0]) for path in listPath))
-		self.log("writing pathway names to the database completed\n")
+		self.log(" OK\n")
 		
 		# store gene associations
-		self.log("writing gene associations to the database ...\n")
+		self.log("writing gene associations to the database ...")
 		for ns in nsAssoc:
 			self.addGroupMemberTypedNamespacedNames(typeID['gene'], namespaceID[ns], ((pathGID[a[0]],a[1],a[2]) for a in nsAssoc[ns]) )
-		self.log("writing gene associations to the database completed\n")
+		self.log(" OK\n")
 		
 		#TODO: eventually add diseases, drugs, relationships
 		

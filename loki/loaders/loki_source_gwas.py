@@ -18,38 +18,34 @@ class Source_gwas(loki_source.Source):
 	#getVersionString()
 	
 	
-	def download(self, options, path):
+	def download(self, options):
 		# download the latest source files
 	#	self.downloadFilesFromHTTP('www.genome.gov', {
 	#		'gwascatalog.txt': '/admin/gwascatalog.txt',
 	#	})
 		self.downloadFilesFromHTTP('www.ebi.ac.uk', {
-			path+'/gwas_catalog_v1.0-associations.tsv' : '/gwas/api/search/downloads/full'
+			'gwas_catalog_v1.0-associations.tsv' : '/gwas/api/search/downloads/full'
 		}, alwaysDownload=True)
-
-		return [
-			path+'/gwas_catalog_v1.0-associations.tsv'
-		]
 	#download()
 	
 	
-	def update(self, options, path):
+	def update(self, options):
 		# clear out all old data from this source
-		self.log("deleting old records from the database ...\n")
+		self.log("deleting old records from the database ...")
 		self.deleteAll()
-		self.log("deleting old records from the database completed\n")
+		self.log(" OK\n")
 		
 		# process gwas cataog
 		# the catalog uses dbSNP positions from b132, which should already be 1-based
-		self.log("processing GWAS catalog annotations ...\n")
+		self.log("processing GWAS catalog annotations ...")
 		reRS = re.compile('rs([0-9]+)', re.I)
 		reChrPos = re.compile('(?:^|[^_])chr([0-9XYMT]+)[:_]([0-9]+)', re.I)
 		reSNP = re.compile('(?:^|[^_])(?:chr([0-9XYMT]+)[:_]([0-9]+)|rs([0-9]+))', re.I)
 		listNone = [None]
 		numInc = numInvalid = 0
 		setGwas = set()
-		if os.path.exists(path+'/gwas_catalog_v1.0-associations.tsv'):
-			with open(path+'/gwas_catalog_v1.0-associations.tsv','r') as gwasFile:
+		if os.path.exists('gwas_catalog_v1.0-associations.tsv'):
+			with open('gwas_catalog_v1.0-associations.tsv','rU') as gwasFile:
 				header = next(gwasFile).rstrip()
 				cols = list(w.strip() for w in header.split("\t"))
 				try:
@@ -114,7 +110,7 @@ class Source_gwas(loki_source.Source):
 				#foreach line
 			#with gwasFile
 		else:
-			with open(path+'/gwascatalog.txt','r') as gwasFile:
+			with open('gwascatalog.txt','rU') as gwasFile:
 				header = next(gwasFile).rstrip()
 				if header.startswith("Date Added to Catalog\tPUBMEDID\tFirst Author\tDate\tJournal\tLink\tStudy\tDisease/Trait\tInitial Sample Size\tReplication Sample Size\tRegion\tChr_id\tChr_pos\tReported Gene(s)\tMapped_gene\tUpstream_gene_id\tDownstream_gene_id\tSnp_gene_ids\tUpstream_gene_distance\tDownstream_gene_distance\tStrongest SNP-Risk Allele\tSNPs\tMerged\tSnp_id_current\tContext\tIntergenic\tRisk Allele Frequency\tp-Value\tPvalue_mlog\tp-Value (text)\tOR or beta\t95% CI (text)\t"): # "Platform [SNPs passing QC]\tCNV"
 					pass
@@ -145,11 +141,11 @@ class Source_gwas(loki_source.Source):
 				#foreach line
 			#with gwasFile
 		#if path
-		self.log("processing GWAS catalog annotations completed: %d entries (%d incomplete, %d invalid)\n" % (len(setGwas),numInc,numInvalid))
+		self.log(" OK: %d entries (%d incomplete, %d invalid)\n" % (len(setGwas),numInc,numInvalid))
 		if setGwas:
-			self.log("writing GWAS catalog annotations to the database ...\n")
+			self.log("writing GWAS catalog annotations to the database ...")
 			self.addGWASAnnotations(setGwas)
-			self.log("writing GWAS catalog annotations to the database completed\n")
+			self.log(" OK\n")
 	#update()
 	
 #Source_gwas

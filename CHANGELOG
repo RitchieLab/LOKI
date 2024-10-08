@@ -1,11 +1,5 @@
 CHANGELOG
 
-3.0.0
-- added disease category for groups
-- added sub-categories for groups
-- added data source like disgenet, gaad, and kegg disease
-- updated functions according to new changes
-
 2.4.3 (2022-10-01)
 - fixed an issue in downloading datasets from multiple sites
 - updated from Python2 to Python3 

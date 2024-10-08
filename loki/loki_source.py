@@ -3,10 +3,11 @@
 import apsw
 import datetime
 import ftplib
+import itertools
 import os
 import sys
 import time
-import urllib.parse
+import urllib
 import urllib.request as urllib2
 import zlib
 import wget
@@ -45,13 +46,13 @@ class Source(object):
 		if len(rev) > 2:
 			version = 'r%s' % rev[1:2]
 		else:
-			stat = stat or os.stat(sys.modules[cls.__module__].__file__) # type: ignore
+			stat = stat or os.stat(sys.modules[cls.__module__].__file__)
 			version = '%s' % (stat.st_size,)
 		
 		if len(date) > 3:
 			version += ' (%s %s)' % date[1:3]
 		else:
-			stat = stat or os.stat(sys.modules[cls.__module__].__file__) # type: ignore
+			stat = stat or os.stat(sys.modules[cls.__module__].__file__)
 			version += datetime.datetime.utcfromtimestamp(stat.st_mtime).strftime(' (%Y-%m-%d)' if (len(rev) > 2) else ' (%Y-%m-%d %H:%M:%S)')
 		
 		return version
@@ -143,13 +144,13 @@ class Source(object):
 		ret = {}
 		# use ABORT to avoid wasting autoincrements on existing rows,
 		# and execute() to avoid bailing out of executemany() due to ABORT
-		for ld in ldprofiles:
+		for l in ldprofiles:
 			try:
-				dbc.execute("INSERT OR ABORT INTO `db`.`ldprofile` (ldprofile,description,metric,value) VALUES (LOWER(?),?,LOWER(?),?); SELECT LAST_INSERT_ROWID()", ld)
+				dbc.execute("INSERT OR ABORT INTO `db`.`ldprofile` (ldprofile,description,metric,value) VALUES (LOWER(?),?,LOWER(?),?); SELECT LAST_INSERT_ROWID()", l)
 			except apsw.ConstraintError:
-				dbc.execute("SELECT ldprofile_id FROM `db`.`ldprofile` WHERE ldprofile = LOWER(?)", ld[0:1])
+				dbc.execute("SELECT ldprofile_id FROM `db`.`ldprofile` WHERE ldprofile = LOWER(?)", l[0:1])
 			for row in dbc:
-				ret[ld[0]] = row[0]
+				ret[l[0]] = row[0]
 		return ret
 	#addLDProfiles()
 	
@@ -262,22 +263,6 @@ class Source(object):
 				ret[t[0]] = row[0]
 		return ret
 	#addTypes()
-
-	def addSubtypes(self, subtypes):
-		# types=[ (type,), ... ]
-		dbc = self._db.cursor()
-		ret = {}
-		# use ABORT to avoid wasting autoincrements on existing rows,
-		# and execute() to avoid bailing out of executemany() due to ABORT
-		for t in subtypes:
-			try:
-				dbc.execute("INSERT OR ABORT INTO `db`.`subtype` (subtype) VALUES (LOWER(?)); SELECT LAST_INSERT_ROWID()", t)
-			except apsw.ConstraintError:
-				dbc.execute("SELECT subtype_id FROM `db`.`subtype` WHERE subtype = LOWER(?)", t[0:1])
-			for row in dbc:
-				ret[t[0]] = row[0]
-		return ret
-	#addTypes()
 	
 	
 	def deleteAll(self):
@@ -331,17 +316,17 @@ class Source(object):
 		# snpLoci=[ (rs,chr,pos,validated), ... ]
 		self.prepareTableForUpdate('snp_locus')
 		sql = "INSERT OR IGNORE INTO `db`.`snp_locus` (rs,chr,pos,validated,source_id) VALUES (?,?,?,?,%d)" % (self.getSourceID(),)
-		with self._db: # type: ignore
+		with self._db:
 			self._db.cursor().executemany(sql, snpLoci)
 	#addSNPLoci()
 	
 	
 	def addChromosomeSNPLoci(self, chromosome, snpLoci):
 		# snpLoci=[ (rs,pos,validated), ... ]
-		# self.prepareTableForUpdate('snp_locus')
+		self.prepareTableForUpdate('snp_locus')
 		sql = "INSERT OR IGNORE INTO `db`.`snp_locus` (rs,chr,pos,validated,source_id) VALUES (?,%d,?,?,%d)" % (chromosome,self.getSourceID(),)
-		# with self._db:
-		self._db.cursor().executemany(sql, snpLoci)
+		with self._db:
+			self._db.cursor().executemany(sql, snpLoci)
 	#addChromosomeSNPLoci()
 	
 	
@@ -349,7 +334,7 @@ class Source(object):
 		# snpRoles=[ (rs,entrez_id,role_id), ... ]
 		self.prepareTableForUpdate('snp_entrez_role')
 		sql = "INSERT OR IGNORE INTO `db`.`snp_entrez_role` (rs,entrez_id,role_id,source_id) VALUES (?,?,?,%d)" % (self.getSourceID(),)
-		with self._db: # type: ignore
+		with self._db:
 			self._db.cursor().executemany(sql, snpRoles)
 	#addSNPEntrezRoles()
 	
@@ -368,7 +353,7 @@ class Source(object):
 	
 	def addTypedBiopolymers(self, typeID, biopolymers):
 		# biopolymers=[ (label,description), ... ]
-		#self.prepareTableForUpdate('biopolymer')
+		self.prepareTableForUpdate('biopolymer')
 		sql = "INSERT INTO `db`.`biopolymer` (type_id,label,description,source_id) VALUES (%d,?,?,%d); SELECT last_insert_rowid()" % (typeID,self.getSourceID(),)
 		return [ row[0] for row in self._db.cursor().executemany(sql, biopolymers) ]
 	#addTypedBiopolymers()
@@ -384,7 +369,7 @@ class Source(object):
 	
 	def addBiopolymerNamespacedNames(self, namespaceID, biopolymerNames):
 		# biopolymerNames=[ (biopolymer_id,name), ... ]
-		#self.prepareTableForUpdate('biopolymer_name')
+		self.prepareTableForUpdate('biopolymer_name')
 		sql = "INSERT OR IGNORE INTO `db`.`biopolymer_name` (biopolymer_id,namespace_id,name,source_id) VALUES (?,%d,?,%d)" % (namespaceID,self.getSourceID(),)
 		self._db.cursor().executemany(sql, biopolymerNames)
 	#addBiopolymerNamespacedNames()
@@ -416,7 +401,7 @@ class Source(object):
 	
 	def addBiopolymerLDProfileRegions(self, ldprofileID, biopolymerRegions):
 		# biopolymerRegions=[ (biopolymer_id,chr,posMin,posMax), ... ]
-		#self.prepareTableForUpdate('biopolymer_region')
+		self.prepareTableForUpdate('biopolymer_region')
 		sql = "INSERT OR IGNORE INTO `db`.`biopolymer_region` (biopolymer_id,ldprofile_id,chr,posMin,posMax,source_id) VALUES (?,%d,?,?,?,%d)" % (ldprofileID,self.getSourceID(),)
 		self._db.cursor().executemany(sql, biopolymerRegions)
 	#addBiopolymerLDProfileRegions()
@@ -427,17 +412,17 @@ class Source(object):
 	
 	
 	def addGroups(self, groups):
-		# groups=[ (type_id,subtype_id,label,description), ... ]
+		# groups=[ (type_id,label,description), ... ]
 		self.prepareTableForUpdate('group')
-		sql = "INSERT INTO `db`.`group` (type_id,subtype_id,label,description,source_id) VALUES (?,?,?,?,%d); SELECT last_insert_rowid()" % (self.getSourceID(),)
+		sql = "INSERT INTO `db`.`group` (type_id,label,description,source_id) VALUES (?,?,?,%d); SELECT last_insert_rowid()" % (self.getSourceID(),)
 		return [ row[0] for row in self._db.cursor().executemany(sql, groups) ]
 	#addGroups()
 	
 	
 	def addTypedGroups(self, typeID, groups):
-		# groups=[ (subtype,label,description), ... ]
-		#self.prepareTableForUpdate('group')
-		sql = "INSERT INTO `db`.`group` (type_id,subtype_id,label,description,source_id) VALUES (%d,?,?,?,%d); SELECT last_insert_rowid()" % (typeID,self.getSourceID(),)
+		# groups=[ (label,description), ... ]
+		self.prepareTableForUpdate('group')
+		sql = "INSERT INTO `db`.`group` (type_id,label,description,source_id) VALUES (%d,?,?,%d); SELECT last_insert_rowid()" % (typeID,self.getSourceID(),)
 		return [ row[0] for row in self._db.cursor().executemany(sql, groups) ]
 	#addTypedGroups()
 	
@@ -452,7 +437,7 @@ class Source(object):
 	
 	def addGroupNamespacedNames(self, namespaceID, groupNames):
 		# groupNames=[ (group_id,name), ... ]
-		#self.prepareTableForUpdate('group_name')
+		self.prepareTableForUpdate('group_name')
 		sql = "INSERT OR IGNORE INTO `db`.`group_name` (group_id,namespace_id,name,source_id) VALUES (?,%d,?,%d)" % (namespaceID,self.getSourceID(),)
 		self._db.cursor().executemany(sql, groupNames)
 	#addGroupNamespacedNames()
@@ -460,14 +445,14 @@ class Source(object):
 	
 	def addGroupRelationships(self, groupRels):
 		# groupRels=[ (group_id,related_group_id,relationship_id,contains), ... ]
-		#self.prepareTableForUpdate('group_group')
+		self.prepareTableForUpdate('group_group')
 		# we SHOULD be able to do (?1,?2,?3) and (?2,?1,?3) with the same 3 bindings for each execution,
 		# but apsw or SQLite appears to treat the compound statement separately, so we have to copy the bindings
 		sql = "INSERT OR IGNORE INTO `db`.`group_group` (group_id,related_group_id,relationship_id,direction,contains,source_id)"
 		sql += " VALUES (?1,?2,?3,1,(CASE WHEN ?4 IS NULL THEN NULL WHEN ?4 > 0 THEN 1 WHEN ?4 < 0 THEN -1 ELSE 0 END),%d)" % (self.getSourceID(),)
 		sql += ";INSERT OR IGNORE INTO `db`.`group_group` (group_id,related_group_id,relationship_id,direction,contains,source_id)"
 		sql += " VALUES (?2,?1,?3,-1,(CASE WHEN ?4 IS NULL THEN NULL WHEN ?4 > 0 THEN -1 WHEN ?4 < 0 THEN 1 ELSE 0 END),%d)" % (self.getSourceID(),)
-		self._db.cursor().executemany(sql, (2*gr for gr in groupRels)) # type: ignore
+		self._db.cursor().executemany(sql, (2*gr for gr in groupRels))
 	#addGroupRelationships()
 	
 	
@@ -478,7 +463,7 @@ class Source(object):
 		sql += " VALUES (?1,?2,?3,1,1,%d)" % (self.getSourceID(),)
 		sql += ";INSERT OR IGNORE INTO `db`.`group_group` (group_id,related_group_id,relationship_id,direction,contains,source_id)"
 		sql += " VALUES (?2,?1,?3,-1,-1,%d)" % (self.getSourceID(),)
-		self._db.cursor().executemany(sql, (2*gr for gr in groupRels)) # type: ignore
+		self._db.cursor().executemany(sql, (2*gr for gr in groupRels))
 	#addGroupParentRelationships()
 	
 	
@@ -489,7 +474,7 @@ class Source(object):
 		sql += " VALUES (?1,?2,?3,1,-1,%d)" % (self.getSourceID(),)
 		sql += ";INSERT OR IGNORE INTO `db`.`group_group` (group_id,related_group_id,relationship_id,direction,contains,source_id)"
 		sql += " VALUES (?2,?1,?3,-1,1,%d)" % (self.getSourceID(),)
-		self._db.cursor().executemany(sql, (2*gr for gr in groupRels)) # type: ignore
+		self._db.cursor().executemany(sql, (2*gr for gr in groupRels))
 	#addGroupChildRelationships()
 	
 	
@@ -500,13 +485,13 @@ class Source(object):
 		sql += " VALUES (?1,?2,?3,1,0,%d)" % (self.getSourceID(),)
 		sql += ";INSERT OR IGNORE INTO `db`.`group_group` (group_id,related_group_id,relationship_id,direction,contains,source_id)"
 		sql += " VALUES (?2,?1,?3,-1,0,%d)" % (self.getSourceID(),)
-		self._db.cursor().executemany(sql, (2*gr for gr in groupRels)) # type: ignore
+		self._db.cursor().executemany(sql, (2*gr for gr in groupRels))
 	#addGroupSiblingRelationships()
 	
 	
 	def addGroupBiopolymers(self, groupBiopolymers):
 		# groupBiopolymers=[ (group_id,biopolymer_id), ... ]
-		#self.prepareTableForUpdate('group_biopolymer')
+		self.prepareTableForUpdate('group_biopolymer')
 		sql = "INSERT OR IGNORE INTO `db`.`group_biopolymer` (group_id,biopolymer_id,specificity,implication,quality,source_id) VALUES (?,?,100,100,100,%d)" % (self.getSourceID(),)
 		self._db.cursor().executemany(sql, groupBiopolymers)
 	#addGroupBiopolymers()
@@ -805,18 +790,18 @@ class Source(object):
 				remTime[remFn] = time
 
 		# check remote file sizes and times
-		#self.log("identifying changed files ...\n")
+		self.log("identifying changed files ...")
 		for remDir in remDirs:
 			ftp.dir(remDir, lambda x: ftpDirCB(remDir, x))
-		#self.log("identifying changed files completed\n")
+		self.log(" OK\n")
 		
 		# download files as needed
-		#self.logPush("downloading changed files ...\n")
+		self.logPush("downloading changed files ...\n")
 		for locPath in sorted(remFiles.keys()):
 			if remSize[remFiles[locPath]] == locSize[locPath] and remTime[remFiles[locPath]] <= locTime[locPath]:
-				self.log("%s: up to date\n" % locPath.split('/')[-1])
+				self.log("%s: up to date\n" % locPath)
 			else:
-				self.log("%s: downloading ...\n" % locPath.split('/')[-1])
+				self.log("%s: downloading ...\n" % locPath)
 				#TODO: download to temp file, then rename?
 				with open(locPath, 'wb') as locFile:
 					#ftp.cwd(remFiles[locPath][0:remFiles[locPath].rfind('/')])
@@ -824,7 +809,7 @@ class Source(object):
 
 				#TODO: verify file size and retry a few times if necessary
 
-				self.log("%s: downloaded\n" % locPath.split('/')[-1])
+				self.log("... OK\n")
 
 			modTime = time.mktime(remTime[remFiles[locPath]].utctimetuple())
 			os.utime(locPath, (modTime,modTime))
@@ -835,7 +820,7 @@ class Source(object):
 		except Exception:
 			ftp.close()
 
-		#self.logPop("downloading changed files completed\n")
+		self.logPop("... OK\n")
 	#downloadFilesFromFTP()
 	
 	
@@ -847,9 +832,9 @@ class Source(object):
 		#NoRedirection
 		opener = urllib2.build_opener(NoRedirection)
 		
-		if reqData and reqData is not str:
-			reqData = urllib.parse.urlencode(reqData, True)
-		request = urllib2.Request(url='http://'+remHost+remURL, data=reqData, headers=(reqHeaders or {})) # type: ignore
+		if reqData and (type(reqData) != str):
+			reqData = urllib.urlencode(reqData, True)
+		request = urllib2.Request(url='http://'+remHost+remURL, data=reqData, headers=(reqHeaders or {}))
 		if not reqData:
 			request.get_method = lambda: 'HEAD'
 		response = opener.open(request)
@@ -889,7 +874,7 @@ class Source(object):
 				locTime[locPath] = datetime.datetime.fromtimestamp(stat.st_mtime)
 		# check remote file sizes and times
 		if not alwaysDownload:
-			#self.log("identifying changed files ...\n")
+			self.log("identifying changed files ...")
 			for locPath in remFiles:
 				request = urllib2.Request(remProtocol+'://'+remHost+remFiles[locPath])
 				request.get_method = lambda: 'HEAD'
@@ -911,16 +896,16 @@ class Source(object):
 						remTime[locPath] = datetime.datetime.utcnow()
 				
 				response.close()
-			#self.log("identifying changed files completed\n")
+			self.log(" OK\n")
 		#if not alwaysDownload
 		
 		# download files as needed
-		#self.logPush("downloading changed files ...\n")
+		self.logPush("downloading changed files ...\n")
 		for locPath in sorted(remFiles.keys()):
 			if remSize[locPath] and remSize[locPath] == locSize[locPath] and remTime[locPath] and remTime[locPath] <= locTime[locPath]:
-				self.log("%s: up to date\n" % locPath.split('/')[-1])
+				self.log("%s: up to date\n" % locPath)
 			else:
-				self.log("%s: downloading ...\n" % locPath.split('/')[-1])
+				self.log("%s: downloading ..." % locPath)
 				#TODO: download to temp file, then rename?
 				if remProtocol == 'https':
 					with open(locPath, 'wb') as locFile:
@@ -935,18 +920,18 @@ class Source(object):
 								break
 							locFile.write(data)
 						response.close()
-					self.log("%s: downloaded\n" % locPath.split('/')[-1])
-					continue
-				
+					self.log(" OK\n")
+					continue;
+
 				link = remProtocol + '://'  + remHost + remFiles[locPath]
-				wget.download(link, bar=None)
+				wget.download(link)
 				os.rename(remFiles[locPath].rsplit('/')[-1],locPath)
 
-				self.log("%s: downloaded\n" % locPath.split('/')[-1])
+				self.log(" OK\n")
 			if remTime[locPath]:
 				modTime = time.mktime(remTime[locPath].utctimetuple())
 				os.utime(locPath, (modTime,modTime))
-		#self.logPop("downloading changed files completed\n")
+		self.logPop("... OK\n")
 	#_downloadHTTP()
 	
 	

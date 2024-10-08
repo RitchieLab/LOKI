@@ -8,7 +8,7 @@ class Source_genes(loki_source.Source):
 	
 	@classmethod
 	def getVersionString(cls):
-		return '3.0 (2023-02-22)'
+		return '2.0 (2013-02-14)'
 	#getVersionString()
 	
 	
@@ -61,7 +61,7 @@ class Source_genes(loki_source.Source):
 		
 		# define gene aliases
 		self.log("adding gene identifiers to the database ...")
-		genEName = ((bid,ord(g)-64) for g,bid in geneBID.items()) # A->1, B->2, ... S->19 ... Z->26
+		genEName = ((bid,ord(g)-64) for g,bid in geneBID.iteritems()) # A->1, B->2, ... S->19 ... Z->26
 		self.addBiopolymerNamespacedNames(namespaceID['entrez_gid'], genEName)
 		listGName = [
 			#(biopolymer_id,name)

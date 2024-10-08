@@ -19,7 +19,7 @@ class Source_chainfiles(loki_source.Source):
 	
 	
 #	_reDir = re.compile('^hg[0-9]+$', re.IGNORECASE)
-	_reFile = re.compile(r'^hg([0-9]+)tohg([0-9]+)\.over\.chain\.gz$', re.IGNORECASE)
+	_reFile = re.compile('^hg([0-9]+)tohg([0-9]+)\.over\.chain\.gz$', re.IGNORECASE)
 	_reFileName = r'hg([0-9]+)ToHg([0-9]+)\.over\.chain\.gz'
 
 	_reNum = ('4', '10', '11', '12', '13', '15', '16', '17', '18', '19', '38' )	
@@ -34,7 +34,7 @@ class Source_chainfiles(loki_source.Source):
 	#getVersionString()
 	
 	
-	def download(self, options, path):
+	def download(self, options):
 		# define a callback to search for all available hgX liftover chain files
 #		def remFilesCallback(ftp):
 #			remFiles = {}
@@ -56,32 +56,30 @@ class Source_chainfiles(loki_source.Source):
 			for j in onlyfiles:
 				if i == j[0]:
 					filenames = 'hg'+j[0]+'ToHg'+j[1]+'.over.chain.gz'
-					remFiles[path+'/'+filenames] = '/goldenPath/hg'+i+'/liftOver/'+filenames
+					remFiles[filenames] = '/goldenPath/hg'+i+'/liftOver/'+filenames
 #		self.downloadFilesFromFTP("hgdownload.cse.ucsc.edu", remFilesCallback)
 		self.downloadFilesFromHTTP('hgdownload.cse.ucsc.edu', remFiles)
-
-		return list(remFiles.keys())
 	#download()
 	
 	
-	def update(self, options, path):
+	def update(self, options):
 		"""
 		Parse all of the chain files and insert them into the database
 		"""	
 		
 		# clear out all old data from this source
-		self.log("deleting old records from the database ...\n")
+		self.log("deleting old records from the database ...")
 		self.deleteAll()
-		self.log("deleting old records from the database completed\n")
+		self.log(" OK\n")
 		
-		for fn in os.listdir(path):
+		for fn in os.listdir('.'):
 			match = self._reFile.match(fn)
 			if not match:
 				continue
 			old_ucschg = int(match.group(1))
 			new_ucschg = int(match.group(2))
-			self.log("parsing chains for hg%d -> hg%d ...\n" % (old_ucschg,new_ucschg))
-			f = self.zfile(path+'/'+fn)
+			self.log("parsing chains for hg%d -> hg%d ..." % (old_ucschg,new_ucschg))
+			f = self.zfile(fn)
 			
 			is_hdr = True
 			is_valid = True
@@ -116,7 +114,7 @@ class Source_chainfiles(loki_source.Source):
 			
 			self.addChainData(chain_data_itr)
 			
-			self.log("parsing chains completed\n")
+			self.log("OK\n")
 		# for fn in dir
 		
 	#update()

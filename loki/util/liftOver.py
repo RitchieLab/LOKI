@@ -3,71 +3,12 @@
 import sys
 import bisect
 
-##################################################
-# Note on included docstring
-# Code was created over 10+ years by several developers
-# ChatGPT was used to generate docstring in June 2024 to help with legacy code interpretation
-# Docstring has not been inspected line by line
-##################################################
-
 class liftOver(object):
 	"""
-	A class for lifting over genomic coordinates between assemblies.
-
-	This class provides methods to map genomic regions from one assembly
-	(old_ucschg) to another (new_ucschg) using chain data stored in a database.
-
-	Attributes:
-	-----------
-	_db : loki_db.Database
-		Instance of the LOKI database used for storing chain data.
-	_old_ucschg : int
-		Version of the old assembly (e.g., 19).
-	_new_ucschg : int
-		Version of the new assembly (e.g., 38).
-	_cached : bool
-		Flag indicating whether to use cached chain data for optimization.
-	_minFrac : float
-		Minimum fraction of the region that must be mapped for successful liftOver.
-
-	Methods:
-	--------
-	__init__(db, old_ucschg, new_ucschg, cached=False):
-		Initializes a liftOver object with the provided parameters.
-
-	_initChains():
-		Initializes the cached chain data from the database.
-
-	_findChains(chrom, start, end):
-		Finds chain segments that overlap with the given region.
-
-	liftRegion(chrom, start, end):
-		Lifts a genomic region from old_ucschg to new_ucschg assembly.
-
-	_mapRegion(region, first_seg, end_seg, total_mapped_sz):
-		Maps a region using chain segment data.
-
-	Notes:
-	------
-	This class assumes chain data is stored in the LOKI database and uses
-	this data to perform liftOver operations between assemblies.
+	A class to do your heavy lifting for you
 	"""
 	
 	def __init__(self, db, old_ucschg, new_ucschg, cached=False):
-		"""
-		Initializes a liftOver object with the provided parameters.
-
-		Parameters:
-		-----------
-		db : loki_db.Database
-			Instance of the LOKI database containing chain data.
-		old_ucschg : int
-			Version of the old assembly (e.g., 19).
-		new_ucschg : int
-			Version of the new assembly (e.g., 38).
-		cached : bool, optional
-			Flag indicating whether to use cached chain data (default is False).
-		"""
 		# db is a loki_db.Database object
 		self._db = db
 		self._old_ucschg = old_ucschg
@@ -81,10 +22,7 @@ class liftOver(object):
 	
 	def _initChains(self):
 		"""
-		Initializes the cached chain data from the database.
-
-		This method constructs a cached representation of chain data for
-		optimized region mapping.
+		Constructs the chain object that resides in memory
 		"""
 		for row in self._db._db.cursor().execute("SELECT chain_id, old_chr, score, chain.old_start, " + 
 			"chain.old_end, chain.new_start, is_fwd, new_chr, " + 
@@ -114,28 +52,9 @@ class liftOver(object):
 				
 	def _findChains(self, chrom, start, end):
 		"""
-		Finds chain segments that overlap with the given region.
-
-		Parameters:
-		-----------
-		chrom : str
-			Chromosome name or identifier.
-		start : int
-			Start position of the region.
-		end : int
-			End position of the region.
-
-		Yields:
-		------
-		tuple:
-			Chain segment details including chain_id, old_start, old_end,
-			new_start, is_fwd, new_chr.
-
-		Notes:
-		------
-		This method queries the database or uses cached data to find chain
-		segments that overlap with the specified region.
+		Finds all of the chain segments, either from the  
 		"""
+		
 		if not self._cached:
 			for row in self._db._db.cursor().execute(
 			"SELECT chain.chain_id, chain_data.old_start, chain_data.old_end, chain_data.new_start, is_fwd, new_chr " +
@@ -149,7 +68,7 @@ class liftOver(object):
 				# if the region overlaps the chain...
 				if start <= c[2] and end >= c[1]:
 					data = self._cached_data[chrom][c]
-					idx = bisect.bisect(data, (start, sys.maxsize, sys.maxsize))
+					idx = bisect.bisect(data, (start, sys.maxint, sys.maxint))
 					if idx:
 						idx = idx-1
 
@@ -163,27 +82,10 @@ class liftOver(object):
 					
 	def liftRegion(self, chrom, start, end):
 		"""
-		Lifts a genomic region from old_ucschg to new_ucschg assembly.
-
-		Parameters:
-		-----------
-		chrom : str
-			Chromosome name or identifier.
-		start : int
-			Start position of the region.
-		end : int
-			End position of the region.
-
-		Returns:
-		--------
-		tuple or None:
-			Mapped region (new_chr, new_start, new_end) or None if unable to map.
-
-		Notes:
-		------
-		This method uses chain data to map the specified genomic region from
-		the old_ucschg assembly to the new_ucschg assembly.
+		Lift a region from a given chromosome on a specified assembly
+		to a region on the new assembly
 		"""
+		
 		# We need to actually lift regions to detect dropped sections
 		is_region = True
 		
@@ -237,28 +139,7 @@ class liftOver(object):
 
 	def _mapRegion(self, region, first_seg, end_seg, total_mapped_sz):
 		"""
-		Maps a region using chain segment data.
-
-		Parameters:
-		-----------
-		region : tuple
-			Genomic region (start, end) to map.
-		first_seg : tuple
-			First segment of the chain (chain_id, old_start, old_end, new_start, is_fwd, new_chr).
-		end_seg : tuple
-			Last segment of the chain (chain_id, old_start, old_end, new_start, is_fwd, new_chr).
-		total_mapped_sz : int
-			Total size of mapped segments.
-
-		Returns:
-		--------
-		tuple or None:
-			Mapped region (new_chr, new_start, new_end) or None if unable to map.
-
-		Notes:
-		------
-		This method calculates the mapped region based on the chain segments
-		and verifies if the mapped fraction meets the minimum required.
+		Map a region given the 1st and last segment as well as the total mapped size
 		"""
 		mapped_reg = None
 		
@@ -294,7 +175,7 @@ if __name__ == "__main__":
 	from loki import loki_db
 	
 	if len(sys.argv) < 5:
-		print("usage: %s <input> <lokidb> <output> <unmap> [oldhg=19] [newhg=38]" % (sys.argv[0],))
+		print "usage: %s <input> <lokidb> <output> <unmap> [oldhg=19] [newhg=38]" % (sys.argv[0],)
 		sys.exit(2)
 	
 	db = loki_db.Database(sys.argv[2])
@@ -302,31 +183,11 @@ if __name__ == "__main__":
 	old = int(sys.argv[5]) if (len(sys.argv) > 5) else 19
 	new = int(sys.argv[6]) if (len(sys.argv) > 6) else 38
 	#lo = liftOver(db, old, new, False)
-	f = (sys.stdin  if (sys.argv[1] == '-') else open(sys.argv[1],'r'))
-	m = (sys.stdout if (sys.argv[3] == '-') else open(sys.argv[3],'w'))
-	u = (sys.stderr if (sys.argv[4] == '-') else open(sys.argv[4],'w'))
+	f = (sys.stdin  if (sys.argv[1] == '-') else file(sys.argv[1],'r'))
+	m = (sys.stdout if (sys.argv[3] == '-') else file(sys.argv[3],'w'))
+	u = (sys.stderr if (sys.argv[4] == '-') else file(sys.argv[4],'w'))
 	
 	def generateInputs(f):
-		"""
-		Generates input data for liftOver region conversion.
-
-		Parameters:
-		-----------
-		f : file object
-			Input file object containing genomic coordinates.
-
-		Yields:
-		------
-		tuple:
-			Tuple containing processed genomic region information:
-			(formatted_line, chromosome_number, start_position, end_position, None).
-
-		Notes:
-		------
-		This function reads lines from the input file object 'f', processes
-		genomic coordinates, replaces spaces and tabs with colons, adjusts
-		chromosome names, and retrieves chromosome numbers from 'db'.
-		"""
 		for l in f:
 			wds = l.split()
 			if wds[0].lower().startswith('chr'):
@@ -334,20 +195,7 @@ if __name__ == "__main__":
 			yield (l.strip().replace(" ",":").replace("\t",":"), db.chr_num.get(wds[0],-1), int(wds[1]), int(wds[2]), None)
 	
 	def errorCallback(r):
-		"""
-		Error callback function for handling liftOver errors.
-
-		Parameters:
-		-----------
-		r : tuple
-			Tuple containing error details to be processed.
-
-		Notes:
-		------
-		This function prints the error details to the stderr stream 'u'
-		in a tab-separated format.
-		"""
-		print("\t".join(str(c) for c in r), end="", file=u)
+		print >> u, "\t".join(str(c) for c in r)
 	
 	for r in db.generateLiftOverRegions(old, new, generateInputs(f), errorCallback=errorCallback):
-		print("chr%s\t%s\t%d\t%d" % (db.chr_name.get(r[1],r[1]), r[0], r[2], r[3]), end="", file=m)
+		print >> m, "chr%s\t%s\t%d\t%d" % (db.chr_name.get(r[1],r[1]), r[0], r[2], r[3])
