@@ -1,11 +1,11 @@
-; [flake8]
-; max-line-length = 88  # Black standard
-; exclude = .git,__pycache__,build,dist  # Ignore folders and files
-; max-complexity = 10  # Set the maximum complexity allowed
-; ignore =
-;     ; E203,  # space before ':'
-;     ; W503,  # line break before binary operator
-;     ; W191,  # indentation contains tabs
-;     ; E101,  # indentation contains mixed spaces and tabs
+[flake8]
+max-line-length = 88  # Black standard
+exclude = .git,__pycache__,build,dist  # Ignore folders and files
+max-complexity = 10  # Set the maximum complexity allowed
+ignore =
+    ; E203,  # space before ':'
+    ; W503,  # line break before binary operator
+    ; W191,  # indentation contains tabs
+    ; E101,  # indentation contains mixed spaces and tabs
 
-;     ; be more restrictive after the refactor code
+    ; be more restrictive after the refactor code

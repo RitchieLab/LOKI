@@ -1,4 +1,5 @@
 import pytest
+
 # import zipfile
 # from unittest.mock import MagicMock, patch
 from loki.loaders.loki_source_biogrid import Source_biogrid
@@ -25,9 +26,8 @@ def database():
 #     options = {}
 #     path = "/some/path"
 #     expected_files = [path + "/BIOGRID-ORGANISM-LATEST.tab2.zip"]
-    
+
 #     result = source_biogrid.download(options, path)
-    
+
 #     # Aqui, em vez de usar mocks, você verifica os resultados com base no banco de dados real
 #     assert result == expected_files
-

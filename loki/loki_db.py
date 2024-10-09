@@ -37,7 +37,14 @@ class Database(object):
         """
         # tuple = (major,minor,revision,dev,build,date)
         # dev must be in ('a','b','rc','release') for lexicographic comparison
-        return (2, 2, 5, "release", "", "2019-03-15") # NOTE: (ANDRE) WHAT IS THIS VERSION?
+        return (
+            2,
+            2,
+            5,
+            "release",
+            "",
+            "2019-03-15",
+        )  # NOTE: (ANDRE) WHAT IS THIS VERSION?
 
     # getVersionTuple()
 
@@ -1027,10 +1034,14 @@ class Database(object):
             idxList = (idxList,)
         for tblName in tblList or schema.keys():
             if doTables:
-                cursor.execute(
-                    "CREATE %sTABLE IF NOT EXISTS `%s`.`%s` %s"
-                    % (dbType, dbName, tblName, schema[tblName]["table"])
+                create_table_sql = "CREATE %sTABLE IF NOT EXISTS `%s`.`%s` %s" % (
+                    dbType,
+                    dbName,
+                    tblName,
+                    schema[tblName]["table"],
                 )
+                self.log(f"Executing SQL: {create_table_sql}")
+                cursor.execute(create_table_sql)
                 if "data" in schema[tblName] and schema[tblName]["data"]:
                     sql = "INSERT OR IGNORE INTO `%s`.`%s` VALUES (%s)" % (
                         dbName,
@@ -1049,11 +1060,15 @@ class Database(object):
                             "ERROR: no definition for index '%s' on table '%s'"
                             % (idxName, tblName)
                         )
-                    cursor.execute(
+                    create_index_sql = (
                         "CREATE INDEX IF NOT EXISTS `%s`.`%s` ON `%s` %s"
                         % (dbName, idxName, tblName, schema[tblName]["index"][idxName])
                     )
+                    self.log(f"Executing SQL: {create_index_sql}")
+                    cursor.execute(create_index_sql)
                 # foreach idxName in idxList
+                cursor.execute("ANALYZE `%s`.`%s`" % (dbName, tblName))
+                # foreach tblName in tblList
                 cursor.execute("ANALYZE `%s`.`%s`" % (dbName, tblName))
         # foreach tblName in tblList
 
@@ -1075,7 +1090,7 @@ class Database(object):
 
         The function creates the specified tables and optionally creates indices for them.
         """
-        return self.createDatabsaseObjects(
+        return self.createDatabaseObjects(
             schema, dbName, tblList, True, None, doIndecies
         )
 
@@ -1178,6 +1193,7 @@ class Database(object):
         """
         cursor = self._db.cursor()
 
+        # FIXME: treat when db is not defined yet (no schema)
         if self.getDatabaseSetting("schema", int) < 2:
             self.logPush("updating database schema to version 2 ...\n")
             updateMap = {
@@ -1460,13 +1476,20 @@ class Database(object):
                 The setting value, cast to the specified type if provided.
         """
         value = None
-        if self._dbFile:
+        if self._dbFile == "temp":
             for row in self._db.cursor().execute(
-                "SELECT value FROM `db`.`setting` WHERE setting = ?", (setting,)
+                "SELECT value FROM `temp`.`setting` WHERE setting = ?",
+                (setting,),  # noqa E501
+            ):
+                value = row[0]
+        elif self._dbFile:
+            for row in self._db.cursor().execute(
+                "SELECT value FROM `db`.`setting` WHERE setting = ?",
+                (setting,),  # noqa E501
             ):
                 value = row[0]
         if type:
-            value = type(value) if (value != None) else type()
+            value = type(value) if (value is not None) else type()
         return value
 
     # getDatabaseSetting()
