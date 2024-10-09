@@ -1,5 +1,5 @@
 import pytest
-from loki.loki_db import Database
+from ..loki.loki_db import Database
 
 """
 Using a Memory Database for Testing
