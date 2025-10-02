@@ -6,3 +6,6 @@ build
 dist
 LOKI.egg-info
 .vscode
+.temp
+loki.db
+.venv
