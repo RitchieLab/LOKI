@@ -67,6 +67,7 @@ import tarfile
 import tempfile
 
 from loki import loki_db
+from loki.cli import main
 
 
 if __name__ == "__main__":

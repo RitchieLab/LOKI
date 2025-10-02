@@ -6,6 +6,28 @@ build
 dist
 LOKI.egg-info
 .vscode
-.temp
+.temp/
 loki.db
 .venv
+.db
+.temp
+.tmp
+.tmp/
+.DS_Store
+tests/*.db
+tests/loki_test.db
+sources_mint.tar.gz
+
+# Temp/cache locais
+.tmp/
+sources_*.tar.gz
+
+# Bancos locais
+*.db
+*.sqlite
+
+# Ruídos comuns
+.DS_Store
+__pycache__/
+.venv/
+.pytest_cache/
