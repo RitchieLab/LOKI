@@ -1,0 +1,26 @@
+[tool.poetry]
+name = "loki"
+version = "3.0.0"
+description = "LOKI knowledge base: loaders and CLI to build/update the knowledge DB."
+authors = ["Ritchie Lab <Software_RitchieLab@pennmedicine.upenn.edu>"]
+readme = "README.md"
+packages = [{ include = "loki" }]
+
+[tool.poetry.dependencies]
+python = ">=3.11,<3.12"
+apsw = "3.46.1.0"
+requests = "^2.32"
+wget = "^3.2"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.1"
+black = "^24.8"
+ruff = "^0.6"
+pre-commit = "^3.8"
+
+[tool.poetry.scripts]
+loki-build = "loki.cli:main"
+
+[build-system]
+requires = ["poetry-core>=1.9.0"]
+build-backend = "poetry.core.masonry.api"

@@ -1,6 +1,10 @@
 CHANGELOG
 
-3.0.0
+3.0.1-dev
+- 
+
+
+3.0.0-dev (2024-10-03)
 - added disease category for groups
 - added sub-categories for groups
 - added data source like disgenet, gaad, and kegg disease
